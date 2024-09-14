@@ -1,7 +1,7 @@
 # Chess Game Plan
 
 ## Data Structure
-`piece` denote piece type and colour. For pawn record if en-passant-able, kings record castle capability on both sides. Also an "empty type"
+`piece` denote piece type and colour. For pawn record if en-passant-able, pawn 2-move-able, kings record castle capability on both sides. Also an "empty type"
 
 `board` is a 1D or 2D array of "pieces". (square can be denoted by its x and y coordinate for 2D, OR by i*w+j for 1D)
 
@@ -15,7 +15,7 @@ This game will need the following functions implemented. The high-level goal of 
 
 `draw_type()` determines if game is stalemate, insufficient materials, or 50 move rule. Behaviour undefined if game isn't over.
 
-`possible_moves()` given a square, return a list of squares the piece can move to. Empty set for square without pieces or cannot move.
+`possible_moves()` given a square, return a list of squares the piece can move to. Empty set for square without pieces or cannot move. (Make sure to account for pawn's special movement AND invalid moves when in check or when pinned)
 
 `all_possible_moves()` list of all possible moves that can be done by a side
 
@@ -23,7 +23,7 @@ This game will need the following functions implemented. The high-level goal of 
 
 `check_source()` if a board is in check, indicate source of check (there can be multiple sources for double-check)
 
-`move_piece()` move a piece to a position (don't need to check for valid moves) (captures if destination has a piece already)
+`move_piece()` move a piece to a position (don't need to check for valid moves) (captures if destination has a piece already) (NOTE CASTLE IS SPECIAL MOVE) (NOTE EN-PASSANT IS SPECIAL MOVE)
 
 `can_promote()` check if the board allows a pawn to promote
 
@@ -58,12 +58,14 @@ There should be ways for the game engine to interface with the actual game.
 The plan is to have LED denote:
 
 1. past piece move (the previous "from" and "to" square)
+  - Have a variable recording 2 coordinates. Can default to -1, -1 if first move.
 2. Cursor Selection (have different colours if cursor is on "movable" piece)
 3. Possible Move Indication (When a piece is selected, show all possible squares it can move to)
 4. Possible Capture Indication (if the possible move is a capture, use different colour)
 5. Checks - highlight check source
 6. Pawn promotion lights up pawns and enables cursor to select on 4 symbols of "promotable" pieces
 7. Draw type / checkmate indication
+
 
 
 
