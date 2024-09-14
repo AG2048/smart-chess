@@ -1,4 +1,12 @@
 # Chess Game Plan
+
+## Data Structure
+`piece` denote piece type and colour. For pawn record if en-passant-able, kings record castle capability on both sides. Also an "empty type"
+
+`board` is a 1D or 2D array of "pieces". (square can be denoted by its x and y coordinate for 2D, OR by i*w+j for 1D)
+
+## Core Functions
+
 This game will need the following functions implemented. The high-level goal of this game engine is to achieve the following functionalities:
 
 `is_game_over()` checks if the game is over. Return 1 if game is over, and 0 if game is still going for any given board state. 
@@ -22,6 +30,42 @@ This game will need the following functions implemented. The high-level goal of 
 `set_square()` set a square to a specific piece (used for pawn promotion).
 
 # Game Procedure
+
+```
+Initialize board.
+While not is_game_over():
+  if is_check():
+    check_source()...
+  while move not confirmed:
+    get user input to select piece
+    possible_moves
+    get confirmation of destination / continue if move cancelled
+  move_piece()
+  can_promote():
+    get user input on what to promote to
+    set_square()
+game_over_type():
+  draw_type() if draw - display draw type
+  check_source for checkmate.
+```
+
+# Interface with Physical Game
+
+There should be ways for the game engine to interface with the actual game.
+
+## LEDs
+
+The plan is to have LED denote:
+
+1. past piece move (the previous "from" and "to" square)
+2. Cursor Selection (have different colours if cursor is on "movable" piece)
+3. Possible Move Indication (When a piece is selected, show all possible squares it can move to)
+4. Possible Capture Indication (if the possible move is a capture, use different colour)
+5. Checks - highlight check source
+6. Pawn promotion lights up pawns and enables cursor to select on 4 symbols of "promotable" pieces
+7. Draw type / checkmate indication
+
+
 
 ```
 Initialize board.
