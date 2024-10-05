@@ -3,7 +3,13 @@
 ## Data Structure
 `piece` denote piece type and colour. For pawn record if en-passant-able, pawn 2-move-able, kings record castle capability on both sides. Also an "empty type"
 
-`board` is a 1D or 2D array of "pieces". (square can be denoted by its x and y coordinate for 2D, OR by i*w+j for 1D)
+We could possibly add a "function" pointer to the piece structure such that it takes in a board object with its current location, and figure out where it can possibly move to
+
+`board` is a 1D or 2D array of "pieces". (square can be denoted by its x and y coordinate for 2D, OR by i*w+j for 1D) 
+
+also store move numbers since last pawn move or capture
+
+RNBKQBNR\PPPPPPPPP\8\8\8\8\pppppppp\rnbkqbnr KQkq 0 0
 
 ## Core Functions
 
@@ -23,7 +29,7 @@ This game will need the following functions implemented. The high-level goal of 
 
 `check_source()` if a board is in check, indicate source of check (there can be multiple sources for double-check)
 
-`move_piece()` move a piece to a position (don't need to check for valid moves) (captures if destination has a piece already) (NOTE CASTLE IS SPECIAL MOVE) (NOTE EN-PASSANT IS SPECIAL MOVE)
+`move_piece()` move a piece to a position (don't need to check for valid moves) (captures if destination has a piece already) (NOTE CASTLE IS SPECIAL MOVE) (NOTE EN-PASSANT IS SPECIAL MOVE) 
 
 `can_promote()` check if the board allows a pawn to promote
 
