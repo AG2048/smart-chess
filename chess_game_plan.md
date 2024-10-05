@@ -21,7 +21,7 @@ This game will need the following functions implemented. The high-level goal of 
 
 `draw_type()` determines if game is stalemate, insufficient materials, or 50 move rule. Behaviour undefined if game isn't over.
 
-`possible_moves()` given a square, return a list of squares the piece can move to. Empty set for square without pieces or cannot move. (Make sure to account for pawn's special movement AND invalid moves when in check or when pinned)
+`possible_moves()` given a square, return a list of squares the piece can move to. Empty set for square without pieces or cannot move. (Make sure to account for pawn's special movement AND invalid moves when in check or when pinned) (also return of this move is a castle or en passant so the move_piece function can account for other pieces' moves)
 
 `all_possible_moves()` list of all possible moves that can be done by a side
 
@@ -29,7 +29,7 @@ This game will need the following functions implemented. The high-level goal of 
 
 `check_source()` if a board is in check, indicate source of check (there can be multiple sources for double-check)
 
-`move_piece()` move a piece to a position (don't need to check for valid moves) (captures if destination has a piece already) (NOTE CASTLE IS SPECIAL MOVE) (NOTE EN-PASSANT IS SPECIAL MOVE) 
+`move_piece()` move a piece to a position (don't need to check for valid moves) (captures if destination has a piece already) (NOTE CASTLE IS SPECIAL MOVE) (NOTE EN-PASSANT IS SPECIAL MOVE) (use the possible_moves' returned en passant check and castle checks)
 
 `can_promote()` check if the board allows a pawn to promote
 
