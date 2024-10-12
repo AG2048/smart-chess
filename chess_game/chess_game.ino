@@ -130,6 +130,13 @@ class Piece {
         case ROOK:
           // TODO: Implement rook moves
           // 4 possible directions - don't add if edge of board / own piece
+          for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+              if (dy == 0 && dx == 0) continue;
+              
+              //TO DO: loop in each direction checking for valid moves
+            }
+          }
         break;
         case PAWN:
           // TODO: Implement pawn moves
