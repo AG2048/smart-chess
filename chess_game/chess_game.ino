@@ -128,13 +128,30 @@ class Piece {
           // 8 possible moves - don't add if edge of board / own piece
         break;
         case ROOK:
-          // TODO: Implement rook moves
           // 4 possible directions - don't add if edge of board / own piece
           for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
               if (dy == 0 && dx == 0) continue;
-              
-              //TO DO: loop in each direction checking for valid moves
+              if (dy != 0 && dx != 0) continue; //if dy and dx are both nonzero, it's a diagonal
+              // loop in a direction to see valid moves
+              int x_loop = x+dx;
+              int y_loop = y+dy;
+              while (1) {
+                if (x_loop < 0 || y_loop < 0 || x_loop > 7 || y_loop > 7) break;  // if any coordinate is OOB, stop
+                if (board.pieces[x_loop][y_loop].get_type() == EMPTY) {
+                  moves.push_back(std::make_pair(x_loop, y_loop));
+                } else if (board.pieces[x_loop][y_loop].get_color() != color) {
+                  // Enemy piece encountered; we can capture it, but don't look past it
+                  moves.push_back(std::make_pair(x_loop, y_loop));
+                  break;
+                } else {  // != EMPTY, == color
+                  // Found a friendly piece; don't look past it
+                  break;
+                }
+                // Look at the next coordinate in the current direction
+                x_loop += dx;
+                y_loop += dy;
+              }
             }
           }
         break;
