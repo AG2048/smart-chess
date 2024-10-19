@@ -114,14 +114,58 @@ class Piece {
           }
           break;
         case QUEEN:
-          // TODO: Implement queen moves
-          // for loop in "distance" for each of the 8 directions
           // when encounter "edge of board", opponent piece, or own piece, stop
           // Add opponent piece square to moves
+          for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+              if (dy == 0 && dx == 0) continue;
+              int x_loop = x+dx;
+              int y_loop = y+dy;
+              while (1) {
+                if (x_loop < 0 || y_loop < 0 || x_loop > 7 || y_loop > 7) break;  // if any coordinate is OOB, stop
+                if (board.pieces[x_loop][y_loop].get_type() == EMPTY) {
+                  moves.push_back(std::make_pair(x_loop, y_loop));
+                } else if (board.pieces[x_loop][y_loop].get_color() != color) {
+                  // Enemy piece encountered; we can capture it, but don't look past it
+                  moves.push_back(std::make_pair(x_loop, y_loop));
+                  break;
+                } else {  // != EMPTY, == color
+                  // Found a friendly piece; don't look past it
+                  break;
+                }
+                // Look at the next coordinate in the current direction
+                x_loop += dx;
+                y_loop += dy;
+              }
+            }
+          }
         break;
         case BISHOP:
-          // TODO: Implement bishop moves
           // Same as queen, but only 4 directions
+          for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+              if (dy == 0 && dx == 0) continue;
+              if (dy == 0 || dx == 0) continue; // only looking at diagonals
+              int x_loop = x+dx;
+              int y_loop = y+dy;
+              while (1) {
+                if (x_loop < 0 || y_loop < 0 || x_loop > 7 || y_loop > 7) break;  // if any coordinate is OOB, stop
+                if (board.pieces[x_loop][y_loop].get_type() == EMPTY) {
+                  moves.push_back(std::make_pair(x_loop, y_loop));
+                } else if (board.pieces[x_loop][y_loop].get_color() != color) {
+                  // Enemy piece encountered; we can capture it, but don't look past it
+                  moves.push_back(std::make_pair(x_loop, y_loop));
+                  break;
+                } else {  // != EMPTY, == color
+                  // Found a friendly piece; don't look past it
+                  break;
+                }
+                // Look at the next coordinate in the current direction
+                x_loop += dx;
+                y_loop += dy;
+              }
+            }
+          }
         break;
         case KNIGHT:
           // TODO: Implement knight moves
