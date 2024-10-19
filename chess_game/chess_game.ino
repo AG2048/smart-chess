@@ -170,6 +170,23 @@ class Piece {
         case KNIGHT:
           // TODO: Implement knight moves
           // 8 possible moves - don't add if edge of board / own piece
+          // Knight moves logic
+int dx[] = {2, 2, -2, -2, 1, 1, -1, -1};
+int dy[] = {1, -1, 1, -1, 2, -2, 2, -2};
+
+// Loop through all possible knight moves
+for (int i = 0; i < 8; i++) {
+    int newX = x + dx[i];
+    int newY = y + dy[i];
+    
+    // Check if the move is within bounds of the board
+    if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8) {
+        // If the square is empty or contains an opponent's piece
+        if (board.pieces[newY][newX].get_type() == EMPTY || board.pieces[newY][newX].get_color() != color) {
+            moves.push_back(std::make_pair(newX, newY));
+        }
+    }
+}
         break;
         case ROOK:
           // 4 possible directions - don't add if edge of board / own piece
