@@ -385,7 +385,59 @@ class Board {
       pieces[y][x] = temp;
     }
 
+    bool under_check(bool color) {
+      // Check if the king is under check
+      // color: 0 for white, 1 for black
+      // Loop through all pieces
+      // TODO: this is still assuming that the moves are vector of pairs of int. But later we might change it to vector of pairs of pairs of int (for capture square)
+      for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+          // If the piece is an enemy piece
+          if (pieces[i][j]->get_color() != color) {
+            // Check if the enemy piece can move to the king's location
+            std::vector<std::pair<int, int>> moves = pieces[i][j]->get_possible_moves(*this);
+            for (int k = 0; k < moves.size(); k++) {
+              if (pieces[i][j]->get_type() == KING) {
+                if (moves[k].first == (color == 0 ? white_king_x : black_king_x) && moves[k].second == (color == 0 ? white_king_y : black_king_y)) {
+                  return true;
+                }
+              }
+            }
+          }
+        }
+      }
+      return false;
+    }
+    
+    Board copy_board() {
+      // Copy the board
+      Board new_board;
+      // Copy the pieces
+      for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+          new_board.pieces[i][j] = *pieces[i][j]; // TODO: check if this copy method is ok, since pieces doesn't have any pointers
+        }
+      }
+      // Copy the castling flags
+      new_board.black_king_castle = black_king_castle;
+      new_board.black_queen_castle = black_queen_castle;
+      new_board.white_king_castle = white_king_castle;
+      new_board.white_queen_castle = white_queen_castle;
+      // Copy the en passant square
+      new_board.en_passant_square_x = en_passant_square_x;
+      new_board.en_passant_square_y = en_passant_square_y;
+      // Copy the move counter
+      new_board.draw_move_counter = draw_move_counter;
+      // Copy the king locations
+      new_board.black_king_x = black_king_x;
+      new_board.black_king_y = black_king_y;
+      new_board.white_king_x = white_king_x;
+      new_board.white_king_y = white_king_y;
+      return new_board;
+    }
+
     // when checking if a move is illegal due to checks, make sure to consider the path of king's castling
+    void remove_illegal_moves
 
     // Constructor
     Board() {
