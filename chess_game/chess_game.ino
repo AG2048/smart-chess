@@ -392,20 +392,18 @@ class Board {
       // Check if the king is under check
       // color: 0 for white, 1 for black
       // Loop through all pieces
-      // TODO: this is still assuming that the moves are vector of pairs of int. But later we might change it to vector of pairs of pairs of int (for capture square)
       for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
           // If the piece is an enemy piece
           if (pieces[i][j]->get_color() != color) {
-            // Check if the enemy piece can move to the king's location
-            std::vector<std::pair<int, int>> moves = pieces[i][j]->get_possible_moves(*this);
+            // Get all possible moves of the piece
+            std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> moves = pieces[i][j]->get_possible_moves(*this);
+            // Check if any of the moves are on the king
             for (int k = 0; k < moves.size(); k++) {
-              if (pieces[i][j]->get_type() == KING) {
-                if (moves[k].first == (color == 0 ? white_king_x : black_king_x) && moves[k].second == (color == 0 ? white_king_y : black_king_y)) {
-                  return true;
-                }
+              // The second pair is the capture square, which we care about
+              if (moves[k].second.first == (color == 0 ? white_king_x : black_king_x) && moves[k].second.second == (color == 0 ? white_king_y : black_king_y)) {
+                return true;
               }
-            }
           }
         }
       }
