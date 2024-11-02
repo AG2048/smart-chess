@@ -404,6 +404,7 @@ class Board {
               if (moves[k].second.first == (color == 0 ? white_king_x : black_king_x) && moves[k].second.second == (color == 0 ? white_king_y : black_king_y)) {
                 return true;
               }
+            }
           }
         }
       }
@@ -438,7 +439,22 @@ class Board {
     }
 
     // when checking if a move is illegal due to checks, make sure to consider the path of king's castling
-    void remove_illegal_moves
+    void remove_illegal_moves_for_a_piece(int x, int y, std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> &moves) {
+      bool piece_color = pieces[y][x]->get_color();
+      // Loop through all possible moves
+      for (int i = 0; i < moves.size(); i++) {
+        // Copy the board
+        Board new_board = copy_board();
+        // Move the piece
+        new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
+        // Check if the king is under check
+        if (new_board.under_check(piece_color)) {
+          // If the king is under check, remove the move
+          moves.erase(moves.begin() + i);
+          i--;
+        }
+      }
+    }
 
     // Constructor
     Board() {
