@@ -372,8 +372,7 @@ class Board {
       }
 
       // Update piece's x and y (move captured piece first, then the new_x, new_y, then the original x, y)
-      // Captured (set piece type to EMPTY)
-      // TODO: for future, we should move the piece to a "graveyard" instead of setting it to EMPTY
+      // Captured (set piece type to EMPTY) (Graveyard function is implemented outside the chess_game code, it's part of the real physical board)
       //  And we can initialize a new empty piece for the new location
       if (capture_x != -1) pieces[capture_y][capture_x]->type = EMPTY;
       // New x, new y
@@ -454,6 +453,24 @@ class Board {
           i--;
         }
       }
+    }
+
+    // Give a pawn coordinate, check if it can promote
+    bool can_pawn_promote(int x, int y) {
+      // Check if a pawn can promote
+      if (pieces[y][x]->get_type() == PAWN) {
+        if (pieces[y][x]->get_color() == 0 && y == 0) {
+          return true;
+        } else if (pieces[y][x]->get_color() == 1 && y == 7) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    void promote_pawn(int x, int y, PieceType new_type) {
+      // Promote a pawn
+      pieces[y][x]->type = new_type;
     }
 
     // Constructor
