@@ -169,7 +169,6 @@ class Piece {
           }
         break;
         case KNIGHT:
-          // TODO: Implement knight moves
           // 8 possible moves - don't add if edge of board / own piece
           // Knight moves logic
           int dx[] = {2, 2, -2, -2, 1, 1, -1, -1};
