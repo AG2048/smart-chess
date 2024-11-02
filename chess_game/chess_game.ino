@@ -451,6 +451,8 @@ class Board {
           moves.erase(moves.begin() + i);
           i--;
         }
+        // TODO: If the king is castling... check if the path is under check
+        // TODO TODO TODO
       }
     }
 
