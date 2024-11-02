@@ -267,6 +267,15 @@ class Board {
     // In the end of the function, each individual piece's x and y should be updated
     // Also, the board array will reflect the new state of the board
     void move_piece(int x, int y, int new_x, int new_y, int capture_x, int capture_y) {
+      /*
+        Make a chess piece move happen on the actual board
+        Reset en-passant square and set to new one if it's a pawn move (and reset a pawn's double move)
+        If it's a king move, reset castle capability
+          Also check for if this move is a castle, which moves the rook first (both update the board and the piece)
+        If it's a rook move, reset castle capability
+        If it has any capture, set the captured piece to EMPTY
+        Update the piece and destination piece's x and y
+      */
       // By default no en passant square
       en_passant_square_x = -1;
       en_passant_square_y = -1;
@@ -361,6 +370,8 @@ class Board {
 
       // Update piece's x and y (move captured piece first, then the new_x, new_y, then the original x, y)
       // Captured (set piece type to EMPTY)
+      // TODO: for future, we should move the piece to a "graveyard" instead of setting it to EMPTY
+      //  And we can initialize a new empty piece for the new location
       if (capture_x != -1) pieces[capture_y][capture_x]->type = EMPTY;
       // New x, new y
       // Set coordinate first, then exchange the pointers
@@ -374,10 +385,13 @@ class Board {
       pieces[y][x] = temp;
     }
 
+    // when checking if a move is illegal due to checks, make sure to consider the path of king's castling
+
     // Constructor
     Board() {
       // TODO
     }
+}
 
 void setup() {
   // put your setup code here, to run once:
