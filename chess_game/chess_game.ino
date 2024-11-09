@@ -577,16 +577,20 @@ class Board {
     }
 
     // Give a pawn coordinate, check if it can promote
-    bool can_pawn_promote(int x, int y) {
+    std::vector<std::pair<int, int>> can_pawn_promote(int x, int y) {
+      // If return empty vector, it can't promote
+      // If return vector with one element, it can promote to that piece
+      // Make a vector of possible promotions
+      std::vector<std::pair<int, int>> promotions;
       // Check if a pawn can promote
       if (pieces[y][x]->get_type() == PAWN) {
         if (pieces[y][x]->get_color() == 0 && y == 0) {
-          return true;
+          promotions.push_back(std::make_pair(x, y));
         } else if (pieces[y][x]->get_color() == 1 && y == 7) {
-          return true;
+          promotions.push_back(std::make_pair(x, y));
         }
       }
-      return false;
+      return promotions;
     }
 
     void promote_pawn(int x, int y, PieceType new_type) {
