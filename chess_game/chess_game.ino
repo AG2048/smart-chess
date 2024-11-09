@@ -522,10 +522,46 @@ class Board {
     // when checking if a move is illegal due to checks, make sure to consider the path of king's castling
     void remove_illegal_moves_for_a_piece(int x, int y, std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> &moves) {
       bool piece_color = pieces[y][x]->get_color();
+
+      // If the piece is a king, check if the king is under check after the move
+      if (pieces[y][x]->get_type() == KING) {
+        // If king is under check, remove castling moves
+        if (under_check(piece_color)){
+          // Find move that changes king's position by 2
+          for (int i = 0; i < moves.size(); i++) {
+            if (abs(moves[i].first.first - x) == 2) {
+              moves.erase(moves.begin() + i);
+              i--;
+            }
+          }
+        }
+        // Now, copy new board, and check if king is under check after ONE move to left / right. Remove if it is, and remove subsequent castling moves
+        Board new_board = copy_board();
+        // Find move that changes king's position by 1
+        for (int i = 0; i < moves.size(); i++) {
+          if (abs(moves[i].first.first - x) == 1 && moves[i].first.second == y) {
+            new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
+            if (new_board.under_check(piece_color)) {
+              // Now, remove castling moves
+              for (int j = 0; j < moves.size(); j++) {
+                if ((moves[j].first.first - x) == 2 * (moves[i].first.first - x)) {
+                  moves.erase(moves.begin() + j);
+                  j--;
+                  if (j < i) i--;
+                }
+              }
+              moves.erase(moves.begin() + i);
+              i--;
+            }
+          }
+        }
+      }
+
       // Loop through all possible moves
       for (int i = 0; i < moves.size(); i++) {
         // Copy the board
         Board new_board = copy_board();
+
         // Move the piece
         new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
         // Check if the king is under check
@@ -534,8 +570,6 @@ class Board {
           moves.erase(moves.begin() + i);
           i--;
         }
-        // TODO: If the king is castling... check if the path is under check
-        // TODO TODO TODO
       }
     }
 
