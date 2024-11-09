@@ -369,6 +369,8 @@ class Board {
       en_passant_square_y = -1;
       // PAWN:
       if (pieces[y][x]->get_type() == PAWN) {
+        draw_move_counter = 0; // Reset the draw move counter
+
         // If the pawn moves two squares, it can be taken en passant
         if (abs(new_y - y) == 2) {
           en_passant_square_x = new_x;
@@ -459,7 +461,10 @@ class Board {
       // Update piece's x and y (move captured piece first, then the new_x, new_y, then the original x, y)
       // Captured (set piece type to EMPTY) (Graveyard function is implemented outside the chess_game code, it's part of the real physical board)
       //  And we can initialize a new empty piece for the new location
-      if (capture_x != -1) pieces[capture_y][capture_x]->type = EMPTY;
+      if (capture_x != -1) {
+        pieces[capture_y][capture_x]->type = EMPTY;
+        draw_move_counter = 0; // Reset the draw move counter
+      }
       // New x, new y
       // Set coordinate first, then exchange the pointers
       pieces[new_y][new_x]->x = x; // we know the new piece is empty
