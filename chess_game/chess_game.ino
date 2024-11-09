@@ -361,6 +361,9 @@ class Board {
         If it has any capture, set the captured piece to EMPTY
         Update the piece and destination piece's x and y
       */
+      // Increment the move counter
+      draw_move_counter++;
+
       // By default no en passant square
       en_passant_square_x = -1;
       en_passant_square_y = -1;
@@ -593,7 +596,56 @@ class Board {
 
     // Constructor
     Board() {
-      // TODO
+      // Initialize a initial board
+      // Make all pieces:
+      // White pieces
+      pieces[0][0] = new Piece(ROOK, 0, 0, 0);
+      pieces[0][1] = new Piece(KNIGHT, 0, 1, 0);
+      pieces[0][2] = new Piece(BISHOP, 0, 2, 0);
+      pieces[0][3] = new Piece(QUEEN, 0, 3, 0);
+      pieces[0][4] = new Piece(KING, 0, 4, 0);
+      pieces[0][5] = new Piece(BISHOP, 0, 5, 0);
+      pieces[0][6] = new Piece(KNIGHT, 0, 6, 0);
+      pieces[0][7] = new Piece(ROOK, 0, 7, 0);
+      for (int i = 0; i < 8; i++) {
+        pieces[1][i] = new Piece(PAWN, 0, i, 1);
+      }
+      // Empty pieces
+      for (int i = 2; i < 6; i++) {
+        for (int j = 0; j < 8; j++) {
+          pieces[i][j] = new Piece(EMPTY, 0, j, i);
+        }
+      }
+      // Black pieces
+      pieces[7][0] = new Piece(ROOK, 1, 0, 7);
+      pieces[7][1] = new Piece(KNIGHT, 1, 1, 7);
+      pieces[7][2] = new Piece(BISHOP, 1, 2, 7);
+      pieces[7][3] = new Piece(QUEEN, 1, 3, 7);
+      pieces[7][4] = new Piece(KING, 1, 4, 7);
+      pieces[7][5] = new Piece(BISHOP, 1, 5, 7);
+      pieces[7][6] = new Piece(KNIGHT, 1, 6, 7);
+      pieces[7][7] = new Piece(ROOK, 1, 7, 7);
+      for (int i = 0; i < 8; i++) {
+        pieces[6][i] = new Piece(PAWN, 1, i, 6);
+      }
+      // Initialize castling flags
+      black_king_castle = true;
+      black_queen_castle = true;
+      white_king_castle = true;
+      white_queen_castle = true;
+
+      // Initialize en passant square
+      en_passant_square_x = -1;
+      en_passant_square_y = -1;
+
+      // Initialize move counter
+      draw_move_counter = 0;
+
+      // Initialize king locations
+      white_king_x = 4;
+      white_king_y = 0;
+      black_king_x = 4;
+      black_king_y = 7;
     }
 }
 
