@@ -494,11 +494,11 @@ class Board {
     
     Board copy_board() {
       // Copy the board
-      Board new_board;
+      Board new_board; // TODO: check if this needs to have a space allocated in memory
       // Copy the pieces
       for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-          new_board.pieces[i][j] = *(pieces[i][j]); // TODO: check if this copy method is ok, since pieces doesn't have any pointers
+          *(new_board.pieces[i][j]) = *(pieces[i][j]); // TODO: check if this copy method is ok, since pieces doesn't have any pointers
         }
       }
       // Copy the castling flags
