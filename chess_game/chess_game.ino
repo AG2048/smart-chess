@@ -266,7 +266,23 @@ class Piece {
             if (y+1 < 8 && x-1 >= 0 && board.pieces[y+1][x-1]->get_type() != EMPTY && board.pieces[y+1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
               moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
             }
+             // Check if square immediately in front is empty (single move forward)
+    if (board.pieces[y+1][x]->get_type() == EMPTY) {
+        moves.push_back(std::make_pair(std::make_pair(y+1, x), std::make_pair(y+1, x)));
+        
+        // Check if pawn can move 2 squares (first move only) and second square is also empty
+        if (y == 1 && board.pieces[y+2][x]->get_type() == EMPTY) { // Initial position for white pawn
+            moves.push_back(std::make_pair(std::make_pair(y+2, x), std::make_pair(y+2, x)));
+        }
+    }
 
+    // Capture moves (diagonally to the left and right)
+    if (x + 1 < 8 && y + 1 < 8 && board.pieces[y+1][x+1]->get_color() != color) { // Diagonal capture to the right
+        moves.push_back(std::make_pair(std::make_pair(y+1, x+1), std::make_pair(y+1, x+1)));
+    }
+    if (x - 1 >= 0 && y + 1 < 8 && board.pieces[y+1][x-1]->get_color() != color) { // Diagonal capture to the left
+        moves.push_back(std::make_pair(std::make_pair(y+1, x-1), std::make_pair(y+1, x-1)));
+    }
           } else { // Black pawn. diagonally downwards
             // Zach will fix this...
             if (board.pieces[y+1][x+1]->get_color() != color) { // If the piece diagonally to the right is opposite color
@@ -278,7 +294,23 @@ class Piece {
             if (board.pieces[y+1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
               moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
             }
+    // Check if square immediately in front is empty (single move forward)
+    if (board.pieces[y-1][x]->get_type() == EMPTY) {
+        moves.push_back(std::make_pair(std::make_pair(y-1, x), std::make_pair(y-1, x)));
 
+        // Check if pawn can move 2 squares (first move only) and second square is also empty
+        if (y == 6 && board.pieces[y-2][x]->get_type() == EMPTY) { // Initial position for black pawn
+            moves.push_back(std::make_pair(std::make_pair(y-2, x), std::make_pair(y-2, x)));
+        }
+    }
+
+    // Capture moves (diagonally to the left and right)
+    if (x + 1 < 8 && y - 1 >= 0 && board.pieces[y-1][x+1]->get_color() != color) { // Diagonal capture to the right
+        moves.push_back(std::make_pair(std::make_pair(y-1, x+1), std::make_pair(y-1, x+1)));
+    }
+    if (x - 1 >= 0 && y - 1 >= 0 && board.pieces[y-1][x-1]->get_color() != color) { // Diagonal capture to the left
+        moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
+    }
           }
           // Check if it's blocked immediately in front
           // Check if it can move 2 pieces (piece.get_double_move())
