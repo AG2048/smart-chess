@@ -220,6 +220,32 @@ class Piece {
         break;
         case PAWN:
           // TODO: Implement pawn moves
+
+          if (color == 0) { // White pawn. diagonally upwards
+
+            if (board.pieces[y+1][x+1]->get_color() != color) { // If the piece diagonally to the right is opposite color
+              // When pushing a possible move, first pair is where the capturing
+              // piece goes, second pair is square of piece we captured
+              // In this case, it's the same
+              moves.push_back(std::make_pair(std::make_pair(y+1, x+1), std::make_pair(y+1, x+1)));
+            }
+            if (board.pieces[y+1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
+              moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
+            }
+
+          } else { // Black pawn. diagonally downwards
+            // Zach will fix this...
+            if (board.pieces[y+1][x+1]->get_color() != color) { // If the piece diagonally to the right is opposite color
+              // When pushing a possible move, first pair is where the capturing
+              // piece goes, second pair is square of piece we captured
+              // In this case, it's the same
+              moves.push_back(std::make_pair(std::make_pair(y+1, x+1), std::make_pair(y+1, x+1)));
+            }
+            if (board.pieces[y+1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
+              moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
+            }
+
+          }
           // Check if it's blocked immediately in front
           // Check if it can move 2 pieces (piece.get_double_move())
           // Check if that 2nd square is empty
