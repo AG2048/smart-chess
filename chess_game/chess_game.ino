@@ -257,14 +257,13 @@ class Piece {
           // TODO: Implement pawn moves
 
           if (color == 0) { // White pawn. diagonally upwards
-
-            if (board.pieces[y+1][x+1]->get_color() != color) { // If the piece diagonally to the right is opposite color
+            if (y+1 < 8 && x+1 < 8 && board.pieces[y+1][x+1]->get_type() != EMPTY && board.pieces[y+1][x+1]->get_color() != color) { // If the piece diagonally to the right is not empty
               // When pushing a possible move, first pair is where the capturing
               // piece goes, second pair is square of piece we captured
               // In this case, it's the same
               moves.push_back(std::make_pair(std::make_pair(y+1, x+1), std::make_pair(y+1, x+1)));
             }
-            if (board.pieces[y+1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
+            if (y+1 < 8 && x-1 >= 0 && board.pieces[y+1][x-1]->get_type() != EMPTY && board.pieces[y+1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
               moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
             }
 
