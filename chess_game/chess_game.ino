@@ -76,6 +76,9 @@ class Piece {
           for(int i = y-1; i <= y+1; i++){
             for(int j = x-1; j <= x+1; j++){
               if (i == y && j == x) continue;
+              // If square outside board, continue
+              if (i < 0 || i > 7 || j < 0 || j > 7) continue;
+
               // If empty piece, or opponent piece, you can move there
               if (board.pieces[i][j]->get_type() == EMPTY) {
                 moves.push_back(std::make_pair(std::make_pair(j, i), std::make_pair(-1, -1))); // make a pair of destination, while capture square is (-1, -1) (no capture)
@@ -98,23 +101,6 @@ class Piece {
                 moves.push_back(std::make_pair(std::make_pair(2, 0), std::make_pair(-1, -1)));
               }
             }
-                // Check if square immediately in front is empty (single move forward)
-    if (board.pieces[y+1][x]->get_type() == EMPTY) {
-        moves.push_back(std::make_pair(std::make_pair(y+1, x), std::make_pair(y+1, x)));
-        
-        // Check if pawn can move 2 squares (first move only) and second square is also empty
-        if (y == 1 && board.pieces[y+2][x]->get_type() == EMPTY) { // Initial position for white pawn
-            moves.push_back(std::make_pair(std::make_pair(y+2, x), std::make_pair(y+2, x)));
-        }
-    }
-
-    // Capture moves (diagonally to the left and right)
-    if (x + 1 < 8 && y + 1 < 8 && board.pieces[y+1][x+1]->get_color() != color) { // Diagonal capture to the right
-        moves.push_back(std::make_pair(std::make_pair(y+1, x+1), std::make_pair(y+1, x+1)));
-    }
-    if (x - 1 >= 0 && y + 1 < 8 && board.pieces[y+1][x-1]->get_color() != color) { // Diagonal capture to the left
-        moves.push_back(std::make_pair(std::make_pair(y+1, x-1), std::make_pair(y+1, x-1)));
-    }
           } else {
             if (board.black_king_castle) {
               // Check if squares between king and rook are empty
@@ -128,24 +114,6 @@ class Piece {
                 moves.push_back(std::make_pair(std::make_pair(2, 7), std::make_pair(-1, -1)));
               }
             }
-            
-    // Check if square immediately in front is empty (single move forward)
-    if (board.pieces[y-1][x]->get_type() == EMPTY) {
-        moves.push_back(std::make_pair(std::make_pair(y-1, x), std::make_pair(y-1, x)));
-
-        // Check if pawn can move 2 squares (first move only) and second square is also empty
-        if (y == 6 && board.pieces[y-2][x]->get_type() == EMPTY) { // Initial position for black pawn
-            moves.push_back(std::make_pair(std::make_pair(y-2, x), std::make_pair(y-2, x)));
-        }
-    }
-
-    // Capture moves (diagonally to the left and right)
-    if (x + 1 < 8 && y - 1 >= 0 && board.pieces[y-1][x+1]->get_color() != color) { // Diagonal capture to the right
-        moves.push_back(std::make_pair(std::make_pair(y-1, x+1), std::make_pair(y-1, x+1)));
-    }
-    if (x - 1 >= 0 && y - 1 >= 0 && board.pieces[y-1][x-1]->get_color() != color) { // Diagonal capture to the left
-        moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
-    }
           }
           break;
         case QUEEN:
@@ -488,7 +456,7 @@ class Board {
       for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
           // If the piece is an enemy piece
-          if (pieces[i][j]->get_color() != color) {
+          if (pieces[i][j]->get_color() != color && pieces[i][j]->get_type() != EMPTY) {
             // Get all possible moves of the piece
             std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> moves = pieces[i][j]->get_possible_moves(*this);
             // Check if any of the moves are on the king
@@ -533,6 +501,8 @@ class Board {
       new_board.black_king_y = black_king_y;
       new_board.white_king_x = white_king_x;
       new_board.white_king_y = white_king_y;
+
+      // TODO: also copy the 3-fold repetition vector
       return new_board;
     }
 
@@ -552,11 +522,13 @@ class Board {
             }
           }
         }
-        // Now, copy new board, and check if king is under check after ONE move to left / right. Remove if it is, and remove subsequent castling moves
-        Board new_board = copy_board();
+        // Remove "castling thru check"
         // Find move that changes king's position by 1
         for (int i = 0; i < moves.size(); i++) {
+          // TODO: for efficiency, can check the "castle flag first"
           if (abs(moves[i].first.first - x) == 1 && moves[i].first.second == y) {
+            // Now, copy new board, and check if king is under check after ONE move to left / right. Remove if it is, and remove subsequent castling moves
+            Board new_board = copy_board();
             new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
             if (new_board.under_check(piece_color)) {
               // Now, remove castling moves
