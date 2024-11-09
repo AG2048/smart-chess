@@ -363,6 +363,7 @@ class Board {
       */
       // Increment the move counter
       draw_move_counter++;
+      // TODO: remove the 3-fold repetition check - flush the vector
 
       // By default no en passant square
       en_passant_square_x = -1;
@@ -464,6 +465,7 @@ class Board {
       if (capture_x != -1) {
         pieces[capture_y][capture_x]->type = EMPTY;
         draw_move_counter = 0; // Reset the draw move counter
+        // TODO: flush the 3-fold repetition vector
       }
       // New x, new y
       // Set coordinate first, then exchange the pointers
@@ -475,6 +477,8 @@ class Board {
       Piece *temp = pieces[new_y][new_x];
       pieces[new_y][new_x] = pieces[y][x];
       pieces[y][x] = temp;
+
+      // TODO: if current board == anything stored in 3-fold repetition, increment count by 1
     }
 
     bool under_check(bool color) {
@@ -655,6 +659,8 @@ class Board {
       white_king_y = 0;
       black_king_x = 4;
       black_king_y = 7;
+
+      // TODO: add 3-fold repetition, and add initial board to the list, with count 1
     }
 }
 
