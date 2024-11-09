@@ -510,7 +510,12 @@ class Board {
       // Copy the pieces
       for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-          *(new_board.pieces[i][j]) = *(pieces[i][j]); // TODO: check if this copy method is ok, since pieces doesn't have any pointers
+          new_board.pieces[i][j] = new Piece(
+                    pieces[i][j]->type,
+                    pieces[i][j]->color,
+                    pieces[i][j]->x,
+                    pieces[i][j]->y
+                );
         }
       }
       // Copy the castling flags
