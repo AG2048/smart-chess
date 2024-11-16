@@ -1,4 +1,4 @@
-
+#include "Piece.h"
 
 // The Piece Class
 class Piece {

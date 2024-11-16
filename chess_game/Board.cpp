@@ -1,3 +1,5 @@
+#include "Board.h"
+
 // The Board Class
 class Board {
   public:

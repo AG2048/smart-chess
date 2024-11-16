@@ -1,5 +1,7 @@
 // Include
 #include <ArduinoSTL.h>
+#include "Board.h"
+#include "Piece.h"
 /*
 What did we assume board has?
 
@@ -16,9 +18,6 @@ board.en_passant_square_y
 
 board.move_counter
 */
-
-class Board;
-class Piece;
 
 // Enum for piece types
 enum PieceType {
