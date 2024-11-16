@@ -36,7 +36,7 @@ void loop() {
   // Generate possible moves for all pieces in the board class
   for (int row = 0; row < 8; row++) {
     for (int col = 0; col < 8; col++) {
-      all_moves[row][col] = p_board->pieces[row][col].get_possible_moves(p_board);
+      all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
     }
   }
 
