@@ -197,11 +197,11 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
         }
           // Check if square immediately in front is empty (single move forward)
         if (y+1 < 8 && board->pieces[y+1][x]->get_type() == EMPTY) {
-            moves.push_back(std::make_pair(std::make_pair(y+1, x), std::make_pair(y+1, x)));
+            moves.push_back(std::make_pair(std::make_pair(y+1, x), std::make_pair(-1, -1)));
             
             // Check if pawn can move 2 squares (first move only) and second square is also empty
-            if (double_move && board->pieces[y+2][x]->get_type() == EMPTY) { // Initial position for white pawn
-                moves.push_back(std::make_pair(std::make_pair(y+2, x), std::make_pair(y+2, x)));
+            if (double_move && y+2 < 8 && board->pieces[y+2][x]->get_type() == EMPTY) { // Initial position for white pawn
+                moves.push_back(std::make_pair(std::make_pair(y+2, x), std::make_pair(-1, -1)));
             }
         }
 
@@ -221,11 +221,11 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
         }
         // Check if square immediately in front is empty (single move forward)
         if (y-1 >= 0 && board->pieces[y-1][x]->get_type() == EMPTY) {
-            moves.push_back(std::make_pair(std::make_pair(y-1, x), std::make_pair(y-1, x)));
+            moves.push_back(std::make_pair(std::make_pair(y-1, x), std::make_pair(-1, -1)));
 
             // Check if pawn can move 2 squares (first move only) and second square is also empty
             if (double_move && board->pieces[y-2][x]->get_type() == EMPTY) { // Initial position for black pawn
-                moves.push_back(std::make_pair(std::make_pair(y-2, x), std::make_pair(y-2, x)));
+                moves.push_back(std::make_pair(std::make_pair(y-2, x), std::make_pair(-1, -1)));
             }
         }
 
