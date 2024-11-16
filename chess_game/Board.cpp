@@ -125,8 +125,8 @@ void Board::move_piece(int x, int y, int new_x, int new_y, int capture_x, int ca
   // Set coordinate first, then exchange the pointers
   pieces[new_y][new_x]->x = x; // we know the new piece is empty
   pieces[new_y][new_x]->y = y;
-  pieces[x][y]->x = new_x;
-  pieces[x][y]->y = new_y;
+  pieces[y][x]->x = new_x;
+  pieces[y][x]->y = new_y;
   // Do a piece swap
   Piece *temp = pieces[new_y][new_x];
   pieces[new_y][new_x] = pieces[y][x];
