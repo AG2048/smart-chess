@@ -64,6 +64,15 @@ void loop()
     Serial.println();
   }
 
+  for (int row = 7; row >=0; row--)
+  {
+    for (int col = 0; col < 8; col++)
+    { 
+      Serial.print(p_board->pieces[row][col]->type);
+    }
+    Serial.println();
+  }
+
   // delay();
 
   p_board->move_piece(5, 1, 5, 2, -1, -1);
@@ -96,10 +105,18 @@ void loop()
     }
     Serial.println();
   }
+    for (int row = 7; row >=0; row--)
+  {
+    for (int col = 0; col < 8; col++)
+    { 
+      Serial.print(p_board->pieces[row][col]->type);
+    }
+    Serial.println();
+  }
 
   // delay(5000);
 
-  p_board->move_piece(5, 6, 5, 4, -1, -1);
+  p_board->move_piece(4, 6, 4, 4, -1, -1);
 
   for (int row = 0; row < 8; row++)
   {
@@ -126,6 +143,14 @@ void loop()
         Serial.print(all_moves[row][col][i].second.second);
       }
       Serial.println();
+    }
+    Serial.println();
+  }
+    for (int row = 7; row >=0; row--)
+  {
+    for (int col = 0; col < 8; col++)
+    { 
+      Serial.print(p_board->pieces[row][col]->type);
     }
     Serial.println();
   }
@@ -163,6 +188,14 @@ void loop()
     Serial.println();
   }
 
+  for (int row = 7; row >=0; row--)
+  {
+    for (int col = 0; col < 8; col++)
+    { 
+      Serial.print(p_board->pieces[row][col]->type);
+    }
+    Serial.println();
+  }
   // delay(5000);
 
   p_board->move_piece(3, 7, 7, 3, -1, -1);
@@ -196,6 +229,14 @@ void loop()
     Serial.println();
   }
 
+  for (int row = 7; row >=0; row--)
+  {
+    for (int col = 0; col < 8; col++)
+    { 
+      Serial.print(p_board->pieces[row][col]->type);
+    }
+    Serial.println();
+  }
   delay(500000);
 
   // Remove illegal moves
