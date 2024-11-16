@@ -39,6 +39,8 @@ class Board {
     void move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t capture_x, int8_t capture_y);
 
     bool under_check(bool color);
+
+    std::vector<std::pair<int8_t, int8_t>> sources_of_check(bool color)
     
     Board copy_board();
 

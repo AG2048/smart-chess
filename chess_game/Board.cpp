@@ -159,6 +159,32 @@ bool Board::under_check(bool color) {
   return false;
 }
 
+// Make a vector of all check sources to a player
+std::vector<std::pair<int8_t, int8_t>> Board::sources_of_check(bool color) {
+  // Check if the king is under check
+  // color: 0 for white, 1 for black
+  std::vector<std::pair<int8_t, int8_t>> sources;
+  // Loop through all pieces
+  for (int8_t i = 0; i < 8; i++) {
+    for (int8_t j = 0; j < 8; j++) {
+      // If the piece is an enemy piece
+      if (pieces[i][j]->get_color() != color && pieces[i][j]->get_type() != EMPTY) {
+        // Get all possible moves of the piece
+        std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> moves = pieces[i][j]->get_possible_moves(this);
+        // Check if any of the moves are on the king
+        for (int8_t k = 0; k < moves.size(); k++) {
+          // The second pair is the capture square, which we care about
+          if (moves[k].second.first == (color == 0 ? white_king_x : black_king_x) && moves[k].second.second == (color == 0 ? white_king_y : black_king_y)) {
+            sources.push_back(std::make_pair(j, i));
+          }
+        }
+      }
+    }
+  }
+  return sources;
+}
+
+
 Board Board::copy_board() {
   // Copy the board
   Board new_board; // TODO: check if this needs to have a space allocated in memory
