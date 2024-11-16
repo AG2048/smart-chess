@@ -36,14 +36,9 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  p_board->move_piece(0, 7, 0, 3, -1, -1);
-  p_board->move_piece(7, 7, 3, 5, -1, -1);
-  p_board->move_piece(3, 7, 4, 5, -1, -1);
-  p_board->move_piece(2, 7, 6, 3, -1, -1);
-  p_board->move_piece(5, 7, 7, 3, -1, -1);
-  p_board->move_piece(4, 6, 4, 3, -1, -1);
-  p_board->move_piece(6, 6, 6, 4, -1, -1);
-  p_board->move_piece(4, 0, 4, 2, -1, -1);
+  p_board->move_piece(5, 0, 5, 3, -1, -1);
+  p_board->move_piece(6, 0, 6, 3, -1, -1);
+  p_board->move_piece(4, 1, 4, 2, -1, -1);
   for (int row = 7; row >=0; row--)
   {
     for (int col = 0; col < 8; col++)
@@ -91,60 +86,8 @@ void loop()
   Serial.println("white under check?");
   Serial.println(p_board->under_check(0));
 
-  p_board->move_piece(5, 1, 5, 3, -1, -1);
 
-  for (int row = 7; row >=0; row--)
-  {
-    for (int col = 0; col < 8; col++)
-    { 
-      Serial.print(p_board->pieces[row][col]->type);
-    }
-    Serial.println();
-  }
-
-  // Generate possible moves for all pieces in the board class
-  for (int row = 0; row < 8; row++)
-  {
-    for (int col = 0; col < 8; col++)
-    {
-      // If colour is white, skip
-      if (p_board->pieces[row][col]->get_color() == 0)
-      {
-        continue;
-      }
-      all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
-            p_board->remove_illegal_moves_for_a_piece(col, row, all_moves[row][col]);
-      Serial.print("Y:");
-      Serial.print(row);
-      Serial.print("\tX:");
-      Serial.print(col);
-      Serial.print("\tTYPE:");
-      Serial.print(p_board->pieces[row][col]->type);
-      Serial.println();
-      for (int i = 0; i < all_moves[row][col].size(); i++)
-      {
-        Serial.print("\t");
-        Serial.print(all_moves[row][col][i].first.first);
-        Serial.print("\t");
-        Serial.print(all_moves[row][col][i].first.second);
-        Serial.print("\t");
-        Serial.print(all_moves[row][col][i].second.first);
-        Serial.print("\t");
-        Serial.print(all_moves[row][col][i].second.second);
-      }
-      Serial.println();
-    }
-    Serial.println();
-  }
-
-  // check what happens if move
-  Serial.println("white under check?");
-  Serial.println(p_board->under_check(0));
-
-
-
-  p_board->move_piece(4, 3, 5, 2, 5, 3);
-
+  p_board->move_piece(3, 7, 0, 5, -1, -1);
   for (int row = 7; row >=0; row--)
   {
     for (int col = 0; col < 8; col++)
@@ -165,7 +108,7 @@ void loop()
         continue;
       }
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
-            p_board->remove_illegal_moves_for_a_piece(col, row, all_moves[row][col]);
+      p_board->remove_illegal_moves_for_a_piece(col, row, all_moves[row][col]);
       Serial.print("Y:");
       Serial.print(row);
       Serial.print("\tX:");
@@ -188,11 +131,59 @@ void loop()
     }
     Serial.println();
   }
-
   // check what happens if move
   Serial.println("white under check?");
   Serial.println(p_board->under_check(0));
 
+
+
+  p_board->move_piece(0, 5, 4, 2,4, 2);
+  for (int row = 7; row >=0; row--)
+  {
+    for (int col = 0; col < 8; col++)
+    { 
+      Serial.print(p_board->pieces[row][col]->type);
+    }
+    Serial.println();
+  }
+
+  // Generate possible moves for all pieces in the board class
+  for (int row = 0; row < 8; row++)
+  {
+    for (int col = 0; col < 8; col++)
+    {
+      // If colour is black, skip
+      if (p_board->pieces[row][col]->get_color() == 1)
+      {
+        continue;
+      }
+      all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      p_board->remove_illegal_moves_for_a_piece(col, row, all_moves[row][col]);
+      Serial.print("Y:");
+      Serial.print(row);
+      Serial.print("\tX:");
+      Serial.print(col);
+      Serial.print("\tTYPE:");
+      Serial.print(p_board->pieces[row][col]->type);
+      Serial.println();
+      for (int i = 0; i < all_moves[row][col].size(); i++)
+      {
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.second);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.second);
+      }
+      Serial.println();
+    }
+    Serial.println();
+  }
+  // check what happens if move
+  Serial.println("white under check?");
+  Serial.println(p_board->under_check(0));
 
 
 
