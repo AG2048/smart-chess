@@ -36,10 +36,10 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  p_board->move_piece(5, 0, 5, 3, -1, -1);
-  p_board->move_piece(6, 0, 6, 3, -1, -1);
-  p_board->move_piece(4, 1, 4, 2, -1, -1);
-  p_board->move_piece(4, 0, 6, 0, -1, -1);  // Castle
+  p_board->move_piece(3, 0, 3, 3, -1, -1);
+  p_board->move_piece(2, 0, 2, 3, -1, -1);
+  p_board->move_piece(1, 0, 1, 3, -1, -1);
+  p_board->move_piece(4, 0, 2, 0, -1, -1);  // Castle
   for (int row = 7; row >=0; row--)
   {
     for (int col = 0; col < 8; col++)
