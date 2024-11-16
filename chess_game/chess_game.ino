@@ -1,5 +1,5 @@
 // Include
-#include <ArduinoSTL.h>
+#include "ArduinoSTL.h"
 #include "Board.h"
 #include "Piece.h"
 /*
@@ -19,17 +19,6 @@ board.en_passant_square_y
 board.move_counter
 */
 
-// Enum for piece types
-enum PieceType {
-  EMPTY,
-  KING,
-  QUEEN,
-  BISHOP,
-  KNIGHT,
-  ROOK,
-  PAWN
-};
-
 
 
 Board* p_board;
@@ -47,7 +36,7 @@ void loop() {
   // Generate possible moves for all pieces in the board class
   for (int row = 0; row < 8; row++) {
     for (int col = 0; col < 8; col++) {
-      all_moves[row][col] = p_board->get_possible_moves(p_board);
+      all_moves[row][col] = p_board->pieces[row][col].get_possible_moves(p_board);
     }
   }
 

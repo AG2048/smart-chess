@@ -1,9 +1,18 @@
 // Piece.h
 #ifndef PIECE_H
 #define PIECE_H
-#include <ArduinoSTL.h>
+#include "ArduinoSTL.h"
 #include "Board.h"
 
+enum PieceType {
+  EMPTY,
+  KING,
+  QUEEN,
+  BISHOP,
+  KNIGHT,
+  ROOK,
+  PAWN
+};
 
 // The Piece Class
 class Piece {

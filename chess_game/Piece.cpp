@@ -1,5 +1,15 @@
 #include "Piece.h"
 
+enum PieceType {
+  EMPTY,
+  KING,
+  QUEEN,
+  BISHOP,
+  KNIGHT,
+  ROOK,
+  PAWN
+};
+
 // The Piece Class
 class Piece {
   public:
