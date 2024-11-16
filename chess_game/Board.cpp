@@ -1,4 +1,5 @@
 #include "Board.h"
+#include "Piece.h"
 
 // Function that moves a piece
 // We are given the original x, original y, new x, new y, if capture happens, a "capture x" and "capture y"
@@ -143,7 +144,7 @@ bool Board::under_check(bool color) {
       // If the piece is an enemy piece
       if (pieces[i][j]->get_color() != color && pieces[i][j]->get_type() != EMPTY) {
         // Get all possible moves of the piece
-        std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> moves = pieces[i][j]->get_possible_moves(*this);
+        std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> moves = pieces[i][j]->get_possible_moves(this);
         // Check if any of the moves are on the king
         for (int k = 0; k < moves.size(); k++) {
           // The second pair is the capture square, which we care about

@@ -2,6 +2,7 @@
 #include "ArduinoSTL.h"
 #include "Board.h"
 #include "Piece.h"
+#include "PieceType.h"
 /*
 What did we assume board has?
 

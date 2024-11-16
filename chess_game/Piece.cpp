@@ -1,4 +1,5 @@
 #include "Piece.h"
+#include "Board.h"
 
 // The Piece Class
 

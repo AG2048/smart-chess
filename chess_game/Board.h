@@ -4,7 +4,9 @@
 #define BOARD_H
 #include "Piece.h"
 #include "ArduinoSTL.h"
+#include "PieceType.h"
 
+class Piece;
 // The Board Class
 
 class Board {
