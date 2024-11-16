@@ -10,6 +10,10 @@ class Board;
 // The Piece Class
 class Piece {
   public:
+    // Knight move
+    static constexpr int knight_dx[8] = {2, 2, -2, -2, 1, 1, -1, -1};
+    static constexpr int knight_dy[8] = {1, -1, 1, -1, 2, -2, 2, -2};
+
     // Piece type:
     PieceType type;
     // Color of the piece:
@@ -32,7 +36,7 @@ class Piece {
 
     // Function that returns x,y coordinates of all possible moves
 
-    std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> get_possible_moves(Board* board);
+    std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> get_possible_moves(Board* board) const;
 
     // Constructor
 

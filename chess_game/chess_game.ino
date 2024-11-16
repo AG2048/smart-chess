@@ -40,6 +40,8 @@ void loop()
     for (int col = 0; col < 8; col++)
     {
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
+      
       Serial.print(row);
       Serial.print("\t");
       Serial.print(col);
@@ -62,7 +64,139 @@ void loop()
     Serial.println();
   }
 
-  delay(5000);
+  // delay();
+
+  p_board->move_piece(5, 1, 5, 2, -1, -1);
+
+  for (int row = 0; row < 8; row++)
+  {
+    for (int col = 0; col < 8; col++)
+    {
+      all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
+      
+      Serial.print(row);
+      Serial.print("\t");
+      Serial.print(col);
+      Serial.print("\t");
+      Serial.print(p_board->pieces[row][col]->type);
+      Serial.println();
+      for (int i = 0; i < all_moves[row][col].size(); i++)
+      {
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.second);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.second);
+      }
+      Serial.println();
+    }
+    Serial.println();
+  }
+
+  // delay(5000);
+
+  p_board->move_piece(5, 6, 5, 4, -1, -1);
+
+  for (int row = 0; row < 8; row++)
+  {
+    for (int col = 0; col < 8; col++)
+    {
+      all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
+      
+      Serial.print(row);
+      Serial.print("\t");
+      Serial.print(col);
+      Serial.print("\t");
+      Serial.print(p_board->pieces[row][col]->type);
+      Serial.println();
+      for (int i = 0; i < all_moves[row][col].size(); i++)
+      {
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.second);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.second);
+      }
+      Serial.println();
+    }
+    Serial.println();
+  }
+
+  // delay(5000);
+
+  p_board->move_piece(6, 1, 6, 3, -1, -1);
+
+  for (int row = 0; row < 8; row++)
+  {
+    for (int col = 0; col < 8; col++)
+    {
+      all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
+      
+      Serial.print(row);
+      Serial.print("\t");
+      Serial.print(col);
+      Serial.print("\t");
+      Serial.print(p_board->pieces[row][col]->type);
+      Serial.println();
+      for (int i = 0; i < all_moves[row][col].size(); i++)
+      {
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.second);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.second);
+      }
+      Serial.println();
+    }
+    Serial.println();
+  }
+
+  // delay(5000);
+
+  p_board->move_piece(3, 7, 7, 3, -1, -1);
+
+  for (int row = 0; row < 8; row++)
+  {
+    for (int col = 0; col < 8; col++)
+    {
+      all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
+      
+      Serial.print(row);
+      Serial.print("\t");
+      Serial.print(col);
+      Serial.print("\t");
+      Serial.print(p_board->pieces[row][col]->type);
+      Serial.println();
+      for (int i = 0; i < all_moves[row][col].size(); i++)
+      {
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].first.second);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.first);
+        Serial.print("\t");
+        Serial.print(all_moves[row][col][i].second.second);
+      }
+      Serial.println();
+    }
+    Serial.println();
+  }
+
+  delay(500000);
 
   // Remove illegal moves
 

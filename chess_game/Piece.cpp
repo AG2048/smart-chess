@@ -3,6 +3,10 @@
 
 // The Piece Class
 
+// Define the static constexpr arrays
+constexpr int Piece::knight_dx[];
+constexpr int Piece::knight_dy[];
+
 PieceType Piece::get_type() {
   return type;
 }
@@ -25,7 +29,7 @@ bool Piece::get_double_move() {
 // Function that returns x,y coordinates of all possible moves
 // This move function does not check for any potential checks that might occur by this move.
 // The checks should be done by the board class - the board checks the board state after possible moves and evaluate if the move is legal
-std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_possible_moves(Board* board) {
+std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_possible_moves(Board* board) const {
   // TODO: WE COULD RETURN A vector<pair<pair,pair>> The first pair is destination, second is the piece that is taken
   // TODO: can change this to a "board pointer" if we don't like passing the board as an argument
   std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> moves;
@@ -134,14 +138,11 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
     break;
     case KNIGHT:
       // 8 possible moves - don't add if edge of board / own piece
-      // Knight moves logic
-      int dx[] = {2, 2, -2, -2, 1, 1, -1, -1};
-      int dy[] = {1, -1, 1, -1, 2, -2, 2, -2};
-
+      
       // Loop through all possible knight moves
-      for (int i = 0; i < 8; i++) {
-          int newX = x + dx[i];
-          int newY = y + dy[i];
+      for (int knight_move_index = 0; knight_move_index < 8; knight_move_index++) {
+          int newX = x + knight_dx[knight_move_index];
+          int newY = y + knight_dy[knight_move_index];
           
           // Check if the move is within bounds of the board
           if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8) {
@@ -190,51 +191,51 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
           // When pushing a possible move, first pair is where the capturing
           // piece goes, second pair is square of piece we captured
           // In this case, it's the same
-          moves.push_back(std::make_pair(std::make_pair(y+1, x+1), std::make_pair(y+1, x+1)));
+          moves.push_back(std::make_pair(std::make_pair(x+1, y+1), std::make_pair(x+1, y+1)));
         }
         if (y+1 < 8 && x-1 >= 0 && board->pieces[y+1][x-1]->get_type() != EMPTY && board->pieces[y+1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
-          moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
+          moves.push_back(std::make_pair(std::make_pair(x-1, y+1), std::make_pair(x-1, y+1)));
         }
           // Check if square immediately in front is empty (single move forward)
         if (y+1 < 8 && board->pieces[y+1][x]->get_type() == EMPTY) {
-            moves.push_back(std::make_pair(std::make_pair(y+1, x), std::make_pair(-1, -1)));
+            moves.push_back(std::make_pair(std::make_pair(x, y+1), std::make_pair(-1, -1)));
             
             // Check if pawn can move 2 squares (first move only) and second square is also empty
             if (double_move && y+2 < 8 && board->pieces[y+2][x]->get_type() == EMPTY) { // Initial position for white pawn
-                moves.push_back(std::make_pair(std::make_pair(y+2, x), std::make_pair(-1, -1)));
+                moves.push_back(std::make_pair(std::make_pair(x, y+2), std::make_pair(-1, -1)));
             }
         }
 
         // Capture moves (diagonally to the left and right)
         if (x + 1 < 8 && y + 1 < 8 && board->pieces[y][x+1]->get_color() != color && board->en_passant_square_x == x+1 && board->en_passant_square_y == y) { // En passant to the right
-            moves.push_back(std::make_pair(std::make_pair(y+1, x+1), std::make_pair(y, x+1)));
+            moves.push_back(std::make_pair(std::make_pair(x+1, y+1), std::make_pair(x+1, y)));
         }
         if (x - 1 >= 0 && y + 1 < 8 && board->pieces[y][x-1]->get_color() != color && board->en_passant_square_x == x-1 && board->en_passant_square_y == y) { // En passant to the left
-            moves.push_back(std::make_pair(std::make_pair(y+1, x-1), std::make_pair(y, x-1)));
+            moves.push_back(std::make_pair(std::make_pair(x-1, y+1), std::make_pair(x-1, y)));
         }
       } else { // Black pawn. diagonally downwards
         if (y-1 >= 0 && x+1 < 8 && board->pieces[y-1][x+1]->get_type() != EMPTY && board->pieces[y-1][x+1]->get_color() != color) { // If the piece diagonally to the right is not empty
-          moves.push_back(std::make_pair(std::make_pair(y-1, x+1), std::make_pair(y-1, x+1)));
+          moves.push_back(std::make_pair(std::make_pair(x+1, y-1), std::make_pair(x+1, y-1)));
         }
         if (y-1 >= 0 && x-1 >= 0 && board->pieces[y-1][x-1]->get_type() != EMPTY && board->pieces[y-1][x-1]->get_color() != color) { // If the piece diagonally to the right is opposite color
-          moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y-1, x-1)));
+          moves.push_back(std::make_pair(std::make_pair(x-1, y-1), std::make_pair(x-1, y-1)));
         }
         // Check if square immediately in front is empty (single move forward)
         if (y-1 >= 0 && board->pieces[y-1][x]->get_type() == EMPTY) {
-            moves.push_back(std::make_pair(std::make_pair(y-1, x), std::make_pair(-1, -1)));
+            moves.push_back(std::make_pair(std::make_pair(x, y-1), std::make_pair(-1, -1)));
 
             // Check if pawn can move 2 squares (first move only) and second square is also empty
             if (double_move && board->pieces[y-2][x]->get_type() == EMPTY) { // Initial position for black pawn
-                moves.push_back(std::make_pair(std::make_pair(y-2, x), std::make_pair(-1, -1)));
+                moves.push_back(std::make_pair(std::make_pair(x, y-2), std::make_pair(-1, -1)));
             }
         }
 
         // Capture moves (diagonally to the left and right)
         if (x + 1 < 8 && y - 1 >= 0 && board->pieces[y][x+1]->get_color() != color && board->en_passant_square_x == x+1 && board->en_passant_square_y == y) { // En passant to the right
-            moves.push_back(std::make_pair(std::make_pair(y-1, x+1), std::make_pair(y, x+1)));
+            moves.push_back(std::make_pair(std::make_pair(x+1, y-1), std::make_pair(x+1, y)));
         }
         if (x - 1 >= 0 && y - 1 >= 0 && board->pieces[y][x-1]->get_color() != color && board->en_passant_square_x == x-1 && board->en_passant_square_y == y) { // En passant to the left
-            moves.push_back(std::make_pair(std::make_pair(y-1, x-1), std::make_pair(y, x-1)));
+            moves.push_back(std::make_pair(std::make_pair(x-1, y-1), std::make_pair(x-1, y)));
         }
       }
     break;
