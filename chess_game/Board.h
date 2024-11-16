@@ -40,13 +40,13 @@ class Board {
 
     bool under_check(bool color);
 
-    std::vector<std::pair<int8_t, int8_t>> sources_of_check(bool color)
+    std::vector<std::pair<int8_t, int8_t>> sources_of_check(bool color);
     
     Board copy_board();
 
     void remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> &moves);
 
-    std::vector<std::pair<int8_t, int8_t>> can_pawn_promote(int8_t x, int8_t y);
+    bool can_pawn_promote(int8_t x, int8_t y);
 
     void promote_pawn(int8_t x, int8_t y, PieceType new_type);
 

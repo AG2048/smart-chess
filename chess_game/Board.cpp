@@ -312,20 +312,16 @@ void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std
 }
 
 // Give a pawn coordinate, check if it can promote
-std::vector<std::pair<int8_t, int8_t>> Board::can_pawn_promote(int8_t x, int8_t y) {
-  // If return empty vector, it can't promote
-  // If return vector with one element, it can promote to that piece
-  // Make a vector of possible promotions
-  std::vector<std::pair<int8_t, int8_t>> promotions;
-  // Check if a pawn can promote
+bool Board::can_pawn_promote(int8_t x, int8_t y) {
+  // Check if the piece is a pawn and if it's at the end of the board
   if (pieces[y][x]->get_type() == PAWN) {
     if (pieces[y][x]->get_color() == 0 && y == 0) {
-      promotions.push_back(std::make_pair(x, y));
+      return true;
     } else if (pieces[y][x]->get_color() == 1 && y == 7) {
-      promotions.push_back(std::make_pair(x, y));
+      return true;
     }
   }
-  return promotions;
+  return false;
 }
 
 void Board::promote_pawn(int8_t x, int8_t y, PieceType new_type) {
