@@ -6,7 +6,7 @@
 // We are given the original x, original y, new x, new y, if capture happens, a "capture x" and "capture y"
 // In the end of the function, each individual piece's x and y should be updated
 // Also, the board array will reflect the new state of the board
-void Board::move_piece(int x, int y, int new_x, int new_y, int capture_x, int capture_y) {
+void Board::move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t capture_x, int8_t capture_y) {
   /*
     Make a chess piece move happen on the actual board
     Reset en-passant square and set to new one if it's a pawn move (and reset a pawn's double move)
@@ -123,7 +123,7 @@ void Board::move_piece(int x, int y, int new_x, int new_y, int capture_x, int ca
     // TODO: flush the 3-fold repetition vector
   }
   // New x, new y
-  // Set coordinate first, then exchange the pointers
+  // Set coordinate first, then exchange the point8_ters
   pieces[new_y][new_x]->x = x; // we know the new piece is empty
   pieces[new_y][new_x]->y = y;
   pieces[y][x]->x = new_x;
@@ -140,14 +140,14 @@ bool Board::under_check(bool color) {
   // Check if the king is under check
   // color: 0 for white, 1 for black
   // Loop through all pieces
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
+  for (int8_t i = 0; i < 8; i++) {
+    for (int8_t j = 0; j < 8; j++) {
       // If the piece is an enemy piece
       if (pieces[i][j]->get_color() != color && pieces[i][j]->get_type() != EMPTY) {
         // Get all possible moves of the piece
-        std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> moves = pieces[i][j]->get_possible_moves(this);
+        std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> moves = pieces[i][j]->get_possible_moves(this);
         // Check if any of the moves are on the king
-        for (int k = 0; k < moves.size(); k++) {
+        for (int8_t k = 0; k < moves.size(); k++) {
           // The second pair is the capture square, which we care about
           if (moves[k].second.first == (color == 0 ? white_king_x : black_king_x) && moves[k].second.second == (color == 0 ? white_king_y : black_king_y)) {
             return true;
@@ -162,9 +162,17 @@ bool Board::under_check(bool color) {
 Board Board::copy_board() {
   // Copy the board
   Board new_board; // TODO: check if this needs to have a space allocated in memory
+
+  // Free old pieces in new_board before assigning new ones
+  for (int8_t i = 0; i < 8; i++) {
+    for (int8_t j = 0; j < 8; j++) {
+      delete new_board.pieces[i][j]; // Free previously allocated memory
+    }
+  }
+
   // Copy the pieces
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
+  for (int8_t i = 0; i < 8; i++) {
+    for (int8_t j = 0; j < 8; j++) {
       new_board.pieces[i][j] = new Piece(
                 pieces[i][j]->type,
                 pieces[i][j]->color,
@@ -194,17 +202,16 @@ Board Board::copy_board() {
 }
 
 // when checking if a move is illegal due to checks, make sure to consider the path of king's castling
-void Board::remove_illegal_moves_for_a_piece(int x, int y, std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> &moves) {
+void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> &moves) {
   bool piece_color = pieces[y][x]->get_color();
-  Serial.println(piece_color);
 
   // If the piece is a king, check if the king is under check after the move
   if (pieces[y][x]->get_type() == KING) {
-    Serial.println("King");
+    // Serial.println("King");
     // If king is under check, remove castling moves
     if (under_check(piece_color)){
       // Find move that changes king's position by 2
-      for (int i = 0; i < moves.size(); i++) {
+      for (int8_t i = 0; i < moves.size(); i++) {
         if (abs(moves[i].first.first - x) == 2) {
           moves.erase(moves.begin() + i);
           i--;
@@ -213,18 +220,18 @@ void Board::remove_illegal_moves_for_a_piece(int x, int y, std::vector<std::pair
     }
     // Remove "castling thru check"
     // Find move that changes king's position by 1
-    for (int i = 0; i < moves.size(); i++) {
+    for (int8_t i = 0; i < moves.size(); i++) {
       // TODO: for efficiency, can check the "castle flag first"
       if (abs(moves[i].first.first - x) == 1 && moves[i].first.second == y) {
         // Now, copy new board, and check if king is under check after ONE move to left / right. Remove if it is, and remove subsequent castling moves
         Board new_board = copy_board();
-        Serial.println("Making new board for king");
+        // Serial.println("Making new board for king");
         new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
-        Serial.println("Moved king");
+        // Serial.println("Moved king");
         if (new_board.under_check(piece_color)) {
-          Serial.println("Under check after king move");
+          // Serial.println("Under check after king move");
           // Now, remove castling moves
-          for (int j = 0; j < moves.size(); j++) {
+          for (int8_t j = 0; j < moves.size(); j++) {
             if ((moves[j].first.first - x) == 2 * (moves[i].first.first - x)) {
               moves.erase(moves.begin() + j);
               j--;
@@ -239,35 +246,36 @@ void Board::remove_illegal_moves_for_a_piece(int x, int y, std::vector<std::pair
   }
 
   // Loop through all possible moves
-  for (int i = 0; i < moves.size(); i++) {
-    Serial.println("Before general piece");
-    Serial.print("Free memory: ");
-    Serial.println(freeMemory());
+  for (int8_t i = 0; i < moves.size(); i++) {
+    // Serial.println("Before general piece");
+    // Serial.print("Free memory: ");
+    // Serial.println(freeMemory());
     // Copy the board
     Board new_board = copy_board();
-    Serial.println("Making new board for general piece");
-    Serial.print("Free memory: ");
-    Serial.println(freeMemory());
+    // Serial.println("Making new board for general piece");
+    // Serial.print("Free memory: ");
+    // Serial.println(freeMemory());
 
     // Move the piece
     new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
-    Serial.println("Moved general piece");
+    // Serial.println("Moved general piece");
     // Check if the king is under check
     if (new_board.under_check(piece_color)) {
-      Serial.println("Under check after general piece move");
+      // Serial.println("Under check after general piece move");
       // If the king is under check, remove the move
       moves.erase(moves.begin() + i);
       i--;
     }
+
   }
 }
 
 // Give a pawn coordinate, check if it can promote
-std::vector<std::pair<int, int>> Board::can_pawn_promote(int x, int y) {
+std::vector<std::pair<int8_t, int8_t>> Board::can_pawn_promote(int8_t x, int8_t y) {
   // If return empty vector, it can't promote
   // If return vector with one element, it can promote to that piece
   // Make a vector of possible promotions
-  std::vector<std::pair<int, int>> promotions;
+  std::vector<std::pair<int8_t, int8_t>> promotions;
   // Check if a pawn can promote
   if (pieces[y][x]->get_type() == PAWN) {
     if (pieces[y][x]->get_color() == 0 && y == 0) {
@@ -279,7 +287,7 @@ std::vector<std::pair<int, int>> Board::can_pawn_promote(int x, int y) {
   return promotions;
 }
 
-void Board::promote_pawn(int x, int y, PieceType new_type) {
+void Board::promote_pawn(int8_t x, int8_t y, PieceType new_type) {
   // Promote a pawn
   pieces[y][x]->type = new_type;
 }
@@ -297,12 +305,12 @@ Board::Board() {
   pieces[0][5] = new Piece(BISHOP, 0, 5, 0);
   pieces[0][6] = new Piece(KNIGHT, 0, 6, 0);
   pieces[0][7] = new Piece(ROOK, 0, 7, 0);
-  for (int i = 0; i < 8; i++) {
+  for (int8_t i = 0; i < 8; i++) {
     pieces[1][i] = new Piece(PAWN, 0, i, 1);
   }
   // Empty pieces
-  for (int i = 2; i < 6; i++) {
-    for (int j = 0; j < 8; j++) {
+  for (int8_t i = 2; i < 6; i++) {
+    for (int8_t j = 0; j < 8; j++) {
       pieces[i][j] = new Piece(EMPTY, 0, j, i);
     }
   }
@@ -315,7 +323,7 @@ Board::Board() {
   pieces[7][5] = new Piece(BISHOP, 1, 5, 7);
   pieces[7][6] = new Piece(KNIGHT, 1, 6, 7);
   pieces[7][7] = new Piece(ROOK, 1, 7, 7);
-  for (int i = 0; i < 8; i++) {
+  for (int8_t i = 0; i < 8; i++) {
     pieces[6][i] = new Piece(PAWN, 1, i, 6);
   }
   // Initialize castling flags
@@ -337,4 +345,13 @@ Board::Board() {
   black_king_x = 4;
   black_king_y = 7;
   // TODO: add 3-fold repetition, and add initial board to the list, with count 1
+}
+
+Board::~Board() {
+    // Free dynamically allocated pieces
+    for (int8_t i = 0; i < 8; i++) {
+        for (int8_t j = 0; j < 8; j++) {
+            delete pieces[i][j];  // Free each dynamically allocated Piece
+        }
+    }
 }

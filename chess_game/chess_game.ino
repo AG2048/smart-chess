@@ -22,12 +22,12 @@ board.move_counter
 */
 
 Board *p_board;
-std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> all_moves[8][8];
+std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> all_moves[8][8];
 void setup()
 {
   Serial.begin(9600);
-  Serial.print("Free memory: ");
-    Serial.println(freeMemory());
+  // Serial.print("Free memory: ");
+  //   Serial.println(freeMemory());
   // put your setup code here, to run once:
   // Initialize board class
   p_board = new Board;
@@ -42,19 +42,24 @@ void loop()
   {
     for (int col = 0; col < 8; col++)
     {
+      // If colour is black, skip
+      if (p_board->pieces[row][col]->get_color() == 1)
+      {
+        continue;
+      }
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
-      Serial.print(row);
-      Serial.print("\t");
-      Serial.print(col);
-      Serial.print("\t");
-      Serial.print(p_board->pieces[row][col]->type);
-      Serial.println();
+      // Serial.print(row);
+      // Serial.print("\t");
+      // Serial.print(col);
+      // Serial.print("\t");
+      // Serial.print(p_board->pieces[row][col]->type);
+      // Serial.println();
       p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
-      
+      Serial.print("Y:");
       Serial.print(row);
-      Serial.print("\t");
+      Serial.print("\tX:");
       Serial.print(col);
-      Serial.print("\t");
+      Serial.print("\tTYPE:");
       Serial.print(p_board->pieces[row][col]->type);
       Serial.println();
       for (int i = 0; i < all_moves[row][col].size(); i++)
@@ -90,7 +95,14 @@ void loop()
   {
     for (int col = 0; col < 8; col++)
     {
+      // skip if colour is white
+      if (p_board->pieces[row][col]->get_color() == 0)
+      {
+        continue;
+      }
+
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       
       Serial.print(row);
@@ -131,7 +143,13 @@ void loop()
   {
     for (int col = 0; col < 8; col++)
     {
+      // skip if colour is black
+      if (p_board->pieces[row][col]->get_color() == 1)
+      {
+        continue;
+      }
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       
       Serial.print(row);
@@ -174,7 +192,14 @@ void loop()
   {
     for (int col = 0; col < 8; col++)
     {
+      // skip if colour is white
+      if (p_board->pieces[row][col]->get_color() == 0)
+      {
+        continue;
+      }
+
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       
       Serial.print(row);
@@ -217,7 +242,13 @@ void loop()
   {
     for (int col = 0; col < 8; col++)
     {
+      // skip if colour is black
+      if (p_board->pieces[row][col]->get_color() == 1)
+      {
+        continue;
+      }
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
+      p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       
       Serial.print(row);

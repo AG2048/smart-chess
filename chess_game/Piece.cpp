@@ -4,8 +4,8 @@
 // The Piece Class
 
 // Define the static constexpr arrays
-constexpr int Piece::knight_dx[];
-constexpr int Piece::knight_dy[];
+constexpr int8_t Piece::knight_dx[];
+constexpr int8_t Piece::knight_dy[];
 
 PieceType Piece::get_type() {
   return type;
@@ -15,11 +15,11 @@ bool Piece::get_color() {
   return color;
 }
 
-int Piece::get_x() {
+int8_t Piece::get_x() {
   return x;
 }
 
-int Piece::get_y() {
+int8_t Piece::get_y() {
   return y;
 }
 
@@ -29,17 +29,17 @@ bool Piece::get_double_move() {
 // Function that returns x,y coordinates of all possible moves
 // This move function does not check for any potential checks that might occur by this move.
 // The checks should be done by the board class - the board checks the board state after possible moves and evaluate if the move is legal
-std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_possible_moves(Board* board) const {
+std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> Piece::get_possible_moves(Board* board) const {
   // TODO: WE COULD RETURN A vector<pair<pair,pair>> The first pair is destination, second is the piece that is taken
-  // TODO: can change this to a "board pointer" if we don't like passing the board as an argument
-  std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> moves;
+  // TODO: can change this to a "board point8_ter" if we don't like passing the board as an argument
+  std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> moves;
   // switch piece type
   switch (type) {
     case EMPTY:
       break;
     case KING:
-      for(int i = y-1; i <= y+1; i++){
-        for(int j = x-1; j <= x+1; j++){
+      for(int8_t i = y-1; i <= y+1; i++){
+        for(int8_t j = x-1; j <= x+1; j++){
           if (i == y && j == x) continue;
           // If square outside board, continue
           if (i < 0 || i > 7 || j < 0 || j > 7) continue;
@@ -84,11 +84,11 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
     case QUEEN:
       // when encounter "edge of board", opponent piece, or own piece, stop
       // Add opponent piece square to moves
-      for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
+      for (int8_t dx = -1; dx <= 1; dx++) {
+        for (int8_t dy = -1; dy <= 1; dy++) {
           if (dy == 0 && dx == 0) continue;
-          int x_loop = x+dx;
-          int y_loop = y+dy;
+          int8_t x_loop = x+dx;
+          int8_t y_loop = y+dy;
           while (1) {
             if (x_loop < 0 || y_loop < 0 || x_loop > 7 || y_loop > 7) break;  // if any coordinate is OOB, stop
             if (board->pieces[y_loop][x_loop]->get_type() == EMPTY) {
@@ -111,12 +111,12 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
     break;
     case BISHOP:
       // Same as queen, but only 4 directions
-      for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
+      for (int8_t dx = -1; dx <= 1; dx++) {
+        for (int8_t dy = -1; dy <= 1; dy++) {
           if (dy == 0 && dx == 0) continue;
           if (dy == 0 || dx == 0) continue; // only looking at diagonals
-          int x_loop = x+dx;
-          int y_loop = y+dy;
+          int8_t x_loop = x+dx;
+          int8_t y_loop = y+dy;
           while (1) {
             if (x_loop < 0 || y_loop < 0 || x_loop > 7 || y_loop > 7) break;  // if any coordinate is OOB, stop
             if (board->pieces[y_loop][x_loop]->get_type() == EMPTY) {
@@ -140,9 +140,9 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
       // 8 possible moves - don't add if edge of board / own piece
       
       // Loop through all possible knight moves
-      for (int knight_move_index = 0; knight_move_index < 8; knight_move_index++) {
-          int newX = x + knight_dx[knight_move_index];
-          int newY = y + knight_dy[knight_move_index];
+      for (int8_t knight_move_index = 0; knight_move_index < 8; knight_move_index++) {
+          int8_t newX = x + knight_dx[knight_move_index];
+          int8_t newY = y + knight_dy[knight_move_index];
           
           // Check if the move is within bounds of the board
           if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8) {
@@ -157,13 +157,13 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
     break;
     case ROOK:
       // 4 possible directions - don't add if edge of board / own piece
-      for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
+      for (int8_t dx = -1; dx <= 1; dx++) {
+        for (int8_t dy = -1; dy <= 1; dy++) {
           if (dy == 0 && dx == 0) continue;
           if (dy != 0 && dx != 0) continue; //if dy and dx are both nonzero, it's a diagonal
           // loop in a direction to see valid moves
-          int x_loop = x+dx;
-          int y_loop = y+dy;
+          int8_t x_loop = x+dx;
+          int8_t y_loop = y+dy;
           while (1) {
             if (x_loop < 0 || y_loop < 0 || x_loop > 7 || y_loop > 7) break;  // if any coordinate is OOB, stop
             if (board->pieces[y_loop][x_loop]->get_type() == EMPTY) {
@@ -244,7 +244,7 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> Piece::get_poss
 }
 
 // Constructor
-Piece::Piece(PieceType new_type, bool new_color, int new_x, int new_y) {
+Piece::Piece(PieceType new_type, bool new_color, int8_t new_x, int8_t new_y) {
   type = new_type;
   color = new_color;
   x = new_x;
