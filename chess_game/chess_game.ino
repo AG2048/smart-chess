@@ -3,6 +3,7 @@
 #include "Board.h"
 #include "Piece.h"
 #include "PieceType.h"
+#include "MemoryFree.h"
 /*
 What did we assume board has?
 
@@ -25,6 +26,8 @@ std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> all_moves[8][8]
 void setup()
 {
   Serial.begin(9600);
+  Serial.print("Free memory: ");
+    Serial.println(freeMemory());
   // put your setup code here, to run once:
   // Initialize board class
   p_board = new Board;
@@ -40,7 +43,13 @@ void loop()
     for (int col = 0; col < 8; col++)
     {
       all_moves[row][col] = p_board->pieces[row][col]->get_possible_moves(p_board);
-      // p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
+      Serial.print(row);
+      Serial.print("\t");
+      Serial.print(col);
+      Serial.print("\t");
+      Serial.print(p_board->pieces[row][col]->type);
+      Serial.println();
+      p_board->remove_illegal_moves_for_a_piece(row, col, all_moves[row][col]);
       
       Serial.print(row);
       Serial.print("\t");
@@ -154,6 +163,8 @@ void loop()
     }
     Serial.println();
   }
+  Serial.println("white under check?");
+  Serial.println(p_board->under_check(0));
 
   // delay(5000);
 
@@ -196,6 +207,8 @@ void loop()
     }
     Serial.println();
   }
+  Serial.println("white under check?");
+  Serial.println(p_board->under_check(0));
   // delay(5000);
 
   p_board->move_piece(3, 7, 7, 3, -1, -1);
@@ -237,6 +250,9 @@ void loop()
     }
     Serial.println();
   }
+
+  Serial.println("white under check?");
+  Serial.println(p_board->under_check(0));
   delay(500000);
 
   // Remove illegal moves
