@@ -39,6 +39,7 @@ void loop()
   p_board->move_piece(5, 0, 5, 3, -1, -1);
   p_board->move_piece(6, 0, 6, 3, -1, -1);
   p_board->move_piece(4, 1, 4, 2, -1, -1);
+  p_board->move_piece(4, 0, 6, 0, -1, -1);  // Castle
   for (int row = 7; row >=0; row--)
   {
     for (int col = 0; col < 8; col++)
