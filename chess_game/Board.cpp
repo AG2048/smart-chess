@@ -315,9 +315,9 @@ void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std
 bool Board::can_pawn_promote(int8_t x, int8_t y) {
   // Check if the piece is a pawn and if it's at the end of the board
   if (pieces[y][x]->get_type() == PAWN) {
-    if (pieces[y][x]->get_color() == 0 && y == 0) {
+    if (pieces[y][x]->get_color() == 0 && y == 7) {
       return true;
-    } else if (pieces[y][x]->get_color() == 1 && y == 7) {
+    } else if (pieces[y][x]->get_color() == 1 && y == 0) {
       return true;
     }
   }
