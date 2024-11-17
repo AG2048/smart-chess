@@ -63,22 +63,25 @@ void setup()
 
 void loop()
 {
+  Serial.print("Current State: ");
+  Serial.println(game_state);
+  Serial.print("Free memory: ");
+  Serial.println(freeMemory());
+  delay(100);
+
   // State machine, during each loop, we are in a certain state
-  switch (game_state) {
-    case GAME_POWER_ON:
+  if (game_state == GAME_POWER_ON) {
       // Power on the board, motors calibrate
       // TODO
       game_state = GAME_IDLE;
-      break;
-    case GAME_IDLE:
+  } else if (game_state == GAME_IDLE) {
       // No game is being played yet, waiting for a game to start
       // Wait for a button press to start the game
       // If button pressed, initialize the game
       // If button not pressed, stay in this state
       // TODO: currently we just skip this state, assume game is always started
       game_state = GAME_INITIALIZE;
-      break;
-    case GAME_INITIALIZE:
+  } else if (game_state == GAME_INITIALIZE) { 
       // Game started, initialize the board
       // Initialize the board
       p_board = new Board();
@@ -95,8 +98,7 @@ void loop()
       // TODO: initialize promoted pawns (with temp pieces) vector
       // TODO: motor calibration can be done here
       game_state = GAME_BEGIN_TURN;
-      break;
-    case GAME_BEGIN_TURN:
+    } else if (game_state == GAME_BEGIN_TURN) {
       // Begin a turn - generate moves, remove illegal moves, check for checkmate/draw
 
       // TODO: this is temporary, just to see the board state
@@ -104,7 +106,12 @@ void loop()
       {
         for (int col = 0; col < 8; col++)
         { 
-          Serial.print(p_board->pieces[row][col]->type);
+          if (p_board->pieces[row][col]->get_type() == EMPTY) {
+            Serial.print(" ");
+          } else {
+            Serial.print(p_board->pieces[row][col]->type);
+          }
+          Serial.print("\t");
         }
         Serial.println();
       }
@@ -112,7 +119,7 @@ void loop()
       // Check if 50 move rule is reached
       if (p_board->draw_move_counter >= 50) {
         game_state = GAME_OVER_DRAW;
-        break;
+        return;
       }
 
       // Check if 3-fold repetition is reached
@@ -123,12 +130,12 @@ void loop()
       for (int8_t i = 0; i < 8; i++) {
         for (int8_t j = 0; j < 8; j++) {
           // Non-player's piece should have empty moves
-          if (p_board->pieces[i][j]->get_color() != player_turn) {
-            all_moves[i][j].clear();
+          all_moves[i][j].clear();
+          if (p_board->pieces[i][j]->get_type() == EMPTY || p_board->pieces[i][j]->get_color() != player_turn) {
             continue;
           }
           all_moves[i][j] = p_board->pieces[i][j]->get_possible_moves(p_board);
-          p_board->remove_illegal_moves_for_a_piece(i, j, all_moves[i][j]);
+          p_board->remove_illegal_moves_for_a_piece(j, i, all_moves[i][j]);  // NOTE it's j, i!!!!!
           if (all_moves[i][j].size() > 0) {
             no_moves = false;
           }
@@ -155,15 +162,12 @@ void loop()
           // Stalemate
           game_state = GAME_OVER_DRAW;
         }
-        break;
+        return;
       }
 
       // Move to the next state
       game_state = GAME_WAIT_FOR_SELECT;
-      Serial.print("S1231231231231: ");
-      break;
-    case GAME_WAIT_FOR_SELECT:
-    Serial.print("Serial asdaffasfas: ");
+    } else if (game_state == GAME_WAIT_FOR_SELECT) {
       // Joystick moving, before pressing select button on valid piece
       // Wait for joystick input
       // If there is input, check if it's a valid piece, if not, ignore
@@ -172,41 +176,33 @@ void loop()
       // TODO: replace with button inputs
       Serial.print("Serial available: ");
       Serial.println(Serial.available());
-      if (Serial.available() >= 2) {
-        while (Serial.available() == 0) {
+      while (Serial.available() == 0) {
         // Wait for input
-        Serial.println("Waiting for input");
+        // Serial.println("Waiting for input");
       }
-        selected_x = Serial.read();
-        while (Serial.available() == 0) {
+      selected_x = Serial.read();
+      while (Serial.available() == 0) {
         // Wait for input
-        Serial.println("Waiting for input");
+        // Serial.println("Waiting for input");
       }
-        selected_y = Serial.read();
+      selected_y = Serial.read();
 
-        Serial.print("Selected: ");
-        Serial.print(selected_x);
-        Serial.print(", ");
-        Serial.println(selected_y);
-        
-
-        // Convert to int8_t
-        selected_x -= '0';
-        selected_y -= '0';
-      }
+      // Convert to int8_t
+      selected_x -= '0';
+      selected_y -= '0';
 
       // Check for valid input
       if (selected_x < 0 || selected_x > 7 || selected_y < 0 || selected_y > 7) {
         // Invalid input
-        break;
+        return;
       }
-      if (p_board->pieces[selected_y][selected_x]->get_color() != player_turn) {
+      if (p_board->pieces[selected_y][selected_x]->get_type() == EMPTY || p_board->pieces[selected_y][selected_x]->get_color() != player_turn) {
         // Not player's piece
-        break;
+        return;
       }
+
       game_state = GAME_WAIT_FOR_MOVE;
-      break;
-    case GAME_WAIT_FOR_MOVE:
+    } else if (game_state == GAME_WAIT_FOR_MOVE) {
       // Joystick moving, after pressing select button on valid destination
       // Wait for joystick input
       // If there is input, check if it's a valid destination, if not, ignore
@@ -214,31 +210,65 @@ void loop()
       // If it's another of your own piece, replace selected_x, selected_y with the new piece, stay in this state
       // If it's a valid destination, move the piece, and move to GAME_MOVE_MOTOR
 
-      // TODO: replace with button inputs
-      if (Serial.available() >= 2) {
-        destination_x = Serial.read();
-        destination_y = Serial.read();
-
-        // Convert to int8_t
-        destination_x -= '0';
-        destination_y -= '0';
+      // TODO: this is temporary, just to see the board state
+      for (int row = 7; row >=0; row--)
+      {
+        for (int col = 0; col < 8; col++)
+        { 
+          bool showed = false;
+          for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
+            if (all_moves[selected_y][selected_x][i].first.first == col && all_moves[selected_y][selected_x][i].first.second == row) {
+              Serial.print("X");
+              Serial.print("\t");
+              showed = true;
+              break;
+            }
+          }
+          if (showed) {
+            continue;
+          }
+          if (p_board->pieces[row][col]->get_type() == EMPTY) {
+            Serial.print(" ");
+          } else {
+            Serial.print(p_board->pieces[row][col]->type);
+          }
+          Serial.print("\t");
+        }
+        Serial.println();
       }
+
+      // TODO: replace with button inputs
+      while (Serial.available() == 0) {
+        // Wait for input
+        // Serial.println("Waiting for input_state5_input1");
+      }
+      destination_x = Serial.read();
+      while (Serial.available() == 0) {
+        // Wait for input
+        // Serial.println("Waiting for input_state5_input2");
+      }
+      destination_y = Serial.read();
+
+      // Convert to int8_t
+      destination_x -= '0';
+      destination_y -= '0';
+      
       
       // Check for valid input
       if (destination_x < 0 || destination_x > 7 || destination_y < 0 || destination_y > 7) {
         // Invalid input
-        break;
+        return;
       }
       if (destination_x == selected_x && destination_y == selected_y) {
         // Move back to select
         game_state = GAME_WAIT_FOR_SELECT;
-        break;
+        return;
       }
-      if (p_board->pieces[destination_y][destination_x]->get_color() == player_turn) {
+      if (p_board->pieces[destination_y][destination_x]->get_type() != EMPTY && p_board->pieces[destination_y][destination_x]->get_color() == player_turn) {
         // Replace selected piece, and repeat this state
         selected_x = destination_x;
         selected_y = destination_y;
-        break;
+        return;
       }
       // Check if the move is valid
       bool valid_move = false;
@@ -252,23 +282,24 @@ void loop()
       }
       if (!valid_move) {
         // Invalid move
-        break;
+        return;
       }
 
       // Move is valid, move the piece
       game_state = GAME_MOVE_MOTOR;
-      break;
-    case GAME_MOVE_MOTOR:
+  } else if (game_state == GAME_MOVE_MOTOR) {
       // Motors moving pieces given the selected piece and destination, and capture square - capture square, if any, should be moved to the graveyard
 
       // Important: If captured square contains a piece a current pawn is promoted to, and is using temp piece, replace the temp piece with the promoted piece
       // Then move temp piece to the graveyard
       // Update the graveyard memory and the promoted pawns using temp pieces vector.
 
+      // Important: If this move is a castle, move the rook first (do a check if p_board->pieces[selected_y][selected_x]->type == KING && abs(destination_x - selected_x) == 2)
+      // Assume this is valid move, since it's checked in the previous state
+
       // TODO: implement motor moving pieces, now just skip this state
       game_state = GAME_END_MOVE;
-      break;
-    case GAME_END_MOVE:
+  } else if (game_state ==  GAME_END_MOVE) {
       // Update chess board, see if a pawn can promote
       p_board->move_piece(selected_x, selected_y, destination_x, destination_y, capture_x, capture_y);
       // Check if a pawn can promote
@@ -277,16 +308,16 @@ void loop()
       } else {
         game_state = GAME_END_TURN;
       }
-      break;
-    case GAME_WAIT_FOR_SELECT_PAWN_PROMOTION:
+  } else if (game_state == GAME_WAIT_FOR_SELECT_PAWN_PROMOTION) {
       // Joystick moving, before pressing select button on promotion piece
       // Wait for joystick input
       // If there is input, check if it's a valid promotion piece, if not, ignore
       // If it's a valid promotion piece, indicate the piece is selected, and move to GAME_PAWN_PROMOTION_MOTOR
       
       // TODO: replace with button inputs
-      if (Serial.available() == 0) {
-        break;
+      while (Serial.available() == 0) {
+        // Wait for input
+        // Serial.println("Waiting for input");
       }
       promotion_type = Serial.read();
       promotion_type -= '0';
@@ -294,7 +325,7 @@ void loop()
       // Check for valid input
       if (promotion_type < 0 || promotion_type > 3) {
         // Invalid input
-        break;
+        return;
       }
 
       // Valid promotion piece, promote the pawn in software
@@ -314,8 +345,7 @@ void loop()
       }
       // Move to motor moving
       game_state = GAME_PAWN_PROMOTION_MOTOR;
-      break;
-    case GAME_PAWN_PROMOTION_MOTOR:
+  } else if (game_state == GAME_PAWN_PROMOTION_MOTOR) {
       // Motors moving pieces for pawn promotion
 
       // Check if there's a valid piece in the graveyard to be used for promotion
@@ -326,34 +356,29 @@ void loop()
 
       // TODO: now we skip this state
       game_state = GAME_END_TURN;
-      break;
-    case GAME_END_TURN:
+  } else if (game_state == GAME_END_TURN) {
       // End a turn - switch player
       player_turn = !player_turn;
       game_state = GAME_BEGIN_TURN;
-      break;  
-    case GAME_OVER_WHITE_WIN:
+  } else if (game_state == GAME_OVER_WHITE_WIN) {
       // White wins
 
       // TODO: some sort of display, and reset the game
       Serial.println("White wins!");
       game_state = GAME_RESET;  
-      break;  
-    case GAME_OVER_BLACK_WIN:
+  } else if (game_state == GAME_OVER_BLACK_WIN) {
       // Black wins
 
       // TODO: some sort of display, and reset the game
       Serial.println("Black wins!");
       game_state = GAME_RESET;
-      break;  
-    case GAME_OVER_DRAW:
+  } else if (game_state == GAME_OVER_DRAW) {
       // Draw
 
       // TODO: some sort of display, and reset the game
       Serial.println("Draw!");
       game_state = GAME_RESET;
-      break;
-    case GAME_RESET:
+  } else if (game_state == GAME_RESET) {
       // Reset the game
 
       // First, move the pieces back to the initial position
@@ -363,11 +388,5 @@ void loop()
       delete p_board;
       // Reset game state
       game_state = GAME_POWER_ON;
-      break;
   }
-  Serial.print("Current State: ");
-  Serial.println(game_state);
-  Serial.print("Free memory: ");
-  Serial.println(freeMemory());
-  delay(1000);
 }
