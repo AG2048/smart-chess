@@ -386,24 +386,6 @@ void loop()
         return;
       }
 
-      // // IF WE ARE USING SERIAL INPUT
-      // Serial.print("Serial available: ");
-      // Serial.println(Serial.available());
-      // while (Serial.available() == 0) {
-      //   // Wait for input
-      //   // Serial.println("Waiting for input");
-      // }
-      // selected_x = Serial.read();
-      // while (Serial.available() == 0) {
-      //   // Wait for input
-      //   // Serial.println("Waiting for input");
-      // }
-      // selected_y = Serial.read();
-
-      // // Convert to int8_t
-      // selected_x -= '0';
-      // selected_y -= '0';
-
       selected_x = joystick_x[player_turn];
       selected_y = joystick_y[player_turn];
 
@@ -441,22 +423,6 @@ void loop()
       } else {
         return;
       }
-
-      // // TODO: replace with button inputs (THIS CODE IS FOR SERIAL INPUT)
-      // while (Serial.available() == 0) {
-      //   // Wait for input
-      //   // Serial.println("Waiting for input_state5_input1");
-      // }
-      // destination_x = Serial.read();
-      // while (Serial.available() == 0) {
-      //   // Wait for input
-      //   // Serial.println("Waiting for input_state5_input2");
-      // }
-      // destination_y = Serial.read();
-
-      // // Convert to int8_t
-      // destination_x -= '0';
-      // destination_y -= '0';
 
       destination_x = joystick_x[player_turn];
       destination_y = joystick_y[player_turn];
@@ -533,14 +499,6 @@ void loop()
       } else {
         return;
       }
-
-      // // TODO: replace with button inputs (THIS CODE IS FOR SERIAL INPUT)
-      // while (Serial.available() == 0) {
-      //   // Wait for input
-      //   // Serial.println("Waiting for input");
-      // }
-      // promotion_type = Serial.read();
-      // promotion_type -= '0';
 
       promotion_type = promotion_joystick_selection;
 
