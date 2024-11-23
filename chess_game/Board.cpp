@@ -2,6 +2,49 @@
 #include "Piece.h"
 #include "MemoryFree.h"
 
+void update_three_fold_repetition_vector() {
+    // Check over the three_fold_repetition_vector to see if the current board state is already in the vector, if so, its count++
+    // If not, it adds the current board state to the vector with count 1
+
+    // Making the sub-vector for the current board
+    // Sub-vector: std::vector<std::pair<location, piece_type>
+
+    std::vector<std::pair<int8_t, int8_t>> sub_vector;
+
+    for (int8_t i = 0; i < 8; i++) {
+      for (int8_t j = 0; j < 8; j++) {
+        if (pieces[i][j].get_type() != EMPTY) { // If empty, not tracking it
+          if (pieces[i][j].get_color() == 0) {
+            sub_vector.push_back(std::make_pair(i*8 + j, pieces[i][j].get_type()));
+          } else { 
+            sub_vector.push_back(std::make_pair(i*8 + j, pieces[i][j].get_type()+6));
+            // Because for white, pieces are 1-6; for black, starts at 7
+          }
+        }
+      }
+    }
+    
+    // Traverse the three_fold_rep vector and check if the sub-vector is present
+    for (int8_t i = 0; i < three_fold_repetition_vector.size(); i++) {
+      // TODO: traverse vector instead of using ==
+      if (three_fold_repetition_vector[i] == sub_vector) {  
+        three_fold_repetition_vector[i].second++;
+        return;
+      }
+    }
+    // Didn't find the sub-vector in the three_fold vector. Add it.
+    three_fold_repetition_vector.push_back(std::make_pair(sub_vector, 1));
+}
+
+bool is_three_fold_repetition() {
+  // Traverse the three_fold vector; if any board in there has appeared three times, return true.
+  for (int8_t i = 0; i < three_fold_repetition_vector.size(); i++) {
+    if (three_fold_repetition_vector[i].second == 3) return true;
+  }
+  return false;
+}
+
+
 // Function that moves a piece
 // We are given the original x, original y, new x, new y, if capture happens, a "capture x" and "capture y"
 // In the end of the function, each individual piece's x and y should be updated
@@ -18,7 +61,6 @@ void Board::move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t ca
   */
   // Increment the move counter
   draw_move_counter++;
-  // TODO: remove the 3-fold repetition check - flush the vector
 
   // By default no en passant square
   en_passant_square_x = -1;
@@ -26,6 +68,8 @@ void Board::move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t ca
   // PAWN:
   if (pieces[y][x]->get_type() == PAWN) {
     draw_move_counter = 0; // Reset the draw move counter
+    // Draw move counter has been reset; we should also flush three_fold_repetition_vector
+    three_fold_repetition_vector.clear();
 
     // If the pawn moves two squares, it can be taken en passant
     if (abs(new_y - y) == 2) {
@@ -120,7 +164,7 @@ void Board::move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t ca
   if (capture_x != -1) {
     pieces[capture_y][capture_x]->type = EMPTY;
     draw_move_counter = 0; // Reset the draw move counter
-    // TODO: flush the 3-fold repetition vector
+    three_fold_repetition_vector.clear(); // Flush the 3-fold repetition vector
   }
   // New x, new y
   // Set coordinate first, then exchange the point8_ters
@@ -133,7 +177,7 @@ void Board::move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t ca
   pieces[new_y][new_x] = pieces[y][x];
   pieces[y][x] = temp;
 
-  // TODO: if current board == anything stored in 3-fold repetition, increment count by 1
+  update_three_fold_repetition_vector(); // Right spot?
 }
 
 bool Board::under_check(bool color) {
@@ -222,8 +266,9 @@ Board Board::copy_board() {
   new_board.black_king_y = black_king_y;
   new_board.white_king_x = white_king_x;
   new_board.white_king_y = white_king_y;
-
-  // TODO: also copy the 3-fold repetition vector
+  // Copy the 3-fold repetition vector 
+  new_board.three_fold_repetition_vector = three_fold_repetition_vector;
+  
   return new_board;
 }
 
@@ -382,6 +427,7 @@ Board::Board() {
   black_king_x = 4;
   black_king_y = 7;
   // TODO: add 3-fold repetition, and add initial board to the list, with count 1
+  update_three_fold_repetition_vector();
 }
 
 Board::~Board() {
