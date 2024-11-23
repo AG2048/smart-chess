@@ -274,14 +274,10 @@ Board Board::copy_board() {
 
 // when checking if a move is illegal due to checks, make sure to consider the path of king's castling
 void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> &moves) {
-  // Serial.println("I'm NOW CHECKING!!!!!!!!!!!!!!");
-  // Serial.print("Move Size: ");
-  // Serial.println(moves.size());
   bool piece_color = pieces[y][x]->get_color();
 
   // If the piece is a king, check if the king is under check after the move
   if (pieces[y][x]->get_type() == KING) {
-    // Serial.println("King");
     // If king is under check, remove castling moves
     if (under_check(piece_color)){
       // Find move that changes king's position by 2
@@ -299,11 +295,8 @@ void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std
       if (abs(moves[i].first.first - x) == 1 && moves[i].first.second == y) {
         // Now, copy new board, and check if king is under check after ONE move to left / right. Remove if it is, and remove subsequent castling moves
         Board new_board = copy_board();
-        // Serial.println("Making new board for king");
         new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
-        // Serial.println("Moved king");
         if (new_board.under_check(piece_color)) {
-          // Serial.println("Under check after king move");
           // Now, remove castling moves
           for (int8_t j = 0; j < moves.size(); j++) {
             if ((moves[j].first.first - x) == 2 * (moves[i].first.first - x)) {
@@ -321,33 +314,13 @@ void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std
 
   // Loop through all possible moves
   for (int8_t i = 0; i < moves.size(); i++) {
-    // Serial.println("Before general piece");
-    // Serial.print("Free memory: ");
-    // Serial.println(freeMemory());
-    // Copy the board
-    // Serial.print("COPYING BOARD - ");
-    // Serial.print(x);
-    // Serial.println(y);
     Board new_board = copy_board();
-    // Serial.println("Making new board for general piece");
-    // Serial.print("Free memory: ");
-    // Serial.println(freeMemory());
 
     // Move the piece
     new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
     
-    // Serial.println("Moved general piece");
     // Check if the king is under check
     if (new_board.under_check(piece_color)) {
-      // Serial.println("Under check after general piece move");
-      // Serial.print("Move is from ");
-      // Serial.print(x);
-      // Serial.print(", ");
-      // Serial.print(y);
-      // Serial.print(" to ");
-      // Serial.print(moves[i].first.first);
-      // Serial.print(", ");
-      // Serial.println(moves[i].first.second);
       // If the king is under check, remove the move
       moves.erase(moves.begin() + i);
       i--;
