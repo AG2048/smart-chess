@@ -53,6 +53,121 @@ int8_t promotion_type; // 0 for queen, 1 for rook, 2 for bishop, 3 for knight
 Board *p_board;
 std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> all_moves[8][8];
 
+// JOYSTICK CONTROL
+const int[2] JOYSTICK_POS_X_PIN = {2, 2};
+const int[2] JOYSTICK_POS_Y_PIN = {3, 3};
+const int[2] JOYSTICK_NEG_X_PIN = {4, 4};
+const int[2] JOYSTICK_NEG_Y_PIN = {5, 5};
+const int[2] JOYSTICK_BUTTON_PIN = {6, 6};
+// User Joystick Location
+int8_t [2] joystick_x;
+int8_t [2] joystick_y;
+bool [2] confirm_button_pressed;
+// Previous joystick input -- for edge detection
+bool [2] prev_confirm_button_pressed;
+bool [2] prev_joystick_neutral;
+// Promotion Joystick Selection
+int8_t promotion_joystick_selection; // only happening on one player's turn, so no need for 2
+
+void move_user_joystick_x_y(bool color) {
+  // Get input from the joystick
+  // color: 0 for white, 1 for black
+  // Update the joystick coordinates and confirm button pressed flag
+  // Result: <color>_joystick_<x,y> ++ or -- (mod 8), <color>_confirm_button_pressed = true if confirm button is pressed from neutral state
+
+  // Read the joystick values -- low is pressed, high is not pressed
+  int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
+  int y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
+  int neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
+  int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
+  int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+
+  // Update the joystick values if joystick WAS neutral and now has a value. Update neutral flag.
+  // Note active low for button (pressed is low 0)
+  if (prev_joystick_neutral[color]){
+    // If previous joystick WAS neutral
+    if (x_val == 0) {
+      joystick_x[color]++;
+      prev_joystick_neutral[color] = false;
+    } else if (neg_x_val == 0) {
+      joystick_x[color]--;
+      prev_joystick_neutral[color] = false;
+    } else if (y_val == 0) {
+      joystick_y[color]++;
+      prev_joystick_neutral[color] = false;
+    } else if (neg_y_val == 0) {
+      joystick_y[color]--;
+      prev_joystick_neutral[color] = false;
+    }
+    // joystick x and y loop from 0 to 7
+    joystick_x[color] = (joystick_x[color] + 8) % 8;
+    joystick_y[color] = (joystick_y[color] + 8) % 8;
+    // if no joystick movement, joystick_neutral stays true
+  } else {
+    // If previous joystick was NOT neutral
+    if (x_val == 1 && neg_x_val == 1 && y_val == 1 && neg_y_val == 1) {
+      prev_joystick_neutral[color] = true;
+    }
+  }
+
+  // Update the confirm button pressed flag
+  // Note active low for button (pressed is low 0)
+  // Flag is true if button was pressed from previous state
+  if (button_val == 0 && prev_confirm_button_pressed[color] == 0) {
+    confirm_button_pressed[color] = true;
+  } else {
+    confirm_button_pressed[color] = false;
+  }
+
+  // Update the previous confirm button pressed flag (true if button was pressed, but button is active low)
+  prev_confirm_button_pressed[color] = !button_val; // active low
+}
+
+void move_user_joystick_promotion(bool color) {
+  // Get input from joystick, but the promotion_joystick_selection just loops from 0 to 3
+  // color: 0 for white, 1 for black
+  // Update the promotion_joystick_selection, and confirm button pressed flag
+  // Result: promotion_joystick_selection ++ or --, confirm_button_pressed = true if confirm button is pressed from neutral state
+
+  // Read the joystick values -- low is pressed, high is not pressed
+  int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
+  int y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
+  int neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
+  int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
+  int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+
+  // Update the joystick values if joystick WAS neutral and now has a value. Update neutral flag.
+  // Note active low for button (pressed is low 0)
+  if (prev_joystick_neutral[color]){
+    // If previous joystick WAS neutral
+    if (x_val == 0) {
+      promotion_joystick_selection = (promotion_joystick_selection + 1) % 4;
+      prev_joystick_neutral[color] = false;
+    } else if (neg_x_val == 0) {
+      promotion_joystick_selection = (promotion_joystick_selection - 1) % 4;
+      prev_joystick_neutral[color] = false;
+    }
+    // if no joystick movement, joystick_neutral stays true
+  } else {
+    // If previous joystick was NOT neutral
+    if (x_val == 1 && neg_x_val == 1 && y_val == 1 && neg_y_val == 1) {
+      prev_joystick_neutral[color] = true;
+    }
+  }
+
+  // Update the confirm button pressed flag
+  // Note active low for button (pressed is low 0)
+  // Flag is true if button was pressed from previous state
+  if (button_val == 0 && prev_confirm_button_pressed[color] == 0) {
+    confirm_button_pressed[color] = true;
+  } else {
+    confirm_button_pressed[color] = false;
+  }
+
+  // Update the previous confirm button pressed flag (true if button was pressed, but button is active low)
+  prev_confirm_button_pressed[color] = !button_val; // active low
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -88,12 +203,28 @@ void loop()
       player_turn = 0; // White to move first
       current_player_under_check = 0;
       sources_of_check.clear();
-      selected_x = -1;
-      selected_y = -1;
-      destination_x = -1;
-      destination_y = -1;
-      capture_x = -1;
-      capture_y = -1;
+      selected_x = 0;
+      selected_y = 0;
+      destination_x = 0;
+      destination_y = 0;
+      capture_x = 0;
+      capture_y = 0;
+      
+      // Joystick location
+      joystick_x[0] = 0;
+      joystick_y[0] = 0;
+      joystick_x[1] = 0;
+      joystick_y[1] = 0;
+      confirm_button_pressed[0] = false;
+      confirm_button_pressed[1] = false;
+      prev_confirm_button_pressed[0] = true; // Assume the button is pressed before the game starts, so force user to release the button
+      prev_confirm_button_pressed[1] = true;
+      prev_joystick_neutral[0] = true;
+      prev_joystick_neutral[1] = true;
+      
+      // Promotion joystick selection
+      promotion_joystick_selection = 0;
+
       // TODO: initialize graveyard
       // TODO: initialize promoted pawns (with temp pieces) vector
       // TODO: motor calibration can be done here
@@ -124,6 +255,10 @@ void loop()
 
       // Check if 3-fold repetition is reached
       // TODO: implement this
+      if (p_board->is_three_fold_repetition()) {
+        game_state = GAME_OVER_DRAW;
+        return;
+      }
 
       // Generate all possible moves for the player, and remove illegal moves
       bool no_moves = true;
@@ -173,23 +308,39 @@ void loop()
       // If there is input, check if it's a valid piece, if not, ignore
       // If it's a valid piece, indicate the piece is selected, and move to GAME_WAIT_FOR_MOVE
       
-      // TODO: replace with button inputs
-      Serial.print("Serial available: ");
-      Serial.println(Serial.available());
-      while (Serial.available() == 0) {
-        // Wait for input
-        // Serial.println("Waiting for input");
-      }
-      selected_x = Serial.read();
-      while (Serial.available() == 0) {
-        // Wait for input
-        // Serial.println("Waiting for input");
-      }
-      selected_y = Serial.read();
+      // LED display
+      // HERE
 
-      // Convert to int8_t
-      selected_x -= '0';
-      selected_y -= '0';
+      // Get button input, update joystick location
+      move_user_joystick_x_y(player_turn);
+
+      // Don't move until the confirm button is pressed
+      if (confirm_button_pressed[player_turn]) {
+        confirm_button_pressed[player_turn] = false;
+      } else {
+        return;
+      }
+
+      // // IF WE ARE USING SERIAL INPUT
+      // Serial.print("Serial available: ");
+      // Serial.println(Serial.available());
+      // while (Serial.available() == 0) {
+      //   // Wait for input
+      //   // Serial.println("Waiting for input");
+      // }
+      // selected_x = Serial.read();
+      // while (Serial.available() == 0) {
+      //   // Wait for input
+      //   // Serial.println("Waiting for input");
+      // }
+      // selected_y = Serial.read();
+
+      // // Convert to int8_t
+      // selected_x -= '0';
+      // selected_y -= '0';
+
+      selectex_x = joystick_x[player_turn];
+      selected_y = joystick_y[player_turn];
 
       // Check for valid input
       if (selected_x < 0 || selected_x > 7 || selected_y < 0 || selected_y > 7) {
@@ -237,22 +388,37 @@ void loop()
         Serial.println();
       }
 
-      // TODO: replace with button inputs
-      while (Serial.available() == 0) {
-        // Wait for input
-        // Serial.println("Waiting for input_state5_input1");
-      }
-      destination_x = Serial.read();
-      while (Serial.available() == 0) {
-        // Wait for input
-        // Serial.println("Waiting for input_state5_input2");
-      }
-      destination_y = Serial.read();
+      // LED display
+      // HERE
 
-      // Convert to int8_t
-      destination_x -= '0';
-      destination_y -= '0';
-      
+      // Get button input, update joystick location
+      move_user_joystick_x_y(player_turn);
+
+      // Don't move until the confirm button is pressed
+      if (confirm_button_pressed[player_turn]) {
+        confirm_button_pressed[player_turn] = false;
+      } else {
+        return;
+      }
+
+      // // TODO: replace with button inputs (THIS CODE IS FOR SERIAL INPUT)
+      // while (Serial.available() == 0) {
+      //   // Wait for input
+      //   // Serial.println("Waiting for input_state5_input1");
+      // }
+      // destination_x = Serial.read();
+      // while (Serial.available() == 0) {
+      //   // Wait for input
+      //   // Serial.println("Waiting for input_state5_input2");
+      // }
+      // destination_y = Serial.read();
+
+      // // Convert to int8_t
+      // destination_x -= '0';
+      // destination_y -= '0';
+
+      destination_x = joystick_x[player_turn];
+      destination_y = joystick_y[player_turn];
       
       // Check for valid input
       if (destination_x < 0 || destination_x > 7 || destination_y < 0 || destination_y > 7) {
@@ -314,13 +480,28 @@ void loop()
       // If there is input, check if it's a valid promotion piece, if not, ignore
       // If it's a valid promotion piece, indicate the piece is selected, and move to GAME_PAWN_PROMOTION_MOTOR
       
-      // TODO: replace with button inputs
-      while (Serial.available() == 0) {
-        // Wait for input
-        // Serial.println("Waiting for input");
+      // LED display
+      // HERE
+
+      // Get button input, update joystick location (Special for pawn promotion, use promotion_joystick_selection)
+      move_user_joystick_promotion(player_turn);
+
+      // Don't move until the confirm button is pressed
+      if (confirm_button_pressed[player_turn]) {
+        confirm_button_pressed[player_turn] = false;
+      } else {
+        return;
       }
-      promotion_type = Serial.read();
-      promotion_type -= '0';
+
+      // // TODO: replace with button inputs (THIS CODE IS FOR SERIAL INPUT)
+      // while (Serial.available() == 0) {
+      //   // Wait for input
+      //   // Serial.println("Waiting for input");
+      // }
+      // promotion_type = Serial.read();
+      // promotion_type -= '0';
+
+      promotion_type = promotion_joystick_selection;
 
       // Check for valid input
       if (promotion_type < 0 || promotion_type > 3) {
