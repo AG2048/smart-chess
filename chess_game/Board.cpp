@@ -13,11 +13,11 @@ void Board::update_three_fold_repetition_vector() {
 
     for (int8_t i = 0; i < 8; i++) {
       for (int8_t j = 0; j < 8; j++) {
-        if (pieces[i][j].get_type() != EMPTY) { // If empty, not tracking it
-          if (pieces[i][j].get_color() == 0) {
-            sub_vector.push_back(std::make_pair(i*8 + j, pieces[i][j].get_type()));
+        if (pieces[i][j]->get_type() != EMPTY) { // If empty, not tracking it
+          if (pieces[i][j]->get_color() == 0) {
+            sub_vector.push_back(std::make_pair(i*8 + j, pieces[i][j]->get_type()));
           } else { 
-            sub_vector.push_back(std::make_pair(i*8 + j, pieces[i][j].get_type()+6));
+            sub_vector.push_back(std::make_pair(i*8 + j, pieces[i][j]->get_type()+6));
             // Because for white, pieces are 1-6; for black, starts at 7
           }
         }
