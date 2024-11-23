@@ -129,9 +129,9 @@ void move_user_joystick_x_y(bool color) {
   if (button_val == 0 && prev_confirm_button_pressed[color] == 0) {
     confirm_button_pressed[color] = true;
   } else {
-    confirm_button_pressed[color] = false;
+    confirm_button_pressed[color] = false; // Note: this also automatically reset the confirm_button_pressed flag
+    // If your state machine requires multiple cycles to "load in" the confirm button press, you need to remove this line from this function
   }
-
   // Update the previous confirm button pressed flag (true if button was pressed, but button is active low)
   prev_confirm_button_pressed[color] = !button_val; // active low
 }
@@ -285,10 +285,10 @@ void loop()
       capture_y = 0;
       
       // Joystick location
-      joystick_x[0] = 0;
+      joystick_x[0] = 4;
       joystick_y[0] = 0;
-      joystick_x[1] = 0;
-      joystick_y[1] = 0;
+      joystick_x[1] = 4;
+      joystick_y[1] = 7;
       confirm_button_pressed[0] = false;
       confirm_button_pressed[1] = false;
       prev_confirm_button_pressed[0] = true; // Assume the button is pressed before the game starts, so force user to release the button
@@ -374,7 +374,8 @@ void loop()
       // If it's a valid piece, indicate the piece is selected, and move to GAME_WAIT_FOR_MOVE
       
       // LED display
-      // HERE
+      // HERE, highlight the "prevoius move" that just happened by highlighting pieces... (orange)
+      // Also display the cursor location - which is joystick_x[player_turn], joystick_y[player_turn] (green - overwrites orange)
 
       // Get button input, update joystick location
       move_user_joystick_x_y(player_turn);
@@ -412,7 +413,10 @@ void loop()
       // If it's another of your own piece, replace selected_x, selected_y with the new piece, stay in this state
       // If it's a valid destination, move the piece, and move to GAME_MOVE_MOTOR
 
-      // LED display CODE GOES HERE
+      // LED display
+      // HERE, highlight the "prevoius move" that just happened by highlighting pieces...
+      // Also display the cursor location - which is joystick_x[player_turn], joystick_y[player_turn] (green - overwrites orange)
+      // Also highlight the "selected piece" with a different color (selected_x, selected_y) (blue) overwrites green
 
       // Get button input, update joystick location
       move_user_joystick_x_y(player_turn);
@@ -463,6 +467,8 @@ void loop()
   } else if (game_state == GAME_MOVE_MOTOR) {
       // Motors moving pieces given the selected piece and destination, and capture square - capture square, if any, should be moved to the graveyard
 
+      // LED: just display the new "move" that just happened - which is seleced_x, selected_y, destination_x, destination_y, (capture_x, capture_y -- don't need to display this, but ok if you want to)
+
       // Important: If captured square contains a piece a current pawn is promoted to, and is using temp piece, replace the temp piece with the promoted piece
       // Then move temp piece to the graveyard
       // Update the graveyard memory and the promoted pawns using temp pieces vector.
@@ -488,7 +494,8 @@ void loop()
       // If it's a valid promotion piece, indicate the piece is selected, and move to GAME_PAWN_PROMOTION_MOTOR
       
       // LED display
-      // HERE
+      // HERE (Display the promotion_joystick_selection, which has value 0,1,2,3) (separate LED maybe at the edge of board? - the "promotion" indicator squares are basically same as other squares, but with a "thicker" top custom shape that does not allow a "queen-shaped light" to go thru, so when this light is on... queen-shaped black line or queen-shaped light goes thru)
+      // Also display the "move" that just happened by highlight pieces... (orange colour)
 
       // Get button input, update joystick location (Special for pawn promotion, use promotion_joystick_selection)
       move_user_joystick_promotion(player_turn);
@@ -528,6 +535,8 @@ void loop()
   } else if (game_state == GAME_PAWN_PROMOTION_MOTOR) {
       // Motors moving pieces for pawn promotion
 
+      // LED: keep the "promotion light" on, but with a different color (maybe purple?)
+
       // Check if there's a valid piece in the graveyard to be used for promotion
 
       // If there is one, use that piece for promotion, and update graveyard memory
@@ -539,6 +548,9 @@ void loop()
   } else if (game_state == GAME_END_TURN) {
       // End a turn - switch player
       player_turn = !player_turn;
+
+      // Turn off promotion LED light if that was on. (if you have a separate LED for promotion indicator)
+
       game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_OVER_WHITE_WIN) {
       // White wins
