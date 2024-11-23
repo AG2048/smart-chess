@@ -26,6 +26,9 @@ enum GameState {
 // Game state
 GameState game_state;
 
+// Display in serial monitor
+const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P', 'k', 'q', 'b', 'n', 'r', 'p'};
+
 // 0 for white to move, 1 for black to move
 bool player_turn;
 
@@ -54,18 +57,18 @@ Board *p_board;
 std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> all_moves[8][8];
 
 // JOYSTICK CONTROL
-const int[2] JOYSTICK_POS_X_PIN = {2, 2};
-const int[2] JOYSTICK_POS_Y_PIN = {3, 3};
-const int[2] JOYSTICK_NEG_X_PIN = {4, 4};
-const int[2] JOYSTICK_NEG_Y_PIN = {5, 5};
-const int[2] JOYSTICK_BUTTON_PIN = {6, 6};
+const int JOYSTICK_POS_X_PIN[] = {2, 2};
+const int JOYSTICK_POS_Y_PIN[] = {3, 3};
+const int JOYSTICK_NEG_X_PIN[] = {4, 4};
+const int JOYSTICK_NEG_Y_PIN[] = {5, 5};
+const int JOYSTICK_BUTTON_PIN[] = {6, 6};
 // User Joystick Location
-int8_t [2] joystick_x;
-int8_t [2] joystick_y;
-bool [2] confirm_button_pressed;
+int8_t joystick_x[2];
+int8_t joystick_y[2];
+bool confirm_button_pressed[2];
 // Previous joystick input -- for edge detection
-bool [2] prev_confirm_button_pressed;
-bool [2] prev_joystick_neutral;
+bool prev_confirm_button_pressed[2];
+bool prev_joystick_neutral[2];
 // Promotion Joystick Selection
 int8_t promotion_joystick_selection; // only happening on one player's turn, so no need for 2
 
@@ -86,23 +89,33 @@ void move_user_joystick_x_y(bool color) {
   // Note active low for button (pressed is low 0)
   if (prev_joystick_neutral[color]){
     // If previous joystick WAS neutral
+    bool change_happened = false; // For displaying, only serial printif change happened.
     if (x_val == 0) {
       joystick_x[color]++;
       prev_joystick_neutral[color] = false;
+      change_happened = true;
     } else if (neg_x_val == 0) {
       joystick_x[color]--;
       prev_joystick_neutral[color] = false;
+      change_happened = true;
     } else if (y_val == 0) {
       joystick_y[color]++;
       prev_joystick_neutral[color] = false;
+      change_happened = true;
     } else if (neg_y_val == 0) {
       joystick_y[color]--;
       prev_joystick_neutral[color] = false;
+      change_happened = true;
     }
     // joystick x and y loop from 0 to 7
     joystick_x[color] = (joystick_x[color] + 8) % 8;
     joystick_y[color] = (joystick_y[color] + 8) % 8;
     // if no joystick movement, joystick_neutral stays true
+
+    // TEMP DISPLAY CODE:
+    if (change_happened) {
+      serial_display_board_and_selection();
+    }
   } else {
     // If previous joystick was NOT neutral
     if (x_val == 1 && neg_x_val == 1 && y_val == 1 && neg_y_val == 1) {
@@ -168,6 +181,55 @@ void move_user_joystick_promotion(bool color) {
   prev_confirm_button_pressed[color] = !button_val; // active low
 }
 
+void serial_display_board_and_selection(){
+  Serial.println("---------------------------------------------------");
+  for (int row = 7; row >=0; row--){
+    for (int col = 0; col < 8; col++)
+    { 
+      bool showed = false;
+      for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
+        if (all_moves[selected_y][selected_x][i].second.first == col && all_moves[selected_y][selected_x][i].second.second == row) {
+          Serial.print("X");
+          Serial.print("\t");
+          showed = true;
+          break;
+        }
+        if (all_moves[selected_y][selected_x][i].first.first == col && all_moves[selected_y][selected_x][i].first.second == row) {
+          Serial.print("O");
+          Serial.print("\t");
+          showed = true;
+          break;
+        }
+      }
+      if (showed) {
+        continue;
+      }
+      if (p_board->pieces[row][col]->get_type() == EMPTY) {
+        Serial.print(" ");
+      } else {
+        // Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() + 6*p_board->pieces[row][col]->get_color()];
+        Serial.print(CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() + 6*p_board->pieces[row][col]->get_color()]);
+      }
+      Serial.print("\t");
+    }
+    Serial.println();
+    if (joystick_y[player_turn] != row) {
+      Serial.println();
+    } else {
+      // print "^" below the row
+      for (int i = 0; i < 8; i++) {
+        if (joystick_x[player_turn] == i) {
+          Serial.print("^");
+        } else {
+          Serial.print(" ");
+        }
+        Serial.print("\t");
+      }
+      Serial.println();
+    }
+  }
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -178,15 +240,27 @@ void setup()
 
 void loop()
 {
-  Serial.print("Current State: ");
-  Serial.println(game_state);
-  Serial.print("Free memory: ");
-  Serial.println(freeMemory());
-  delay(100);
+  // Serial.print("Current State: ");
+  // Serial.println(game_state);
+  // Serial.print("Free memory: ");
+  // Serial.println(freeMemory());
+  delay(50);
 
   // State machine, during each loop, we are in a certain state
   if (game_state == GAME_POWER_ON) {
-      // Power on the board, motors calibrate
+      // Power on the board, motors calibrate, initialize pins
+
+      // Pins initialization
+      pinMode(JOYSTICK_POS_X_PIN[0], INPUT_PULLUP);
+      pinMode(JOYSTICK_POS_Y_PIN[0], INPUT_PULLUP);
+      pinMode(JOYSTICK_NEG_X_PIN[0], INPUT_PULLUP);
+      pinMode(JOYSTICK_NEG_Y_PIN[0], INPUT_PULLUP);
+      pinMode(JOYSTICK_BUTTON_PIN[0], INPUT_PULLUP);
+      pinMode(JOYSTICK_POS_X_PIN[1], INPUT_PULLUP);
+      pinMode(JOYSTICK_POS_Y_PIN[1], INPUT_PULLUP);
+      pinMode(JOYSTICK_NEG_X_PIN[1], INPUT_PULLUP);
+      pinMode(JOYSTICK_NEG_Y_PIN[1], INPUT_PULLUP);
+      pinMode(JOYSTICK_BUTTON_PIN[1], INPUT_PULLUP);
       // TODO
       game_state = GAME_IDLE;
   } else if (game_state == GAME_IDLE) {
@@ -233,20 +307,8 @@ void loop()
       // Begin a turn - generate moves, remove illegal moves, check for checkmate/draw
 
       // TODO: this is temporary, just to see the board state
-      for (int row = 7; row >=0; row--)
-      {
-        for (int col = 0; col < 8; col++)
-        { 
-          if (p_board->pieces[row][col]->get_type() == EMPTY) {
-            Serial.print(" ");
-          } else {
-            Serial.print(p_board->pieces[row][col]->type);
-          }
-          Serial.print("\t");
-        }
-        Serial.println();
-      }
-      
+      serial_display_board_and_selection();
+
       // Check if 50 move rule is reached
       if (p_board->draw_move_counter >= 50) {
         game_state = GAME_OVER_DRAW;
@@ -300,6 +362,9 @@ void loop()
         return;
       }
 
+      // TEMP DISPLAY CODE:
+      serial_display_board_and_selection();
+
       // Move to the next state
       game_state = GAME_WAIT_FOR_SELECT;
     } else if (game_state == GAME_WAIT_FOR_SELECT) {
@@ -339,7 +404,7 @@ void loop()
       // selected_x -= '0';
       // selected_y -= '0';
 
-      selectex_x = joystick_x[player_turn];
+      selected_x = joystick_x[player_turn];
       selected_y = joystick_y[player_turn];
 
       // Check for valid input
@@ -352,6 +417,10 @@ void loop()
         return;
       }
 
+      // TEMP DISPLAY CODE:
+      serial_display_board_and_selection();
+
+      // PROCEED TO NEXT STATE
       game_state = GAME_WAIT_FOR_MOVE;
     } else if (game_state == GAME_WAIT_FOR_MOVE) {
       // Joystick moving, after pressing select button on valid destination
@@ -361,35 +430,7 @@ void loop()
       // If it's another of your own piece, replace selected_x, selected_y with the new piece, stay in this state
       // If it's a valid destination, move the piece, and move to GAME_MOVE_MOTOR
 
-      // TODO: this is temporary, just to see the board state
-      for (int row = 7; row >=0; row--)
-      {
-        for (int col = 0; col < 8; col++)
-        { 
-          bool showed = false;
-          for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
-            if (all_moves[selected_y][selected_x][i].first.first == col && all_moves[selected_y][selected_x][i].first.second == row) {
-              Serial.print("X");
-              Serial.print("\t");
-              showed = true;
-              break;
-            }
-          }
-          if (showed) {
-            continue;
-          }
-          if (p_board->pieces[row][col]->get_type() == EMPTY) {
-            Serial.print(" ");
-          } else {
-            Serial.print(p_board->pieces[row][col]->type);
-          }
-          Serial.print("\t");
-        }
-        Serial.println();
-      }
-
-      // LED display
-      // HERE
+      // LED display CODE GOES HERE
 
       // Get button input, update joystick location
       move_user_joystick_x_y(player_turn);
