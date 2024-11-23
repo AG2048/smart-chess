@@ -2,7 +2,7 @@
 #include "Piece.h"
 #include "MemoryFree.h"
 
-void update_three_fold_repetition_vector() {
+void Board::update_three_fold_repetition_vector() {
     // Check over the three_fold_repetition_vector to see if the current board state is already in the vector, if so, its count++
     // If not, it adds the current board state to the vector with count 1
 
@@ -26,17 +26,17 @@ void update_three_fold_repetition_vector() {
     
     // Traverse the three_fold_rep vector and check if the sub-vector is present
     for (int8_t i = 0; i < three_fold_repetition_vector.size(); i++) {
-      // TODO: traverse vector instead of using ==
-      if (three_fold_repetition_vector[i] == sub_vector) {  
+      if (three_fold_repetition_vector[i].first == sub_vector) {
+        // Found the sub-vector in the three_fold vector. Increment the count.
         three_fold_repetition_vector[i].second++;
-        return;
+        break;
       }
     }
     // Didn't find the sub-vector in the three_fold vector. Add it.
     three_fold_repetition_vector.push_back(std::make_pair(sub_vector, 1));
 }
 
-bool is_three_fold_repetition() {
+bool Board::is_three_fold_repetition() {
   // Traverse the three_fold vector; if any board in there has appeared three times, return true.
   for (int8_t i = 0; i < three_fold_repetition_vector.size(); i++) {
     if (three_fold_repetition_vector[i].second == 3) return true;
@@ -177,7 +177,7 @@ void Board::move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t ca
   pieces[new_y][new_x] = pieces[y][x];
   pieces[y][x] = temp;
 
-  update_three_fold_repetition_vector(); // Right spot?
+  update_three_fold_repetition_vector(); // Update the three_fold_repetition_vector given the new board state
 }
 
 bool Board::under_check(bool color) {
