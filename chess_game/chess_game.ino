@@ -1,33 +1,38 @@
 // Include
 #include "ArduinoSTL.h"
 #include "Board.h"
+#include "MemoryFree.h"
 #include "Piece.h"
 #include "PieceType.h"
-#include "MemoryFree.h"
 
 enum GameState {
-  GAME_POWER_ON,  // Power on the board, motors calibrate
-  GAME_IDLE,  // No game is being played yet, waiting for a game to start
+  GAME_POWER_ON,    // Power on the board, motors calibrate
+  GAME_IDLE,        // No game is being played yet, waiting for a game to start
   GAME_INITIALIZE,  // Game started, initialize the board
-  GAME_BEGIN_TURN,  // Begin a turn - generate moves, remove illegal moves, check for checkmate/draw
-  GAME_WAIT_FOR_SELECT,  // Joystick moving, before pressing select button on valid piece
-  GAME_WAIT_FOR_MOVE,  // Joystick moving, after pressing select button on valid destination
-  GAME_MOVE_MOTOR,  // Motors moving pieces
-  GAME_END_MOVE,  // Update chess board, see if a pawn can promote
-  GAME_WAIT_FOR_SELECT_PAWN_PROMOTION,  // Joystick moving, before pressing select button on promotion piece
+  GAME_BEGIN_TURN,  // Begin a turn - generate moves, remove illegal moves,
+                    // check for checkmate/draw
+  GAME_WAIT_FOR_SELECT,  // Joystick moving, before pressing select button on
+                         // valid piece
+  GAME_WAIT_FOR_MOVE,  // Joystick moving, after pressing select button on valid
+                       // destination
+  GAME_MOVE_MOTOR,     // Motors moving pieces
+  GAME_END_MOVE,       // Update chess board, see if a pawn can promote
+  GAME_WAIT_FOR_SELECT_PAWN_PROMOTION,  // Joystick moving, before pressing
+                                        // select button on promotion piece
   GAME_PAWN_PROMOTION_MOTOR,  // Motors moving pieces for pawn promotion
-  GAME_END_TURN,  // End a turn - switch player
-  GAME_OVER_WHITE_WIN,  // White wins
-  GAME_OVER_BLACK_WIN,  // Black wins
-  GAME_OVER_DRAW,  // Draw
-  GAME_RESET  // Reset the game
+  GAME_END_TURN,              // End a turn - switch player
+  GAME_OVER_WHITE_WIN,        // White wins
+  GAME_OVER_BLACK_WIN,        // Black wins
+  GAME_OVER_DRAW,             // Draw
+  GAME_RESET                  // Reset the game
 };
 
 // Game state
 GameState game_state;
 
 // Display in serial monitor
-const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P', 'k', 'q', 'b', 'n', 'r', 'p'};
+const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P',
+                                 'k', 'q', 'b', 'n', 'r', 'p'};
 
 // 0 for white to move, 1 for black to move
 bool player_turn;
@@ -35,7 +40,8 @@ bool player_turn;
 // 0 for player is not under check, 1 for player is under check
 bool current_player_under_check;
 
-// Sources of check, if any (x, y coordinates of the piece that is checking the king)
+// Sources of check, if any (x, y coordinates of the piece that is checking the
+// king)
 std::vector<std::pair<int8_t, int8_t>> sources_of_check;
 
 // User selection memory
@@ -47,21 +53,31 @@ int8_t capture_x;
 int8_t capture_y;
 int8_t promotable_pawn_x;
 int8_t promotable_pawn_y;
-int8_t promotion_type; // 0 for queen, 1 for rook, 2 for bishop, 3 for knight
+int8_t promotion_type;  // 0 for queen, 1 for rook, 2 for bishop, 3 for knight
 
-// TODO: initialize a graveyard for pieces. 
-int8_t graveyard[12]; // Graveyard, each for 1 piece type. 0 is queen, 1 is rook, 2 is bishop, 3 is knight, 4 is pawn, next values are same for black. (10 and 11 are for temp pieces, they start at 8 and decrease to 0)
-// TODO: have a vector list of all promoted pawns that are using "temp" promotion pieces
-std::vector<std::pair<int8_t, int8_t>> promoted_pawns_using_temp_pieces; // This records the position of promoted pawns that are using temp pieces
+// TODO: initialize a graveyard for pieces.
+int8_t graveyard[12];  // Graveyard, each for 1 piece type. 0 is queen, 1 is
+                       // rook, 2 is bishop, 3 is knight, 4 is pawn, next values
+                       // are same for black. (10 and 11 are for temp pieces,
+                       // they start at 8 and decrease to 0)
+// TODO: have a vector list of all promoted pawns that are using "temp"
+// promotion pieces
+std::vector<std::pair<int8_t, int8_t>>
+    promoted_pawns_using_temp_pieces;  // This records the position of promoted
+                                       // pawns that are using temp pieces
 
-std::pair<int8_t, int8_t> get_graveyard_coordinate(int8_t piece_type, bool color) {
+std::pair<int8_t, int8_t> get_graveyard_coordinate(int8_t piece_type,
+                                                   bool color) {
   // Get the graveyard coordinate for a piece type
-  // piece_type: 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for pawn, 6 for temp piece
-  // color: 0 for white, 1 for black
-  // This function should be called BEFORE the graveyard is updated (since a value of 0 is used for the first piece of each type)
-  // We treat the white queen moves to coordinate (8,7), rook to (8,6) and (8,5), bishop to (8,4) and (8,3), knight to (8,2) and (8,1), pawn to (9,7 to 9,0)
-  // We treat the black queen moves to coordinate (-1,0), rook to (-1,1) and (-1,2), bishop to (-1,3) and (-1,4), knight to (-1,5) and (-1,6), pawn to (-2,0 to -2,7)
-  // The specific coordinate is decided by graveyard[index] and index is decided by piece_type and color
+  // piece_type: 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for
+  // pawn, 6 for temp piece color: 0 for white, 1 for black This function should
+  // be called BEFORE the graveyard is updated (since a value of 0 is used for
+  // the first piece of each type) We treat the white queen moves to coordinate
+  // (8,7), rook to (8,6) and (8,5), bishop to (8,4) and (8,3), knight to (8,2)
+  // and (8,1), pawn to (9,7 to 9,0) We treat the black queen moves to
+  // coordinate (-1,0), rook to (-1,1) and (-1,2), bishop to (-1,3) and (-1,4),
+  // knight to (-1,5) and (-1,6), pawn to (-2,0 to -2,7) The specific coordinate
+  // is decided by graveyard[index] and index is decided by piece_type and color
   int graveyard_index = 0;
   if (piece_type == 1) {
     graveyard_index = 0;
@@ -144,7 +160,8 @@ void move_motor(int from_x, int from_y, int to_x, int to_y) {
 
 // Initialize Memory
 Board *p_board;
-std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> all_moves[8][8];
+std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>>
+    all_moves[8][8];
 
 // ############ JOYSTICK CONTROL ############
 
@@ -162,13 +179,20 @@ bool confirm_button_pressed[2];
 bool prev_confirm_button_pressed[2];
 bool prev_joystick_neutral[2];
 // Promotion Joystick Selection
-int8_t promotion_joystick_selection; // only happening on one player's turn, so no need for 2
+int8_t promotion_joystick_selection;  // only happening on one player's turn, so
+                                      // no need for 2
+
+// LEDs
+const int stripLen = 64;
+struct CRGB led_display[stripLen];
 
 void move_user_joystick_x_y(bool color) {
   // Get input from the joystick
   // color: 0 for white, 1 for black
   // Update the joystick coordinates and confirm button pressed flag
-  // Result: <color>_joystick_<x,y> ++ or -- (mod 8), <color>_confirm_button_pressed = true if confirm button is pressed from neutral state
+  // Result: <color>_joystick_<x,y> ++ or -- (mod 8),
+  // <color>_confirm_button_pressed = true if confirm button is pressed from
+  // neutral state
 
   // Read the joystick values -- low is pressed, high is not pressed
   int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
@@ -177,11 +201,12 @@ void move_user_joystick_x_y(bool color) {
   int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
   int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
 
-  // Update the joystick values if joystick WAS neutral and now has a value. Update neutral flag.
-  // Note active low for button (pressed is low 0)
-  if (prev_joystick_neutral[color]){
+  // Update the joystick values if joystick WAS neutral and now has a value.
+  // Update neutral flag. Note active low for button (pressed is low 0)
+  if (prev_joystick_neutral[color]) {
     // If previous joystick WAS neutral
-    bool change_happened = false; // For displaying, only serial printif change happened.
+    bool change_happened =
+        false;  // For displaying, only serial printif change happened.
     if (x_val == 0) {
       joystick_x[color]++;
       prev_joystick_neutral[color] = false;
@@ -221,18 +246,23 @@ void move_user_joystick_x_y(bool color) {
   if (button_val == 0 && prev_confirm_button_pressed[color] == 0) {
     confirm_button_pressed[color] = true;
   } else {
-    confirm_button_pressed[color] = false; // Note: this also automatically reset the confirm_button_pressed flag
-    // If your state machine requires multiple cycles to "load in" the confirm button press, you need to remove this line from this function
+    confirm_button_pressed[color] =
+        false;  // Note: this also automatically reset the
+                // confirm_button_pressed flag
+    // If your state machine requires multiple cycles to "load in" the confirm
+    // button press, you need to remove this line from this function
   }
-  // Update the previous confirm button pressed flag (true if button was pressed, but button is active low)
-  prev_confirm_button_pressed[color] = !button_val; // active low
+  // Update the previous confirm button pressed flag (true if button was
+  // pressed, but button is active low)
+  prev_confirm_button_pressed[color] = !button_val;  // active low
 }
 
 void move_user_joystick_promotion(bool color) {
-  // Get input from joystick, but the promotion_joystick_selection just loops from 0 to 3
-  // color: 0 for white, 1 for black
-  // Update the promotion_joystick_selection, and confirm button pressed flag
-  // Result: promotion_joystick_selection ++ or --, confirm_button_pressed = true if confirm button is pressed from neutral state
+  // Get input from joystick, but the promotion_joystick_selection just loops
+  // from 0 to 3 color: 0 for white, 1 for black Update the
+  // promotion_joystick_selection, and confirm button pressed flag Result:
+  // promotion_joystick_selection ++ or --, confirm_button_pressed = true if
+  // confirm button is pressed from neutral state
 
   // Read the joystick values -- low is pressed, high is not pressed
   int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
@@ -241,9 +271,9 @@ void move_user_joystick_promotion(bool color) {
   int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
   int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
 
-  // Update the joystick values if joystick WAS neutral and now has a value. Update neutral flag.
-  // Note active low for button (pressed is low 0)
-  if (prev_joystick_neutral[color]){
+  // Update the joystick values if joystick WAS neutral and now has a value.
+  // Update neutral flag. Note active low for button (pressed is low 0)
+  if (prev_joystick_neutral[color]) {
     // If previous joystick WAS neutral
     if (x_val == 0) {
       promotion_joystick_selection = (promotion_joystick_selection + 1) % 4;
@@ -269,24 +299,26 @@ void move_user_joystick_promotion(bool color) {
     confirm_button_pressed[color] = false;
   }
 
-  // Update the previous confirm button pressed flag (true if button was pressed, but button is active low)
-  prev_confirm_button_pressed[color] = !button_val; // active low
+  // Update the previous confirm button pressed flag (true if button was
+  // pressed, but button is active low)
+  prev_confirm_button_pressed[color] = !button_val;  // active low
 }
 
-void serial_display_board_and_selection(){
+void serial_display_board_and_selection() {
   Serial.println("---------------------------------------------------");
-  for (int row = 7; row >=0; row--){
-    for (int col = 0; col < 8; col++)
-    { 
+  for (int row = 7; row >= 0; row--) {
+    for (int col = 0; col < 8; col++) {
       bool showed = false;
       for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
-        if (all_moves[selected_y][selected_x][i].second.first == col && all_moves[selected_y][selected_x][i].second.second == row) {
+        if (all_moves[selected_y][selected_x][i].second.first == col &&
+            all_moves[selected_y][selected_x][i].second.second == row) {
           Serial.print("X");
           Serial.print("\t");
           showed = true;
           break;
         }
-        if (all_moves[selected_y][selected_x][i].first.first == col && all_moves[selected_y][selected_x][i].first.second == row) {
+        if (all_moves[selected_y][selected_x][i].first.first == col &&
+            all_moves[selected_y][selected_x][i].first.second == row) {
           Serial.print("O");
           Serial.print("\t");
           showed = true;
@@ -299,8 +331,11 @@ void serial_display_board_and_selection(){
       if (p_board->pieces[row][col]->get_type() == EMPTY) {
         Serial.print(" ");
       } else {
-        // Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() + 6*p_board->pieces[row][col]->get_color()];
-        Serial.print(CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() + 6*p_board->pieces[row][col]->get_color()]);
+        // Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
+        // 6*p_board->pieces[row][col]->get_color()];
+        Serial.print(
+            CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
+                             6 * p_board->pieces[row][col]->get_color()]);
       }
       Serial.print("\t");
     }
@@ -322,52 +357,63 @@ void serial_display_board_and_selection(){
   }
 }
 
+int coordinate_to_index(int x, int y) {
+  // Returns equivalent index of LED of an (x, y) coordinate
+  if (y % 2 == 0) {
+    return y * 8 + x;
+  } else {
+    return y * 8 + 8 - x - 1;
+  }
+}
 
-void setup()
-{
+void setup() {
   Serial.begin(9600);
 
   // Initial game state
   game_state = GAME_POWER_ON;
 }
 
-void loop()
-{
+void loop() {
   // Serial.print("Current State: ");
   // Serial.println(game_state);
   // Serial.print("Free memory: ");
   // Serial.println(freeMemory());
+  FastLED.show();  // Display board;
+
   delay(50);
 
   // State machine, during each loop, we are in a certain state
   if (game_state == GAME_POWER_ON) {
-      // Power on the board, motors calibrate, initialize pins
+    // Power on the board, motors calibrate, initialize pins
 
-      // Pins initialization
-      pinMode(JOYSTICK_POS_X_PIN[0], INPUT_PULLUP);
-      pinMode(JOYSTICK_POS_Y_PIN[0], INPUT_PULLUP);
-      pinMode(JOYSTICK_NEG_X_PIN[0], INPUT_PULLUP);
-      pinMode(JOYSTICK_NEG_Y_PIN[0], INPUT_PULLUP);
-      pinMode(JOYSTICK_BUTTON_PIN[0], INPUT_PULLUP);
-      pinMode(JOYSTICK_POS_X_PIN[1], INPUT_PULLUP);
-      pinMode(JOYSTICK_POS_Y_PIN[1], INPUT_PULLUP);
-      pinMode(JOYSTICK_NEG_X_PIN[1], INPUT_PULLUP);
-      pinMode(JOYSTICK_NEG_Y_PIN[1], INPUT_PULLUP);
-      pinMode(JOYSTICK_BUTTON_PIN[1], INPUT_PULLUP);
-      // TODO
-      game_state = GAME_IDLE;
+    // Pins initialization
+    pinMode(JOYSTICK_POS_X_PIN[0], INPUT_PULLUP);
+    pinMode(JOYSTICK_POS_Y_PIN[0], INPUT_PULLUP);
+    pinMode(JOYSTICK_NEG_X_PIN[0], INPUT_PULLUP);
+    pinMode(JOYSTICK_NEG_Y_PIN[0], INPUT_PULLUP);
+    pinMode(JOYSTICK_BUTTON_PIN[0], INPUT_PULLUP);
+    pinMode(JOYSTICK_POS_X_PIN[1], INPUT_PULLUP);
+    pinMode(JOYSTICK_POS_Y_PIN[1], INPUT_PULLUP);
+    pinMode(JOYSTICK_NEG_X_PIN[1], INPUT_PULLUP);
+    pinMode(JOYSTICK_NEG_Y_PIN[1], INPUT_PULLUP);
+    pinMode(JOYSTICK_BUTTON_PIN[1], INPUT_PULLUP);
+    // TODO
+    game_state = GAME_IDLE;
   } else if (game_state == GAME_IDLE) {
-      // No game is being played yet, waiting for a game to start
-      // Wait for a button press to start the game
-      // If button pressed, initialize the game
-      // If button not pressed, stay in this state
-      // TODO: currently we just skip this state, assume game is always started
-      game_state = GAME_INITIALIZE;
-  } else if (game_state == GAME_INITIALIZE) { 
+    // No game is being played yet, waiting for a game to start
+    // Wait for a button press to start the game
+    // If button pressed, initialize the game
+    // If button not pressed, stay in this state
+    // TODO: currently we just skip this state, assume game is always started
+    // Idle animation (for now all LEDs off)
+    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+
+    game_state = GAME_INITIALIZE;
+  } else if (game_state == GAME_INITIALIZE) {
     // Game started, initialize the board
     // Initialize the board
     p_board = new Board();
-    player_turn = 0; // White to move first
+    player_turn = 0;  // White to move first
     current_player_under_check = 0;
     sources_of_check.clear();
     selected_x = 0;
@@ -377,13 +423,13 @@ void loop()
     capture_x = 0;
     capture_y = 0;
     for (int i = 0; i < 10; i++) {
-      graveyard[i] = 0; // initialize graveyard
+      graveyard[i] = 0;  // initialize graveyard
     }
-    graveyard[10] = 8; // initialize temp pieces
+    graveyard[10] = 8;  // initialize temp pieces
     graveyard[11] = 8;
     // clear the promoted pawn vector
     promoted_pawns_using_temp_pieces.clear();
-    
+
     // Joystick location
     joystick_x[0] = 4;
     joystick_y[0] = 0;
@@ -391,11 +437,13 @@ void loop()
     joystick_y[1] = 7;
     confirm_button_pressed[0] = false;
     confirm_button_pressed[1] = false;
-    prev_confirm_button_pressed[0] = true; // Assume the button is pressed before the game starts, so force user to release the button
+    prev_confirm_button_pressed[0] =
+        true;  // Assume the button is pressed before the game starts, so force
+               // user to release the button
     prev_confirm_button_pressed[1] = true;
     prev_joystick_neutral[0] = true;
     prev_joystick_neutral[1] = true;
-    
+
     // Promotion joystick selection
     promotion_joystick_selection = 0;
 
@@ -404,7 +452,8 @@ void loop()
     // TODO: motor calibration can be done here
     game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_BEGIN_TURN) {
-    // Begin a turn - generate moves, remove illegal moves, check for checkmate/draw
+    // Begin a turn - generate moves, remove illegal moves, check for
+    // checkmate/draw
 
     // TODO: this is temporary, just to see the board state
     serial_display_board_and_selection();
@@ -428,11 +477,13 @@ void loop()
       for (int8_t j = 0; j < 8; j++) {
         // Non-player's piece should have empty moves
         all_moves[i][j].clear();
-        if (p_board->pieces[i][j]->get_type() == EMPTY || p_board->pieces[i][j]->get_color() != player_turn) {
+        if (p_board->pieces[i][j]->get_type() == EMPTY ||
+            p_board->pieces[i][j]->get_color() != player_turn) {
           continue;
         }
         all_moves[i][j] = p_board->pieces[i][j]->get_possible_moves(p_board);
-        p_board->remove_illegal_moves_for_a_piece(j, i, all_moves[i][j]);  // NOTE it's j, i!!!!!
+        p_board->remove_illegal_moves_for_a_piece(
+            j, i, all_moves[i][j]);  // NOTE it's j, i!!!!!
         if (all_moves[i][j].size() > 0) {
           no_moves = false;
         }
@@ -471,16 +522,23 @@ void loop()
     // Joystick moving, before pressing select button on valid piece
     // Wait for joystick input
     // If there is input, check if it's a valid piece, if not, ignore
-    // If it's a valid piece, indicate the piece is selected, and move to GAME_WAIT_FOR_MOVE
-    
+    // If it's a valid piece, indicate the piece is selected, and move to
+    // GAME_WAIT_FOR_MOVE
+
     // LED display
-    // HERE, highlight the "prevoius move" that just happened by highlighting pieces... (orange)
-    // Also display the cursor location - which is joystick_x[player_turn], joystick_y[player_turn] (green - overwrites orange)
-    // Also display sources of check, if any (red) (will be overwritten by green if the cursor is on the same square)
-    // red on king square if under check
+    // HERE, highlight the "prevoius move" that just happened by highlighting
+    // pieces... (orange) Also display the cursor location - which is
+    // joystick_x[player_turn], joystick_y[player_turn] (green - overwrites
+    // orange) Also display sources of check, if any (red) (will be overwritten
+    // by green if the cursor is on the same square) red on king square if under
+    // check
 
     // Get button input, update joystick location
     move_user_joystick_x_y(player_turn);
+
+    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+    led_display[coordinate_to_index(joystick_x[player_turn],
+                                    joystick_y[player_turn])] = CRGB(0, 0, 255);
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -497,7 +555,8 @@ void loop()
       // Invalid input
       return;
     }
-    if (p_board->pieces[selected_y][selected_x]->get_type() == EMPTY || p_board->pieces[selected_y][selected_x]->get_color() != player_turn) {
+    if (p_board->pieces[selected_y][selected_x]->get_type() == EMPTY ||
+        p_board->pieces[selected_y][selected_x]->get_color() != player_turn) {
       // Not player's piece
       return;
     }
@@ -511,19 +570,29 @@ void loop()
     // Joystick moving, after pressing select button on valid destination
     // Wait for joystick input
     // If there is input, check if it's a valid destination, if not, ignore
-    // If the input is the selected_x, selected_y, move back to GAME_WAIT_FOR_SELECT
-    // If it's another of your own piece, replace selected_x, selected_y with the new piece, stay in this state
-    // If it's a valid destination, move the piece, and move to GAME_MOVE_MOTOR
+    // If the input is the selected_x, selected_y, move back to
+    // GAME_WAIT_FOR_SELECT If it's another of your own piece, replace
+    // selected_x, selected_y with the new piece, stay in this state If it's a
+    // valid destination, move the piece, and move to GAME_MOVE_MOTOR
 
     // LED display
-    // HERE, highlight the "prevoius move" that just happened by highlighting pieces...
-    // Also display the cursor location - which is joystick_x[player_turn], joystick_y[player_turn] (green - overwrites orange)
-    // Also highlight the "selected piece" with a different color (selected_x, selected_y) (blue) overwrites green
-    // Also display sources of check, if any (red) (will be overwritten by green if the cursor is on the same square)
-    // red on king square if under check, unless selected piece is on the king square
+    // HERE, highlight the "prevoius move" that just happened by highlighting
+    // pieces... Also display the cursor location - which is
+    // joystick_x[player_turn], joystick_y[player_turn] (green - overwrites
+    // orange) Also highlight the "selected piece" with a different color
+    // (selected_x, selected_y) (blue) overwrites green Also display sources of
+    // check, if any (red) (will be overwritten by green if the cursor is on the
+    // same square) red on king square if under check, unless selected piece is
+    // on the king square
 
     // Get button input, update joystick location
     move_user_joystick_x_y(player_turn);
+
+    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+    led_display[coordinate_to_index(joystick_x[player_turn],
+                                    joystick_y[player_turn])] = CRGB(0, 0, 255);
+    led_display[coordinate_to_index(selected_x[player_turn],
+                                    selected_y[player_turn])] = CRGB(0, 255, 0);
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -534,9 +603,10 @@ void loop()
 
     destination_x = joystick_x[player_turn];
     destination_y = joystick_y[player_turn];
-    
+
     // Check for valid input
-    if (destination_x < 0 || destination_x > 7 || destination_y < 0 || destination_y > 7) {
+    if (destination_x < 0 || destination_x > 7 || destination_y < 0 ||
+        destination_y > 7) {
       // Invalid input
       return;
     }
@@ -545,7 +615,9 @@ void loop()
       game_state = GAME_WAIT_FOR_SELECT;
       return;
     }
-    if (p_board->pieces[destination_y][destination_x]->get_type() != EMPTY && p_board->pieces[destination_y][destination_x]->get_color() == player_turn) {
+    if (p_board->pieces[destination_y][destination_x]->get_type() != EMPTY &&
+        p_board->pieces[destination_y][destination_x]->get_color() ==
+            player_turn) {
       // Replace selected piece, and repeat this state
       selected_x = destination_x;
       selected_y = destination_y;
@@ -554,7 +626,8 @@ void loop()
     // Check if the move is valid
     bool valid_move = false;
     for (int8_t i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
-      if (all_moves[selected_y][selected_x][i].first.first == destination_x && all_moves[selected_y][selected_x][i].first.second == destination_y) {
+      if (all_moves[selected_y][selected_x][i].first.first == destination_x &&
+          all_moves[selected_y][selected_x][i].first.second == destination_y) {
         valid_move = true;
         capture_x = all_moves[selected_y][selected_x][i].second.first;
         capture_y = all_moves[selected_y][selected_x][i].second.second;
@@ -571,9 +644,13 @@ void loop()
   } else if (game_state == GAME_MOVE_MOTOR) {
     /*
     1. check if this move involves any capture
-    2. If move involves capture, see if the captured piece can be used to replace a currently promoted pawn
-    3. if yes -> don't move captured piece to graveyard, but instead use it to replace the pawn. (temp piece off the board -> captured piece to pawn -> moving piece to destination)
-    4. if no -> move captured piece to graveyard (captured piece -> graveyard, moving piece to destination)
+    2. If move involves capture, see if the captured piece can be used to
+    replace a currently promoted pawn
+    3. if yes -> don't move captured piece to graveyard, but instead use it to
+    replace the pawn. (temp piece off the board -> captured piece to pawn ->
+    moving piece to destination)
+    4. if no -> move captured piece to graveyard (captured piece -> graveyard,
+    moving piece to destination)
     5. just update the board...
     6. castling... special move. move king first
     */
@@ -584,53 +661,74 @@ void loop()
       int8_t captured_temp_piece_x = -1;
       int8_t captured_temp_piece_y = -1;
       for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
-        if (promoted_pawns_using_temp_pieces[i].first == capture_x && promoted_pawns_using_temp_pieces[i].second == capture_y) {
+        if (promoted_pawns_using_temp_pieces[i].first == capture_x &&
+            promoted_pawns_using_temp_pieces[i].second == capture_y) {
           captured_piece_is_temp = true;
           break;
         }
       }
-      if (captured_piece_is_temp){
-        // The captured piece is a temp piece, so just move to graveyard (6 == temp piece)
-        std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_coordinate(6, p_board->pieces[capture_y][capture_x]->get_color());
-        // Motor move the piece from capture_x, capture_y to graveyard_coordinate
-        move_motor(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second);
+      if (captured_piece_is_temp) {
+        // The captured piece is a temp piece, so just move to graveyard (6 ==
+        // temp piece)
+        std::pair<int8_t, int8_t> graveyard_coordinate =
+            get_graveyard_coordinate(
+                6, p_board->pieces[capture_y][capture_x]->get_color());
+        // Motor move the piece from capture_x, capture_y to
+        // graveyard_coordinate
+        move_motor(capture_x, capture_y, graveyard_coordinate.first,
+                   graveyard_coordinate.second);
         // Update the graveyard memory
         graveyard[10 + p_board->pieces[capture_y][capture_x]->get_color()]++;
         // Remove the promoted pawn from the vector
         for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
-          if (promoted_pawns_using_temp_pieces[i].first == capture_x && promoted_pawns_using_temp_pieces[i].second == capture_y) {
-            promoted_pawns_using_temp_pieces.erase(promoted_pawns_using_temp_pieces.begin() + i);
+          if (promoted_pawns_using_temp_pieces[i].first == capture_x &&
+              promoted_pawns_using_temp_pieces[i].second == capture_y) {
+            promoted_pawns_using_temp_pieces.erase(
+                promoted_pawns_using_temp_pieces.begin() + i);
             break;
           }
         }
       } else {
         // The captured piece is not a temp, do the regular replacement
         bool capture_piece_can_replace_promoted_pawn = false;
-        // This part is about seeing if the captured piece can replace a promoted pawn. So, we can add a check to see if captured-piece is a temp piece
+        // This part is about seeing if the captured piece can replace a
+        // promoted pawn. So, we can add a check to see if captured-piece is a
+        // temp piece
         for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
-          // Check for all promoted pawns, if colour matches captured_x, captured_y's piece AND type matches
-          // If they do match, tell the motor to make a replacement. 
+          // Check for all promoted pawns, if colour matches captured_x,
+          // captured_y's piece AND type matches If they do match, tell the
+          // motor to make a replacement.
           int8_t pawn_x = promoted_pawns_using_temp_pieces[i].first;
           int8_t pawn_y = promoted_pawns_using_temp_pieces[i].second;
-          if (p_board->pieces[capture_y][capture_x]->get_color() == p_board->pieces[pawn_y][pawn_x]->get_color() && p_board->pieces[capture_y][capture_x]->get_type() == p_board->pieces[pawn_y][pawn_x]->get_type()) {
-            // There exists a promoted pawn that can be replaced by the captured piece
-            // Move temp piece to graveyard (6 == temp piece)
-            std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_coordinate(6, p_board->pieces[pawn_y][pawn_x]->get_color());
-            move_motor(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second);
+          if (p_board->pieces[capture_y][capture_x]->get_color() ==
+                  p_board->pieces[pawn_y][pawn_x]->get_color() &&
+              p_board->pieces[capture_y][capture_x]->get_type() ==
+                  p_board->pieces[pawn_y][pawn_x]->get_type()) {
+            // There exists a promoted pawn that can be replaced by the captured
+            // piece Move temp piece to graveyard (6 == temp piece)
+            std::pair<int8_t, int8_t> graveyard_coordinate =
+                get_graveyard_coordinate(
+                    6, p_board->pieces[pawn_y][pawn_x]->get_color());
+            move_motor(pawn_x, pawn_y, graveyard_coordinate.first,
+                       graveyard_coordinate.second);
 
             // Move captured piece to the pawn's location
             move_motor(capture_x, capture_y, pawn_x, pawn_y);
 
-            // Remove the promoted pawn from the vector - since it's replaced, and can be treated as a normal piece
-            promoted_pawns_using_temp_pieces.erase(promoted_pawns_using_temp_pieces.begin() + i);
+            // Remove the promoted pawn from the vector - since it's replaced,
+            // and can be treated as a normal piece
+            promoted_pawns_using_temp_pieces.erase(
+                promoted_pawns_using_temp_pieces.begin() + i);
             graveyard[10 + p_board->pieces[pawn_y][pawn_x]->get_color()]++;
             capture_piece_can_replace_promoted_pawn = true;
             break;
           }
         }
         if (!capture_piece_can_replace_promoted_pawn) {
-          // If the captured piece cannot replace a promoted pawn, move the captured piece to the graveyard
-          PieceType captured_piece_type = p_board->pieces[capture_y][capture_x]->get_type();
+          // If the captured piece cannot replace a promoted pawn, move the
+          // captured piece to the graveyard
+          PieceType captured_piece_type =
+              p_board->pieces[capture_y][capture_x]->get_type();
           int8_t graveyard_index = 0;
           if (captured_piece_type == QUEEN) {
             graveyard_index = 0;
@@ -644,20 +742,29 @@ void loop()
             graveyard_index = 4;
           }
 
-          // Move the captured piece to graveyard (graveyard_index is 0 to 4, plus 1 for get_graveyard_coordinate function as it takes 1 to 5, and 6 for temp piece)
-          std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_coordinate(graveyard_index+1, p_board->pieces[capture_y][capture_x]->get_color());
-          move_motor(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second);
+          // Move the captured piece to graveyard (graveyard_index is 0 to 4,
+          // plus 1 for get_graveyard_coordinate function as it takes 1 to 5,
+          // and 6 for temp piece)
+          std::pair<int8_t, int8_t> graveyard_coordinate =
+              get_graveyard_coordinate(
+                  graveyard_index + 1,
+                  p_board->pieces[capture_y][capture_x]->get_color());
+          move_motor(capture_x, capture_y, graveyard_coordinate.first,
+                     graveyard_coordinate.second);
 
           // If colour is black, add 5 to the index
-          graveyard_index += 5 * p_board->pieces[capture_y][capture_x]->get_color();
+          graveyard_index +=
+              5 * p_board->pieces[capture_y][capture_x]->get_color();
           graveyard[graveyard_index]++;
         }
       }
     }
     // Move the piece - regardless of capture
-    // If the piece that's moving is a temp piece, edit its coordinates in the promoted_pawns_using_temp_pieces vector
+    // If the piece that's moving is a temp piece, edit its coordinates in the
+    // promoted_pawns_using_temp_pieces vector
     for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
-      if (promoted_pawns_using_temp_pieces[i].first == selected_x && promoted_pawns_using_temp_pieces[i].second == selected_y) {
+      if (promoted_pawns_using_temp_pieces[i].first == selected_x &&
+          promoted_pawns_using_temp_pieces[i].second == selected_y) {
         promoted_pawns_using_temp_pieces[i].first = destination_x;
         promoted_pawns_using_temp_pieces[i].second = destination_y;
         break;
@@ -666,7 +773,8 @@ void loop()
     // Move the piece
     move_motor(selected_x, selected_y, destination_x, destination_y);
     // If the piece is a king that moved 2 squares, move the rook
-    if (p_board->pieces[selected_y][selected_x]->get_type() == KING && abs(destination_x - selected_x) == 2) {
+    if (p_board->pieces[selected_y][selected_x]->get_type() == KING &&
+        abs(destination_x - selected_x) == 2) {
       // Castling move
       int8_t rook_x = 0;
       int8_t rook_y = 0;
@@ -683,26 +791,33 @@ void loop()
       move_motor(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y);
     }
 
+    // Update all promoted_pawns_using_temp_pieces vector by changing its
+    // coordinates to the new coordinates
 
-    // Update all promoted_pawns_using_temp_pieces vector by changing its coordinates to the new coordinates
-    
-    // Motors moving pieces given the selected piece and destination, and capture square - capture square, if any, should be moved to the graveyard
+    // Motors moving pieces given the selected piece and destination, and
+    // capture square - capture square, if any, should be moved to the graveyard
 
-    // LED: just display the new "move" that just happened - which is seleced_x, selected_y, destination_x, destination_y, (capture_x, capture_y -- don't need to display this, but ok if you want to)
+    // LED: just display the new "move" that just happened - which is seleced_x,
+    // selected_y, destination_x, destination_y, (capture_x, capture_y -- don't
+    // need to display this, but ok if you want to)
 
-    // Important: If captured square contains a piece a current pawn is promoted to, and is using temp piece, replace the temp piece with the promoted piece
-    // Then move temp piece to the graveyard
-    // Update the graveyard memory and the promoted pawns using temp pieces vector.
+    // Important: If captured square contains a piece a current pawn is promoted
+    // to, and is using temp piece, replace the temp piece with the promoted
+    // piece Then move temp piece to the graveyard Update the graveyard memory
+    // and the promoted pawns using temp pieces vector.
 
-    // Important: If this move is a castle, move the rook first (do a check if p_board->pieces[selected_y][selected_x]->type == KING && abs(destination_x - selected_x) == 2)
-    // Assume this is valid move, since it's checked in the previous state
+    // Important: If this move is a castle, move the rook first (do a check if
+    // p_board->pieces[selected_y][selected_x]->type == KING &&
+    // abs(destination_x - selected_x) == 2) Assume this is valid move, since
+    // it's checked in the previous state
 
     // TODO: implement motor moving pieces, now just skip this state
     game_state = GAME_END_MOVE;
   } else if (game_state == GAME_END_MOVE) {
     // Update chess board, see if a pawn can promote
     // Before updating the board, see if the pi
-    p_board->move_piece(selected_x, selected_y, destination_x, destination_y, capture_x, capture_y);
+    p_board->move_piece(selected_x, selected_y, destination_x, destination_y,
+                        capture_x, capture_y);
     // Check if a pawn can promote
     if (p_board->can_pawn_promote(destination_x, destination_y)) {
       game_state = GAME_WAIT_FOR_SELECT_PAWN_PROMOTION;
@@ -713,13 +828,20 @@ void loop()
     // Joystick moving, before pressing select button on promotion piece
     // Wait for joystick input
     // If there is input, check if it's a valid promotion piece, if not, ignore
-    // If it's a valid promotion piece, indicate the piece is selected, and move to GAME_PAWN_PROMOTION_MOTOR
-    
-    // LED display
-    // HERE (Display the promotion_joystick_selection, which has value 0,1,2,3) (separate LED maybe at the edge of board? - the "promotion" indicator squares are basically same as other squares, but with a "thicker" top custom shape that does not allow a "queen-shaped light" to go thru, so when this light is on... queen-shaped black line or queen-shaped light goes thru)
-    // Also display the "move" that just happened by highlight pieces... (orange colour)
+    // If it's a valid promotion piece, indicate the piece is selected, and move
+    // to GAME_PAWN_PROMOTION_MOTOR
 
-    // Get button input, update joystick location (Special for pawn promotion, use promotion_joystick_selection)
+    // LED display
+    // HERE (Display the promotion_joystick_selection, which has value 0,1,2,3)
+    // (separate LED maybe at the edge of board? - the "promotion" indicator
+    // squares are basically same as other squares, but with a "thicker" top
+    // custom shape that does not allow a "queen-shaped light" to go thru, so
+    // when this light is on... queen-shaped black line or queen-shaped light
+    // goes thru) Also display the "move" that just happened by highlight
+    // pieces... (orange colour)
+
+    // Get button input, update joystick location (Special for pawn promotion,
+    // use promotion_joystick_selection)
     move_user_joystick_promotion(player_turn);
 
     // Don't move until the confirm button is pressed
@@ -756,14 +878,22 @@ void loop()
     game_state = GAME_PAWN_PROMOTION_MOTOR;
   } else if (game_state == GAME_PAWN_PROMOTION_MOTOR) {
     /*
-    1. promotion is happning, definitely, happening at destination_x, destination_y
-    2. see if the promotion CAN be done with a piece in graveyard (see if graveyard[index] > 0)
-    3. if yes -> move graveyard[index] piece to destination_x, destination_y, AND move pawn to graveyard, update graveyard memory (graveyard[index]--, but graveyard[pawn]++)
-    4. if no -> move a temp piece, and KEEP TRACK OF ITS COORDINATES (temp piece to destination_x, destination_y, pawn to graveyard, update graveyard memory (graveyard[pawn]++, graveyard[temp_piece]--), and keep track of temp piece's coordinates in the vector: promoted_pawns_using_temp_pieces)
+    1. promotion is happning, definitely, happening at destination_x,
+    destination_y
+    2. see if the promotion CAN be done with a piece in graveyard (see if
+    graveyard[index] > 0)
+    3. if yes -> move graveyard[index] piece to destination_x, destination_y,
+    AND move pawn to graveyard, update graveyard memory (graveyard[index]--, but
+    graveyard[pawn]++)
+    4. if no -> move a temp piece, and KEEP TRACK OF ITS COORDINATES (temp piece
+    to destination_x, destination_y, pawn to graveyard, update graveyard memory
+    (graveyard[pawn]++, graveyard[temp_piece]--), and keep track of temp piece's
+    coordinates in the vector: promoted_pawns_using_temp_pieces)
     */
     // Check if there's a valid piece in the graveyard to be used for promotion
     bool valid_graveyard_piece = false;
-    PieceType promotion_piece_type = p_board->pieces[destination_y][destination_x]->get_type();
+    PieceType promotion_piece_type =
+        p_board->pieces[destination_y][destination_x]->get_type();
     int8_t graveyard_index = 0;
     if (promotion_piece_type == QUEEN) {
       graveyard_index = 0;
@@ -775,43 +905,62 @@ void loop()
       graveyard_index = 3;
     }
     // If colour is black, add 5 to the index
-    graveyard_index += 5 * p_board->pieces[destination_y][destination_x]->get_color();
+    graveyard_index +=
+        5 * p_board->pieces[destination_y][destination_x]->get_color();
     if (graveyard[graveyard_index] > 0) {
       valid_graveyard_piece = true;
     }
 
-    // Move pawn to graveyard regardless of promotion (5 == pawn in function, but index is 4 + 5*color)
-    std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_coordinate(5, p_board->pieces[destination_y][destination_x]->get_color());
-    move_motor(destination_x, destination_y, graveyard_coordinate.first, graveyard_coordinate.second);
-    graveyard[4 + 5*p_board->pieces[destination_y][destination_x]->get_color()]++;
-    
+    // Move pawn to graveyard regardless of promotion (5 == pawn in function,
+    // but index is 4 + 5*color)
+    std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_coordinate(
+        5, p_board->pieces[destination_y][destination_x]->get_color());
+    move_motor(destination_x, destination_y, graveyard_coordinate.first,
+               graveyard_coordinate.second);
+    graveyard[4 +
+              5 * p_board->pieces[destination_y][destination_x]->get_color()]++;
+
     // If there is a valid piece in the graveyard, use that piece for promotion
     if (valid_graveyard_piece) {
-      // Move the graveyard piece to the destination (the graveyard index is now 0,1,2,3 or 5,6,7,8, convert back to 1,2,3,4 for the get_graveyard_coordinate function)
-      graveyard_coordinate = get_graveyard_coordinate(graveyard_index - p_board->pieces[destination_y][destination_x]->get_color()*5 + 1, p_board->pieces[destination_y][destination_x]->get_color());
-      move_motor(graveyard_coordinate.first, graveyard_coordinate.second, destination_x, destination_y);
+      // Move the graveyard piece to the destination (the graveyard index is now
+      // 0,1,2,3 or 5,6,7,8, convert back to 1,2,3,4 for the
+      // get_graveyard_coordinate function)
+      graveyard_coordinate = get_graveyard_coordinate(
+          graveyard_index -
+              p_board->pieces[destination_y][destination_x]->get_color() * 5 +
+              1,
+          p_board->pieces[destination_y][destination_x]->get_color());
+      move_motor(graveyard_coordinate.first, graveyard_coordinate.second,
+                 destination_x, destination_y);
       // Update the graveyard memory
       graveyard[graveyard_index]--;
     } else {
       // There isn't a valid piece in the graveyard, use a temp piece
       // Move a temp piece to the destination (6 == temp piece)
-      graveyard_coordinate = get_graveyard_coordinate(6, p_board->pieces[destination_y][destination_x]->get_color());
-      move_motor(graveyard_coordinate.first, graveyard_coordinate.second, destination_x, destination_y);
+      graveyard_coordinate = get_graveyard_coordinate(
+          6, p_board->pieces[destination_y][destination_x]->get_color());
+      move_motor(graveyard_coordinate.first, graveyard_coordinate.second,
+                 destination_x, destination_y);
       // Update the graveyard memory
-      graveyard[10 + p_board->pieces[destination_y][destination_x]->get_color()]--;
+      graveyard[10 +
+                p_board->pieces[destination_y][destination_x]->get_color()]--;
       // Update the promoted pawns using temp pieces vector
-      promoted_pawns_using_temp_pieces.push_back(std::make_pair(destination_x, destination_y));
+      promoted_pawns_using_temp_pieces.push_back(
+          std::make_pair(destination_x, destination_y));
     }
 
     // Motors moving pieces for pawn promotion
 
-    // LED: keep the "promotion light" on, but with a different color (maybe purple?)
+    // LED: keep the "promotion light" on, but with a different color (maybe
+    // purple?)
 
     // Check if there's a valid piece in the graveyard to be used for promotion
 
-    // If there is one, use that piece for promotion, and update graveyard memory
+    // If there is one, use that piece for promotion, and update graveyard
+    // memory
 
-    // If there isn't one, use a temp piece but record the promoted pawn in the promoted pawns using temp pieces vector
+    // If there isn't one, use a temp piece but record the promoted pawn in the
+    // promoted pawns using temp pieces vector
 
     // TODO: now we skip this state
     game_state = GAME_END_TURN;
@@ -819,7 +968,8 @@ void loop()
     // End a turn - switch player
     player_turn = !player_turn;
 
-    // Turn off promotion LED light if that was on. (if you have a separate LED for promotion indicator)
+    // Turn off promotion LED light if that was on. (if you have a separate LED
+    // for promotion indicator)
 
     game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_OVER_WHITE_WIN) {
@@ -827,7 +977,7 @@ void loop()
 
     // TODO: some sort of display, and reset the game
     Serial.println("White wins!");
-    game_state = GAME_RESET;  
+    game_state = GAME_RESET;
   } else if (game_state == GAME_OVER_BLACK_WIN) {
     // Black wins
 
@@ -840,15 +990,16 @@ void loop()
     // TODO: some sort of display, and reset the game
     Serial.println("Draw!");
     game_state = GAME_RESET;
-  } else (game_state == GAME_RESET) {
-    // Reset the game
+  } else
+    (game_state == GAME_RESET) {
+      // Reset the game
 
-    // First, move the pieces back to the initial position
-    // TODO: motor job
+      // First, move the pieces back to the initial position
+      // TODO: motor job
 
-    // Free memory
-    delete p_board;
-    // Reset game state
-    game_state = GAME_POWER_ON;
-  }
+      // Free memory
+      delete p_board;
+      // Reset game state
+      game_state = GAME_POWER_ON;
+    }
 }
