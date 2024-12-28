@@ -383,6 +383,7 @@ void loop() {
   delay(50);
 
   // State machine, during each loop, we are in a certain state
+  // Chained if block below does not have an else case
   if (game_state == GAME_POWER_ON) {
     // Power on the board, motors calibrate, initialize pins
 
@@ -526,7 +527,7 @@ void loop() {
     // GAME_WAIT_FOR_MOVE
 
     // LED display
-    // HERE, highlight the "prevoius move" that just happened by highlighting
+    // HERE, highlight the "previous move" that just happened by highlighting
     // pieces... (orange) Also display the cursor location - which is
     // joystick_x[player_turn], joystick_y[player_turn] (green - overwrites
     // orange) Also display sources of check, if any (red) (will be overwritten
@@ -539,6 +540,7 @@ void loop() {
     fill_solid(led_display, stripLen, CRGB(0, 0, 0));
     led_display[coordinate_to_index(joystick_x[player_turn],
                                     joystick_y[player_turn])] = CRGB(0, 0, 255);
+    // Also light up previous move of opponent
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -593,6 +595,7 @@ void loop() {
                                     joystick_y[player_turn])] = CRGB(0, 0, 255);
     led_display[coordinate_to_index(selected_x[player_turn],
                                     selected_y[player_turn])] = CRGB(0, 255, 0);
+    // Also light up previous move of opponent
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -889,6 +892,7 @@ void loop() {
     to destination_x, destination_y, pawn to graveyard, update graveyard memory
     (graveyard[pawn]++, graveyard[temp_piece]--), and keep track of temp piece's
     coordinates in the vector: promoted_pawns_using_temp_pieces)
+    5. add reset motor to origin logic from previous game_state again
     */
     // Check if there's a valid piece in the graveyard to be used for promotion
     bool valid_graveyard_piece = false;
@@ -965,6 +969,13 @@ void loop() {
     // TODO: now we skip this state
     game_state = GAME_END_TURN;
   } else if (game_state == GAME_END_TURN) {
+    // Motor should return piece picker to origin, checking if it hits a limit
+    // switch along the way, if not should keep moving until it hits it, this
+    // will be the new origin
+
+    // Replace stored previous move with the recently selected move, and
+    // redisplay it on the leds
+
     // End a turn - switch player
     player_turn = !player_turn;
 
@@ -990,16 +1001,15 @@ void loop() {
     // TODO: some sort of display, and reset the game
     Serial.println("Draw!");
     game_state = GAME_RESET;
-  } else
-    (game_state == GAME_RESET) {
-      // Reset the game
+  } else if (game_state == GAME_RESET) {
+    // Reset the game
 
-      // First, move the pieces back to the initial position
-      // TODO: motor job
+    // First, move the pieces back to the initial position
+    // TODO: motor job
 
-      // Free memory
-      delete p_board;
-      // Reset game state
-      game_state = GAME_POWER_ON;
-    }
+    // Free memory
+    delete p_board;
+    // Reset game state
+    game_state = GAME_POWER_ON;
+  }
 }
