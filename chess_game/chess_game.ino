@@ -1,7 +1,8 @@
 // Include
 #include "ArduinoSTL.h"
 #include "Board.h"
-#include "MemoryFree.h"
+#include "FastLED.h"
+// #include "MemoryFree.h"
 #include "Piece.h"
 #include "PieceType.h"
 
@@ -138,13 +139,37 @@ std::pair<int8_t, int8_t> get_graveyard_coordinate(int8_t piece_type,
   }
 }
 
-void move_motor(int from_x, int from_y, int to_x, int to_y) {
+// MOTOR CONTROL
+
+const int PUL_PIN[] = {9, 9};
+const int DIR_PIN[] = {8, 8};
+const int stepsPerSquare = 1536; // measured value from testing, 3.95cm per rotation
+const int motorStepDelay = 50;
+
+void move_motor(int from_x, int from_y, int to_x, int to_y, int stepDelay) {
   // Move the motor from one square to another
   // from_x, from_y: x, y coordinates of the square to move from
   // to_x, to_y: x, y coordinates of the square to move to
   // Move the motor from (from_x, from_y) to (to_x, to_y)
 
   // TODO
+
+  digitalWrite(DIR_PIN[0], to_x - from_x > 0);
+  digitalWrite(DIR_PIN[1], to_y - from_y > 0);
+
+  for (int i = 0; i < (to_x - from_x) * stepsPerSquare; i++) {
+    digitalWrite(PUL_PIN[0], HIGH);
+    delayMicroseconds(stepDelay);
+    digitalWrite(PUL_PIN[0], LOW);
+    delayMicroseconds(stepDelay);
+  }
+
+  for (int i = 0; i < (to_y - from_y) * stepsPerSquare; i++) {
+    digitalWrite(PUL_PIN[1], HIGH);
+    delayMicroseconds(stepDelay);
+    digitalWrite(PUL_PIN[1], LOW);
+    delayMicroseconds(stepDelay);
+  }
 
   Serial.println("Moving should be happening here, but not implemented yet. ");
   Serial.print("Moving from (");
@@ -398,6 +423,11 @@ void loop() {
     pinMode(JOYSTICK_NEG_X_PIN[1], INPUT_PULLUP);
     pinMode(JOYSTICK_NEG_Y_PIN[1], INPUT_PULLUP);
     pinMode(JOYSTICK_BUTTON_PIN[1], INPUT_PULLUP);
+    pinMode(PUL_PIN[0], OUTPUT);
+    pinMode(DIR_PIN[0], OUTPUT);
+    pinMode(PUL_PIN[1], OUTPUT);
+    pinMode(DIR_PIN[1], OUTPUT);
+
     // TODO
     game_state = GAME_IDLE;
   } else if (game_state == GAME_IDLE) {
@@ -593,8 +623,7 @@ void loop() {
     fill_solid(led_display, stripLen, CRGB(0, 0, 0));
     led_display[coordinate_to_index(joystick_x[player_turn],
                                     joystick_y[player_turn])] = CRGB(0, 0, 255);
-    led_display[coordinate_to_index(selected_x[player_turn],
-                                    selected_y[player_turn])] = CRGB(0, 255, 0);
+    led_display[coordinate_to_index(selected_x, selected_y)] = CRGB(0, 255, 0);
     // Also light up previous move of opponent
 
     // Don't move until the confirm button is pressed
@@ -679,7 +708,7 @@ void loop() {
         // Motor move the piece from capture_x, capture_y to
         // graveyard_coordinate
         move_motor(capture_x, capture_y, graveyard_coordinate.first,
-                   graveyard_coordinate.second);
+                   graveyard_coordinate.second, motorStepDelay);
         // Update the graveyard memory
         graveyard[10 + p_board->pieces[capture_y][capture_x]->get_color()]++;
         // Remove the promoted pawn from the vector
@@ -713,10 +742,10 @@ void loop() {
                 get_graveyard_coordinate(
                     6, p_board->pieces[pawn_y][pawn_x]->get_color());
             move_motor(pawn_x, pawn_y, graveyard_coordinate.first,
-                       graveyard_coordinate.second);
+                       graveyard_coordinate.second, motorStepDelay);
 
             // Move captured piece to the pawn's location
-            move_motor(capture_x, capture_y, pawn_x, pawn_y);
+            move_motor(capture_x, capture_y, pawn_x, pawn_y, motorStepDelay);
 
             // Remove the promoted pawn from the vector - since it's replaced,
             // and can be treated as a normal piece
@@ -753,7 +782,7 @@ void loop() {
                   graveyard_index + 1,
                   p_board->pieces[capture_y][capture_x]->get_color());
           move_motor(capture_x, capture_y, graveyard_coordinate.first,
-                     graveyard_coordinate.second);
+                     graveyard_coordinate.second, motorStepDelay);
 
           // If colour is black, add 5 to the index
           graveyard_index +=
@@ -774,7 +803,8 @@ void loop() {
       }
     }
     // Move the piece
-    move_motor(selected_x, selected_y, destination_x, destination_y);
+    move_motor(selected_x, selected_y, destination_x, destination_y,
+               motorStepDelay);
     // If the piece is a king that moved 2 squares, move the rook
     if (p_board->pieces[selected_y][selected_x]->get_type() == KING &&
         abs(destination_x - selected_x) == 2) {
@@ -791,7 +821,8 @@ void loop() {
         rook_y = selected_y;
       }
       // Move the rook
-      move_motor(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y);
+      move_motor(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y,
+                 motorStepDelay);
     }
 
     // Update all promoted_pawns_using_temp_pieces vector by changing its
@@ -920,7 +951,7 @@ void loop() {
     std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_coordinate(
         5, p_board->pieces[destination_y][destination_x]->get_color());
     move_motor(destination_x, destination_y, graveyard_coordinate.first,
-               graveyard_coordinate.second);
+               graveyard_coordinate.second, motorStepDelay);
     graveyard[4 +
               5 * p_board->pieces[destination_y][destination_x]->get_color()]++;
 
@@ -935,7 +966,7 @@ void loop() {
               1,
           p_board->pieces[destination_y][destination_x]->get_color());
       move_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y);
+                 destination_x, destination_y, motorStepDelay);
       // Update the graveyard memory
       graveyard[graveyard_index]--;
     } else {
@@ -944,7 +975,7 @@ void loop() {
       graveyard_coordinate = get_graveyard_coordinate(
           6, p_board->pieces[destination_y][destination_x]->get_color());
       move_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y);
+                 destination_x, destination_y, motorStepDelay);
       // Update the graveyard memory
       graveyard[10 +
                 p_board->pieces[destination_y][destination_x]->get_color()]--;
