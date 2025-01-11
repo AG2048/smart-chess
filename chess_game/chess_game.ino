@@ -1,10 +1,14 @@
 // Include
+#include "FastLED.h"
 #include "ArduinoSTL.h"
 #include "Board.h"
-#include "FastLED.h"
 // #include "MemoryFree.h"
 #include "Piece.h"
 #include "PieceType.h"
+
+// ############################################################
+// #                    GAME STATE CONTROL                    #
+// ############################################################
 
 enum GameState {
   GAME_POWER_ON,    // Power on the board, motors calibrate
@@ -31,9 +35,9 @@ enum GameState {
 // Game state
 GameState game_state;
 
-// Display in serial monitor
-const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P',
-                                 'k', 'q', 'b', 'n', 'r', 'p'};
+// ############################################################
+// #                  GAME STATUS VARIABLES                   #
+// ############################################################
 
 // 0 for white to move, 1 for black to move
 bool player_turn;
@@ -56,29 +60,37 @@ int8_t promotable_pawn_x;
 int8_t promotable_pawn_y;
 int8_t promotion_type;  // 0 for queen, 1 for rook, 2 for bishop, 3 for knight
 
-// TODO: initialize a graveyard for pieces.
 int8_t graveyard[12];  // Graveyard, each for 1 piece type. 0 is queen, 1 is
                        // rook, 2 is bishop, 3 is knight, 4 is pawn, next values
                        // are same for black. (10 and 11 are for temp pieces,
                        // they start at 8 and decrease to 0)
-// TODO: have a vector list of all promoted pawns that are using "temp"
-// promotion pieces
-std::vector<std::pair<int8_t, int8_t>>
-    promoted_pawns_using_temp_pieces;  // This records the position of promoted
-                                       // pawns that are using temp pieces
+
+// This records the position of promoted pawns that are using temp pieces
+std::vector<std::pair<int8_t, int8_t>> promoted_pawns_using_temp_pieces; 
+
+// Initialize Memory for the Board Object and Moves Vector (keeping track of possible moves)
+Board *p_board;
+std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>>
+    all_moves[8][8];
 
 std::pair<int8_t, int8_t> get_graveyard_coordinate(int8_t piece_type,
                                                    bool color) {
   // Get the graveyard coordinate for a piece type
-  // piece_type: 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for
-  // pawn, 6 for temp piece color: 0 for white, 1 for black This function should
-  // be called BEFORE the graveyard is updated (since a value of 0 is used for
-  // the first piece of each type) We treat the white queen moves to coordinate
-  // (8,7), rook to (8,6) and (8,5), bishop to (8,4) and (8,3), knight to (8,2)
-  // and (8,1), pawn to (9,7 to 9,0) We treat the black queen moves to
-  // coordinate (-1,0), rook to (-1,1) and (-1,2), bishop to (-1,3) and (-1,4),
-  // knight to (-1,5) and (-1,6), pawn to (-2,0 to -2,7) The specific coordinate
-  // is decided by graveyard[index] and index is decided by piece_type and color
+  // piece_type: 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 
+  //    5 for pawn, 6 for temp piece 
+  // color: 0 for white, 1 for black 
+  // Returns the x, y coordinate for this piece in the graveyard as a pair
+
+  // This function should be called BEFORE the graveyard is updated 
+  //    (since a value of 0 is used for the first piece of each type) 
+  // We treat the white queen moves to coordinate (8,7), 
+  //    rook to (8,6) and (8,5), bishop to (8,4) and (8,3), 
+  //    knight to (8,2) and (8,1), pawn to (9,7 to 9,0) 
+  // We treat the black queen moves to coordinate (-1,0), 
+  //    rook to (-1,1) and (-1,2), bishop to (-1,3) and (-1,4), knight to (-1,5) and (-1,6), 
+  //    pawn to (-2,0 to -2,7) 
+  // The specific coordinate is decided by graveyard[index] and index is decided by piece_type and color
+
   int graveyard_index = 0;
   if (piece_type == 1) {
     graveyard_index = 0;
@@ -139,8 +151,11 @@ std::pair<int8_t, int8_t> get_graveyard_coordinate(int8_t piece_type,
   }
 }
 
-// MOTOR CONTROL
+// ############################################################
+// #                       MOTOR CONTROL                      #
+// ############################################################
 
+// MOTOR CONTROL VARIABLES
 const int PUL_PIN[] = {9, 9};
 const int DIR_PIN[] = {8, 8};
 const int stepsPerSquare = 1536; // measured value from testing, 3.95cm per rotation
@@ -150,6 +165,7 @@ void move_motor(int from_x, int from_y, int to_x, int to_y, int stepDelay) {
   // Move the motor from one square to another
   // from_x, from_y: x, y coordinates of the square to move from
   // to_x, to_y: x, y coordinates of the square to move to
+  // stepDelay: time in microseconds to wait between each step (half a period)
   // Move the motor from (from_x, from_y) to (to_x, to_y)
 
   // TODO
@@ -183,33 +199,26 @@ void move_motor(int from_x, int from_y, int to_x, int to_y, int stepDelay) {
   Serial.println(")");
 }
 
-// Initialize Memory
-Board *p_board;
-std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>>
-    all_moves[8][8];
+// ############################################################
+// #                     JOYSTICK CONTROL                     #
+// ############################################################
 
-// ############ JOYSTICK CONTROL ############
-
-// JOYSTICK CONTROL (each corresponds to the pin number)
+// JOYSTICK CONTROL (each corresponds to the pin number) (first index is for white's joystick, second index is for black's joystick)
+// Joystick is active LOW, so connect the other pin to GND
 const int JOYSTICK_POS_X_PIN[] = {2, 2};
 const int JOYSTICK_POS_Y_PIN[] = {3, 3};
 const int JOYSTICK_NEG_X_PIN[] = {4, 4};
 const int JOYSTICK_NEG_Y_PIN[] = {5, 5};
 const int JOYSTICK_BUTTON_PIN[] = {6, 6};
-// User Joystick Location
+// User Joystick Location - keeping track of white x, black x, white y, black y
 int8_t joystick_x[2];
 int8_t joystick_y[2];
 bool confirm_button_pressed[2];
-// Previous joystick input -- for edge detection
+// Previous joystick input -- for edge detection (true if the button / joystick was pressed in the previous detection cycle)
 bool prev_confirm_button_pressed[2];
 bool prev_joystick_neutral[2];
-// Promotion Joystick Selection
-int8_t promotion_joystick_selection;  // only happening on one player's turn, so
-                                      // no need for 2
-
-// LEDs
-const int stripLen = 64;
-struct CRGB led_display[stripLen];
+// Promotion Joystick Selection - index of promotion piece selected (0,1,2,3)
+int8_t promotion_joystick_selection;  // only happening on one player's turn, so no need for 2
 
 void move_user_joystick_x_y(bool color) {
   // Get input from the joystick
@@ -329,6 +338,21 @@ void move_user_joystick_promotion(bool color) {
   prev_confirm_button_pressed[color] = !button_val;  // active low
 }
 
+// ############################################################
+// #                        LED CONTROL                       #
+// ############################################################
+// LED variables
+const int stripLen = 64;
+struct CRGB led_display[stripLen];
+
+// ############################################################
+// #                           UTIL                           #
+// ############################################################
+
+// Display in serial monitor
+const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P',
+                                 'k', 'q', 'b', 'n', 'r', 'p'};
+
 void serial_display_board_and_selection() {
   Serial.println("---------------------------------------------------");
   for (int row = 7; row >= 0; row--) {
@@ -390,6 +414,10 @@ int coordinate_to_index(int x, int y) {
     return y * 8 + 8 - x - 1;
   }
 }
+
+// ############################################################
+// #                           MAIN                           #
+// ############################################################
 
 void setup() {
   Serial.begin(9600);
