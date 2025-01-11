@@ -13,3 +13,6 @@ controls/
 stockfish/
   Does stockfish stuff. 
 ```
+
+## Bug Fixes:
+In ArduinoSTL new_handler.cpp, comment out line 22: `const std::nothrow_t ...`
