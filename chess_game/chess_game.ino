@@ -60,6 +60,10 @@ int8_t promotable_pawn_x;
 int8_t promotable_pawn_y;
 int8_t promotion_type;  // 0 for queen, 1 for rook, 2 for bishop, 3 for knight
 
+// Graveyard will be updated when a piece is captured - must consider cases of: 
+// 1. normal piece captured - it can immediately replace a temp piece (update graveyard by moving the pawn to the graveyard)
+// 2. temp piece captured - move temp piece to graveyard...
+// 3. pawn promoted - move pawn to graveyard, and replace with promoted piece (it could be a temp piece or piece from graveyard)
 int8_t graveyard[12];  // Graveyard, each for 1 piece type. 0 is queen, 1 is
                        // rook, 2 is bishop, 3 is knight, 4 is pawn, next values
                        // are same for black. (10 and 11 are for temp pieces,
