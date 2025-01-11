@@ -44,6 +44,17 @@ bool Board::is_three_fold_repetition() {
   return false;
 }
 
+bool Board::is_insufficient_material(){
+  // Checks if any side has insufficient material to checkmate
+  // Following conditions are insufficient material:
+  // 1. King vs King
+  // 2. King and Bishop vs King
+  // 3. King and Knight vs King
+  // Some other conditions we check later
+  throw "Not implemented";
+}
+
+
 
 // Function that moves a piece
 // We are given the original x, original y, new x, new y, if capture happens, a "capture x" and "capture y"

@@ -61,6 +61,9 @@ class Board {
 
     // Checks the three_fold_repetition_vector to see if the current board state is already in the vector with count 3, if so, returns true
     bool is_three_fold_repetition();
+    
+    // Checks if the game is a draw due to insufficient material
+    bool is_insufficient_material();
 
     // Constructor
     Board();
