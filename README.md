@@ -16,3 +16,29 @@ stockfish/
 
 ## Bug Fixes:
 In ArduinoSTL new_handler.cpp, comment out line 22: `const std::nothrow_t ...`
+
+## Bug Fix with FASTLED:
+In the ArduinoSTL `new` file, modify the following to `namespace std`
+```
+namespace std{
+	class _UCXXEXPORT bad_alloc : public exception {};
+
+    // Check if std::nothrow_t is already defined
+    #ifndef __STD_NOTHROW_T_DEFINED
+    #define __STD_NOTHROW_T_DEFINED
+    #if defined(__AVR__) || defined(ARDUINO)
+        // Avoid redefining nothrow_t if included from the Arduino core
+        struct nothrow_t; // Declare without defining
+        extern const nothrow_t nothrow;
+    #else
+        // Define nothrow_t if not already defined
+        struct _UCXXEXPORT nothrow_t {};
+        extern const nothrow_t nothrow;
+    #endif
+    #endif
+
+	typedef void (*new_handler)();
+	_UCXXEXPORT new_handler set_new_handler(new_handler new_p) _UCXX_USE_NOEXCEPT;
+}
+```
+This allows the code to compile
