@@ -50,8 +50,58 @@ bool Board::is_insufficient_material(){
   // 1. King vs King
   // 2. King and Bishop vs King
   // 3. King and Knight vs King
-  // Some other conditions we check later
-  throw "Not implemented";
+  // Some other conditions we can add later
+  int8_t white_bishop_count = 0;
+  int8_t black_bishop_count = 0;
+  int8_t white_knight_count = 0;
+  int8_t black_knight_count = 0;
+
+  // Count the number of bishops and knights (if any other piece is present, return false)
+
+  for (int8_t i = 0; i < 8; i++) {
+    for (int8_t j = 0; j < 8; j++) {
+      if (pieces[i][j]->get_type() == BISHOP) {
+        if (pieces[i][j]->get_color() == 0) {
+          white_bishop_count++;
+        } else {
+          black_bishop_count++;
+        }
+      } else if (pieces[i][j]->get_type() == KNIGHT) {
+        if (pieces[i][j]->get_color() == 0) {
+          white_knight_count++;
+        } else {
+          black_knight_count++;
+        }
+      } else if (pieces[i][j]->get_type() != EMPTY && pieces[i][j]->get_type() != KING) {
+        // If any other piece is present, return false
+        return false;
+      }
+    }
+  }
+
+  // If only kings are present, return true
+  if (white_bishop_count == 0 && black_bishop_count == 0 && white_knight_count == 0 && black_knight_count == 0) {
+    return true;
+  }
+
+  // If only one side has a bishop or a knight, return true
+  // knight case
+  if (white_bishop_count == 0 && black_bishop_count == 0 && white_knight_count == 1 && black_knight_count == 0) {
+    return true;
+  }
+  if (white_bishop_count == 0 && black_bishop_count == 0 && white_knight_count == 0 && black_knight_count == 1) {
+    return true;
+  }
+  // bishop case
+  if (white_bishop_count == 1 && black_bishop_count == 0 && white_knight_count == 0 && black_knight_count == 0) {
+    return true;
+  }
+  if (white_bishop_count == 0 && black_bishop_count == 1 && white_knight_count == 0 && black_knight_count == 0) {
+    return true;
+  }
+
+  // Otherwise, return false
+  return false;
 }
 
 
