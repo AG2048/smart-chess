@@ -42,3 +42,10 @@ namespace std{
 }
 ```
 This allows the code to compile
+
+## Raspberry Pi Setup
+Raspberry Pi 5, all GPIO and I2C and any other interfaces are set open. 
+
+git cloned stockfish from official stockfish into `~/` directory. 
+
+created a python venv at `~/venv` and installed the stockfish pip library. 
