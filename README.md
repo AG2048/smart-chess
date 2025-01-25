@@ -14,6 +14,15 @@ stockfish/
   Does stockfish stuff. 
 ```
 
+## Modules Used:
+`Arduino_AVRSTL` and `ArduinoSTL` by Mike Matera
+
+`Adafruit BusIO`, `Adafruit GFX Library`, `Adafruit SSD1306` by Adafruit
+
+`FastLED` by Daniel Garcia
+
+`Timer` by Stefan Staub
+
 ## Bug Fixes:
 In ArduinoSTL new_handler.cpp, comment out line 22: `const std::nothrow_t ...`
 
