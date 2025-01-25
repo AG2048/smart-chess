@@ -808,7 +808,7 @@ void loop() {
             get_graveyard_empty_coordinate(6, p_board->pieces[capture_y][capture_x]->get_color());
         // Motor move the piece from capture_x, capture_y to graveyard_coordinate
         move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first,
-                   graveyard_coordinate.second, motorStepDelay);
+                   graveyard_coordinate.second, motorStepDelay, true);
         // Update the graveyard memory
         graveyard[10 + p_board->pieces[capture_y][capture_x]->get_color()]++;
         // Remove the promoted pawn from the vector
@@ -836,10 +836,10 @@ void loop() {
             // piece Move temp piece to graveyard (6 == temp piece)
             std::pair<int8_t, int8_t> graveyard_coordinate =
                 get_graveyard_empty_coordinate(6, p_board->pieces[pawn_y][pawn_x]->get_color());
-            move_piece_by_motor(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second, motorStepDelay);
+            move_piece_by_motor(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second, motorStepDelay, true);
 
             // Move captured piece to the pawn's location (use safe move)
-            move_piece_by_motor(capture_x, capture_y, pawn_x, pawn_y, motorStepDelay);
+            move_piece_by_motor(capture_x, capture_y, pawn_x, pawn_y, motorStepDelay, true);
 
             // Remove the promoted pawn from the vector - since it's replaced,
             // and can be treated as a normal piece
@@ -874,7 +874,7 @@ void loop() {
           // and 6 for temp piece)
           std::pair<int8_t, int8_t> graveyard_coordinate =
               get_graveyard_empty_coordinate(graveyard_index + 1, p_board->pieces[capture_y][capture_x]->get_color());
-          move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second, motorStepDelay);
+          move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second, motorStepDelay, true);
 
           // If colour is black, add 5 to the index, and update the graveyard
           graveyard_index += 5 * p_board->pieces[capture_y][capture_x]->get_color();
@@ -895,7 +895,7 @@ void loop() {
     }
     // Move the piece (fast move except knight)
     move_piece_by_motor(selected_x, selected_y, destination_x, destination_y,
-               motorStepDelay);
+               motorStepDelay, true);
 
     // If the piece is a king that moved 2 squares, move the rook (castling)
     if (p_board->pieces[selected_y][selected_x]->get_type() == KING &&
@@ -915,7 +915,7 @@ void loop() {
       // Move the rook (BEWARE, THIS ROOK MOVE NEEDS TO MOVE ALONG THE EDGE, NOT LIKE ANY REGULAR ROOK MOVE)
       // HAVE TO GO AROUND THE KING
       move_piece_by_motor(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y,
-                 motorStepDelay);
+                 motorStepDelay, true);
     }
 
     // TODO: motor should move back to origin and calibrate
@@ -1032,7 +1032,7 @@ void loop() {
     std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate(
         5, p_board->pieces[destination_y][destination_x]->get_color());
     move_piece_by_motor(destination_x, destination_y, graveyard_coordinate.first,
-               graveyard_coordinate.second, motorStepDelay);
+               graveyard_coordinate.second, motorStepDelay, true);
     graveyard[4 + 5 * p_board->pieces[destination_y][destination_x]->get_color()]++;
 
     // If there is a valid piece in the graveyard, use that piece for promotion
@@ -1048,7 +1048,7 @@ void loop() {
       graveyard_coordinate = get_graveyard_empty_coordinate(
           graveyard_index - p_board->pieces[destination_y][destination_x]->get_color() * 5 + 1, p_board->pieces[destination_y][destination_x]->get_color());
       move_piece_by_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y, motorStepDelay);
+                 destination_x, destination_y, motorStepDelay, true);
     } else {
       // There isn't a valid piece in the graveyard, use a temp piece
 
@@ -1059,7 +1059,7 @@ void loop() {
       graveyard_coordinate = get_graveyard_empty_coordinate(
           6, p_board->pieces[destination_y][destination_x]->get_color());
       move_piece_by_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y, motorStepDelay);
+                 destination_x, destination_y, motorStepDelay, true);
 
       // Update the promoted pawns using temp pieces vector (add this promoted pawn)
       promoted_pawns_using_temp_pieces.push_back(
