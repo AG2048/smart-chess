@@ -386,6 +386,7 @@ void move_user_joystick_promotion(bool color) {
 // LED variables
 const int stripLen = 64;
 const int LED_BOARD_PIN = 12;
+const int LED_BRIGHTNESS = 10;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
 struct CRGB led_display[stripLen];
 // If we wish to add cosmetic things, add another array of "previous states", or "pre-set patterns" or other stuff
@@ -490,7 +491,7 @@ void loop() {
 
     // LED pin initialize:
     LEDS.addLeds<WS2812B, LED_BOARD_PIN, GRB>(led_display, stripLen);
-    // FastLED.setBrightness(10);
+    FastLED.setBrightness(LED_BRIGHTNESS);
 
     // Pins initialization
     // JOYSTICK are active low, so set them as INPUT_PULLUP (default HIGH)
