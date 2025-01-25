@@ -15,13 +15,13 @@ stockfish/
 ```
 
 ## Modules Used:
-`Arduino_AVRSTL` and `ArduinoSTL` by Mike Matera
+`Arduino_AVRSTL` 1.2.5 and `ArduinoSTL` 1.3.3 by Mike Matera
 
-`Adafruit BusIO`, `Adafruit GFX Library`, `Adafruit SSD1306` by Adafruit
+`Adafruit BusIO` 1.17.0, `Adafruit GFX Library` 1.11.11, `Adafruit SSD1306` 2.5.13 by Adafruit
 
-`FastLED` by Daniel Garcia
+`FastLED` 3.9.3 by Daniel Garcia
 
-`Timer` by Stefan Staub
+`Timer` 1.2.1 by Stefan Staub
 
 ## Bug Fixes:
 In ArduinoSTL new_handler.cpp, comment out line 22: `const std::nothrow_t ...`
