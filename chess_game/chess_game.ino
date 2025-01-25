@@ -59,6 +59,11 @@ int8_t capture_y;
 int8_t promotable_pawn_x;
 int8_t promotable_pawn_y;
 int8_t promotion_type;  // 0 for queen, 1 for rook, 2 for bishop, 3 for knight
+int8_t previous_destination_x = 0;
+int8_t previous_destination_y = 0;
+int8_t previous_selected_x = 0;
+int8_t previous_selected_y = 0;
+int number_of_turns = 0;
 
 bool draw_three_fold_repetition;  // If true, the game is a draw due to three fold repetition
 bool draw_fifty_move_rule;        // If true, the game is a draw due to fifty move rule
@@ -538,6 +543,12 @@ void loop() {
     destination_y = 0;
     capture_x = 0;
     capture_y = 0;
+    previous_destination_x = 0;
+    previous_destination_y = 0;
+    previous_selected_x = 0;
+    previous_selected_y = 0;
+    number_of_turns = 0;
+
     // Graveyard count all sets to 0, except for temp pieces which is 8
     for (int i = 0; i < 10; i++) {
       graveyard[i] = 0;  // initialize graveyard
@@ -663,6 +674,12 @@ void loop() {
     led_display[coordinate_to_index(joystick_x[player_turn],
                                     joystick_y[player_turn])] = CRGB(0, 0, 255);
     // Also light up previous move of opponent
+    
+    if(number_of_turns != 0){
+      led_display[coordinate_to_index(previous_selected_x, previous_selected_y)] = CRGB(255, 255, 0);
+      led_display[coordinate_to_index(previous_destination_x, previous_destination_y)] = CRGB(255, 255, 0);
+    }
+
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -1073,6 +1090,13 @@ void loop() {
   } else if (game_state == GAME_END_TURN) {
     // Record the move that just happened (selected_x, selected_y, destination_x, destination_y) as the "previous move"
     // This "previous move" will be displayed by LED
+    
+    previous_destination_x = destination_x;
+    previous_destination_y = destination_y;
+    previous_selected_x = selected_x;
+    previous_selected_y = selected_y;
+
+    number_of_turns++;
 
     // End a turn - switch player
     player_turn = !player_turn;
