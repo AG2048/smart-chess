@@ -140,8 +140,8 @@ void display_idle_screen(Timer timer, bool interacted, bool select_player, bool 
       // Snowflake animation from example
       // Every time this function is called, draw the next frame of animation
       if (!idle_two) { // We are just entering idle animation. Initialize!
+        idle_two = 1;
         for (int8_t f = 0; f < NUMFLAKES; f++) {
-          idle_two = 1;
           icons[f][XPOS]   = random(1 - LOGO_WIDTH, display.width());
           icons[f][YPOS]   = -LOGO_HEIGHT;
           icons[f][DELTAY] = random(1, 6);
