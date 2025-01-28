@@ -51,6 +51,8 @@ bool player_turn; // 0 for white, 1 for black
 
 static uint32_t last_interacted_time;
 static bool idle_one, idle_two;
+bool button;
+Timer OLED_timer;
 #define IDLE_ONE_DELAY_MS 1000*20 //20 seconds in ms
 #define IDLE_TWO_DELAY_MS 1000*40 //40 seconds in ms
 #define NUMFLAKES 10 // number of snowflakes to use in idle animation
@@ -213,70 +215,26 @@ void setup() {
   last_interacted_time = 0;
   idle_one = 0;
   idle_two = 0;
+  
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
 
-  Serial.println("test");
+  Serial.println("Allocation succeeded, proceeding");
+  pinMode(PB7, INPUT);
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display.display();
   delay(500); // Pause for 2 seconds
 
-  game_state = GAME_IDLE;
-  display.setTextColor(SSD1306_WHITE);
-
-  if (game_state == GAME_IDLE) { // Idle screen. 
-    // *** This might be something we only want to run once when game_state changes, aka not looping over it ***
-    // This can be a function we call once game_state changes.
-    Serial.println("game_idle test");
-    
-    // Smart chess written as scrolling text
-    display.clearDisplay();
-    delay(100);
-    display.display();
-    delay(100);
-
-    display.setTextSize(2); // Draw 2X-scale text (fills up the whole header)
-    // display.setTextColor(SSD1306_WHITE); Not sure how setting color works on the OLED we have
-    display.setCursor(10, 0); // Cursor is not used for writing messages
-    display.print(F("SMART CHESS           "));
-    display.display();      
-
-
-    //display.setCursor(50, 0); // To be tweaked probably. I'm just guessing these numbers.
-    //display.print(F("Come!"));
-    
-    display.startscrollleft(0x00, 0x0F); // (row 1, row 2). 0x0F as 2nd row scrolls whole display.
-    //display.startscrollright(10, 0x0F); // 10 is probably to be tweaked as well.
-    
-    delay(2000);
-
-  //   display.clearDisplay();
-
-  // display.setTextSize(1);      // Normal 1:1 pixel scale
-  // display.setTextColor(SSD1306_WHITE); // Draw white text
-  // display.setCursor(10, 50);     // Start at top-left corner (x, y)
-  // display.cp437(true);         // Use full 256 char 'Code Page 437' font
-  // //display.write uses cursor
-  
-  // // Not all the characters will fit on the display. This is normal.
-  // // Library will draw what it can and the rest will be clipped.
-  // for(int16_t i=0; i<256; i++) {
-  //   if(i == '\n') display.write(' ');
-  //   else          display.write(i);
-  // }
-
-  // display.display();
-  // delay(2000);
-  }
-
+  // Code to test the functionality of display_idle_screen
+  OLED_timer.start();
+  Serial.println("Setup done. Entering loop");
 }
 
 void loop() {
-  // While we are drawing a new frame every time we loop, in reality
-  // we could simply call an update_OLED() function to draw a new frame when we need to.
-
+  button = digitalRead(PB7);
+  display_idle_screen(OLED_timer, button, 1, 0, 5); // test values for screens & comp_diff
 }
