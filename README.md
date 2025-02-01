@@ -13,6 +13,16 @@ controls/
 stockfish/
   Does stockfish stuff. 
 ```
+## LED Format:
+"Off" just means no signal, not turning off
+Example: Inner/Outer
+
+Cursor: Cyan/Off (Flashing?)
+Selected Piece: Off/Green
+Previous Start: Off/Yellow
+Previous End: Off/Yellow
+Valid Moves: White/Green
+Valid Captures: Red/Green
 
 ## Modules Used:
 `Arduino_AVRSTL` 1.2.5 and `ArduinoSTL` 1.3.3 by Mike Matera
