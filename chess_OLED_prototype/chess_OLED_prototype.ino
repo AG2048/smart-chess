@@ -50,11 +50,12 @@ bool player_turn; // 0 for white, 1 for black
 */
 
 static uint32_t last_interacted_time;
-static bool idle_one, idle_two;
+// Flags to ensure we only print corresponding screens ONCE, not every loop
+static bool idle_one, idle_two, displayed_player, displayed_computer;
 bool button;
 Timer OLED_timer;
-#define IDLE_ONE_DELAY_MS 1000*20 //20 seconds in ms
-#define IDLE_TWO_DELAY_MS 1000*40 //40 seconds in ms
+#define IDLE_ONE_DELAY_MS 1000*5 //20 seconds in ms
+#define IDLE_TWO_DELAY_MS 1000*10 //40 seconds in ms
 #define NUMFLAKES 10 // number of snowflakes to use in idle animation
 #define LOGO_WIDTH 16     // bitmap dimensions
 #define LOGO_HEIGHT 16
@@ -81,7 +82,24 @@ static const unsigned char PROGMEM logo_bmp[] = // A bitmap that we can change t
   0b01110000, 0b01110000,
   0b00000000, 0b00110000 };
 
-/* display_idle_screen arguments
+/*
+  TODO
+
+  make functions to wrap the code to display the different screens
+
+  draw the screens if not interacted, but not idle
+
+  for select screen, we can't reprint it every loop; this causes nothing to be displayed
+  need to modify such that we only print it the first time. we can add additional logic in the wrapper functions
+
+  don't need 2 vars for sel_player and sel_comp
+  
+  init function for the OLED timer, resetting flags
+*/
+
+// No screen_num argument -- assuming both screens will display the same thing while idle
+void display_idle_screen(Timer timer, bool interacted, bool select_player, bool select_computer, uint8_t comp_diff) {
+  /* display_idle_screen arguments
   Timer timer, passed in so we can poll and see the current time and hence how much time has passed
 
   bool interacted, passed high if a user has interacted with the screen, so if necessary we know to 
@@ -92,10 +110,7 @@ static const unsigned char PROGMEM logo_bmp[] = // A bitmap that we can change t
   bool select_computer, high if that is the screen to be displayed outside of idle states
 
   uint8_t comp_diff, the difficulty value the user is selecting for Stockfish
-*/
-
-// No screen_num argument -- assuming both screens will display the same thing while idle
-void display_idle_screen(Timer timer, bool interacted, bool select_player, bool select_computer, uint8_t comp_diff) {
+  */
   uint32_t current_time = timer.read();
 
   static int8_t icons[NUMFLAKES][3]; /* Used for idle animation
@@ -109,31 +124,44 @@ void display_idle_screen(Timer timer, bool interacted, bool select_player, bool 
       display.stopscroll();
     }
     idle_two = 0; // if user has interacted, we are certainly not in an idle screen
-    last_interacted_time = current_time;
+
     // Draw the screen we're currently on
     // TO DO: find images for both screens (sel_player, sel_comp) and convert them to bitmaps 
     if (select_player) {
-      display.clearDisplay();
-      display.setTextSize(2);
-      // Draw bitmap
-      display.println(F(      "PLAYER"));
-      display.println(F("HUMAN  Comp>"));
-      display.print(F("MODE"));
-      display.display();
+
+      if (!displayed_player) {
+        display_select_player();
+        displayed_player = 1;
+        Serial.println("Interacted, displayed player");
+      }
+      displayed_computer = 0;
+
     } else if (select_computer) {
-      display.clearDisplay();
-      display.setTextSize(2);
-      display.println(F("STOCKFISH"));
-      display.print(F("<Human  LV:"));
-      // Draw bitmap
-      display.print(comp_diff, DEC);
-      display.display();
+
+      if (!displayed_computer) {
+        display_select_computer(comp_diff);
+        displayed_computer = 1;
+        Serial.println("Interacted, displayed computer");
+
+      }
+      displayed_player = 0;
     }
-    
+
+    last_interacted_time = current_time;
+
   } else { // If the user hasn't interacted with the display
 
     if (current_time - last_interacted_time > IDLE_TWO_DELAY_MS) {// Showing screen two : idle animation
-      
+/*
+if current - last interacted > IDLE delay && current - lastIdleChange > 5s:
+  // we are in idle, and it's time to change
+  lastIdleChange = current; // next change would be 5 s from now -- if no interaction
+  if idleone: set idle1 to false, idle 2 true, do snowflake whatever...
+  else: set idle1 to true, idle 2 to false do whatever. 
+  (make sure to have a "default", that idle 1 comes first)
+*/
+      displayed_computer = 0; // Reset the display screen flags
+      displayed_player = 0;
       if (idle_one) { // Clear idle_one flag
         idle_one = 0;
         display.stopscroll();
@@ -174,23 +202,35 @@ void display_idle_screen(Timer timer, bool interacted, bool select_player, bool 
       }
       
     } else if (current_time - last_interacted_time > IDLE_ONE_DELAY_MS) { // Showing screen one : scrolling text
-
+      displayed_computer = 0; // Reset the display screen flags
+      displayed_player = 0;
       if (!idle_one) { // We only want this to run once, when we first enter the second idle screen
         idle_one = 1; // We need to clear this once we exit 
         display.clearDisplay();
         display.setTextSize(2);
-        display.println(F("     Spark"));
+        display.println(F("  Spark"));
         display.print(F("SMARTCHESS"));
         display.display();
-        display.startscrollleft(0x00, 10); // (row 1, row 2). 0x0F as 2nd row scrolls whole display.
-        display.startscrollright(11, 0x0F);
+        display.startscrollleft(0x00, 0x0F); // (row 1, row 2). 0x0F as 2nd row scrolls whole display.
+        //display.startscrollright(15, 0x0F);
       }
 
     } else { // We're not idle, but user hasn't interacted
+      if (select_player) {
 
-      if (select_player) { // Displaying screens again... may not be necessary, unless we include things like blinking objects
+        if (!displayed_player) {
+          display_select_player();
+          displayed_player = 1;
+        }
+        displayed_computer = 0;
 
       } else if (select_computer) {
+
+        if (!displayed_computer) {
+          display_select_computer(comp_diff);
+          displayed_computer = 1;
+        }
+        displayed_player = 0;
 
       }
 
@@ -210,12 +250,38 @@ void display_promotion(bool screen_num) {
 
 }
 
+void display_select_player() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  // Draw bitmap
+  display.setCursor(0, 0);
+  display.println(F(      "PLAYER"));
+  display.println(F("HUMAN  Comp>"));
+  display.print(F("MODE"));
+  display.display();
+}
+
+void display_select_computer(uint8_t comp_diff) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.println(F("STOCKFISH"));
+  display.print(F("<Human  LV:"));
+  // Draw bitmap
+  display.print(comp_diff, DEC);
+  display.display();
+}
+
 void setup() {
   Serial.begin(9600);
   last_interacted_time = 0;
   idle_one = 0;
   idle_two = 0;
+  displayed_computer = 0;
+  displayed_player = 0;
   
+  bool selecting_player = 0, selecting_computer = 0; // To be passed into display_idle_screen, we'll change these variables to simulate
+                                                      // joystick input or whatever to switch screens
+
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -223,7 +289,7 @@ void setup() {
   }
 
   Serial.println("Allocation succeeded, proceeding");
-  pinMode(PB7, INPUT);
+  pinMode(22, INPUT_PULLUP);
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display.display();
@@ -232,9 +298,10 @@ void setup() {
   // Code to test the functionality of display_idle_screen
   OLED_timer.start();
   Serial.println("Setup done. Entering loop");
+  display.setTextColor(SSD1306_WHITE);
 }
 
 void loop() {
-  button = digitalRead(PB7);
-  display_idle_screen(OLED_timer, button, 1, 0, 5); // test values for screens & comp_diff
+  button = digitalRead(22); // Digital pin 22
+  display_idle_screen(OLED_timer, !button, 0, 1, 5); // test values for screens & comp_diff
 }
