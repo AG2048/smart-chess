@@ -1,56 +1,75 @@
 // Pin definitions
 const int clk = 13;       // Clock signal (output)
-const int WValid = 12;    // Valid signal (input)
-const int WReady = 11;    // Ready signal (output)
-const int datapin = 10;   // Data signal (input)
+const int RValid = 12;    // Valid signal (input)
+const int RReady = 11;    // Ready signal (output)
+const int RData = 10;   // Data signal (input)
+const int clock_half_period = 10;
 
 void setup() {
   pinMode(clk, OUTPUT);
-  pinMode(WValid, INPUT);
-  pinMode(WReady, OUTPUT);
-  pinMode(datapin, INPUT);
+  pinMode(RValid, INPUT);
+  pinMode(RReady, OUTPUT);
+  pinMode(RData, INPUT);
   
   digitalWrite(clk, LOW);
-  digitalWrite(WReady, LOW);
+  digitalWrite(RReady, LOW);
   Serial.begin(9600);
 }
 
 void loop() {
-  // Signal ready to receive
-  digitalWrite(WReady, HIGH);
+  read();
+}
 
-  // Wait for valid signal from Raspberry Pi
-  while (digitalRead(WValid) == LOW) {
-    delayMicroseconds(10);
-  }
-
-  // Receive 14-bit data
-  int receivedData[14];
+int read() {
+  // State variables
+  int receiving = 0;
   int i = 0;
-  while (i < 14) {
-    // Generate clock pulse
+
+  // Begin with not ready
+  digitalWrite(clk, LOW);
+  digitalWrite(RReady, LOW);
+  
+  // Rising clock - do one cycle for fun
+  delay(clock_half_period);
+  digitalWrite(clk, HIGH);
+  delay(clock_half_period);
+  digitalWrite(clk, LOW);
+
+  // Set ready
+  digitalWrite(RReady, HIGH); // Indicate ready to receive
+  delay(clock_half_period);
+  int receivedData[14];
+  int current_data;
+
+  // Loop:
+  while (1){
+    // Read data and valid status before edge
+    current_data = digitalRead(RData);
+    if (!receiving) receiving = digitalRead(RValid);
+
+    // Rising edge and falling edge
     digitalWrite(clk, HIGH);
-    delay(1);
-
-    // Read data on rising edge
-    receivedData[i++] = digitalRead(datapin);
-
-    // Lower clock
+    delay(clock_half_period);
     digitalWrite(clk, LOW);
-    delay(1);
+
+    // load in data
+    if (receiving) {
+      digitalWrite(RReady, LOW);
+      receivedData[i++] = current_data;
+    }
+    if (i >= 14) {
+      break;
+    }
   }
 
-  // End of transmission
-  digitalWrite(WReady, LOW);
-
-  // Print received data
-  Serial.print("Received: ");
-  for (int j = 0; j < 14; j++) {
+  Serial.println("Data read from Raspberry Pi.");
+  int num_received = 0;
+  for(int j = 0; j < 14; j++){
     Serial.print(receivedData[j]);
     Serial.print(" ");
+    num_received += receivedData[j] << j;
   }
-  Serial.println();
-
-  // Delay before next transmission
-  delay(1000);
+  Serial.print("\t");
+  Serial.println(num_received);
+  return 0; // Return success
 }
