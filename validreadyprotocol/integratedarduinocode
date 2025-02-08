@@ -5,94 +5,105 @@ const int WReady = 11;    // Ready signal (input for write, output for read)
 const int datapin = 10;   // Data signal (output for write, input for read)
 
 void setup() {
-  pinMode(clk, OUTPUT);
-  pinMode(WValid, OUTPUT);
-  pinMode(WReady, OUTPUT);
-  pinMode(datapin, OUTPUT);
-  
+  Serial.begin(9600);
+  // Initialize all pins to safe states
+  pinMode(clk, INPUT);    // Start as input (Pi controls clock during read)
+  pinMode(WValid, INPUT);
+  pinMode(WReady, INPUT);
+  pinMode(datapin, INPUT);
   digitalWrite(clk, LOW);
   digitalWrite(WValid, LOW);
   digitalWrite(WReady, LOW);
   digitalWrite(datapin, LOW);
-  Serial.begin(9600);
 }
 
 void loop() {
-  // Write data to Raspberry Pi
-  writeToPi();
-
-  // Read data from Raspberry Pi
-  readFromPi();
-
-  // Delay between operations
-  delay(1000);
+  writeToPi();  // Send data to Pi
+  readFromPi(); // Receive data from Pi
+  delay(1000);  // Add delay to avoid overlap
 }
 
-// Function to write data to Raspberry Pi
+// Write to Pi (Arduino as sender)
 void writeToPi() {
-  int transmitting = 0;
+  // Configure pins for write mode
+  pinMode(clk, OUTPUT);
+  pinMode(WValid, OUTPUT);
+  pinMode(WReady, INPUT);
+  pinMode(datapin, OUTPUT);
+  
+  int datas[14] = {1,0,1,0,1,0,1,0,1,0,1,0,1,0}; // Example data
   int i = 0;
-  int datas[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0}; // Example data
+  bool timeout = false;
+  unsigned long startTime = millis();
 
-  delay(1);
-  digitalWrite(clk, HIGH);
-  delay(1);
+  // Initialize handshake
   digitalWrite(clk, LOW);
+  digitalWrite(WValid, HIGH); // Assert valid
+  digitalWrite(datapin, datas[i++]);
 
-  digitalWrite(WValid, HIGH); // Indicate data is valid
-  delay(1);
-
-  while (true) {
-    transmitting = digitalRead(WReady);
-    digitalWrite(clk, HIGH);
-    if (transmitting) {
-      digitalWrite(WValid, LOW); // Set valid back to zero
-      digitalWrite(datapin, datas[i++]);
-    }
-    delay(1);
-    digitalWrite(clk, LOW);
-    delay(1);
-    if (i == 14) {
-      break;
-    }
-  }
-  Serial.println("Data sent to Raspberry Pi.");
-}
-
-// Function to read data from Raspberry Pi
-void readFromPi() {
-  // Signal ready to receive
-  digitalWrite(WReady, HIGH);
-
-  // Wait for valid signal from Raspberry Pi
-  while (digitalRead(WValid) == LOW) {
-    delayMicroseconds(10);
-  }
-
-  // Receive 14-bit data
-  int receivedData[14];
-  int i = 0;
   while (i < 14) {
     // Generate clock pulse
     digitalWrite(clk, HIGH);
     delay(1);
-
-    // Read data on rising edge
-    receivedData[i++] = digitalRead(datapin);
-
-    // Lower clock
     digitalWrite(clk, LOW);
     delay(1);
+
+    // Check if Pi is ready (WReady = HIGH)
+    if (digitalRead(WReady) == HIGH) {
+      digitalWrite(datapin, datas[i++]);
+    }
+
+    // Timeout after 2 seconds
+    if (millis() - startTime > 2000) {
+      timeout = true;
+      break;
+    }
   }
 
-  // End of transmission
-  digitalWrite(WReady, LOW);
+  digitalWrite(WValid, LOW); // End transmission
+  if (timeout) Serial.println("Write timeout!");
+  else Serial.println("Data sent to Pi.");
+}
 
-  // Print received data
-  Serial.print("Received: ");
-  for (int j = 0; j < 14; j++) {
-    Serial.print(receivedData[j]);
-    Serial.print(" ");
+// Read from Pi (Arduino as receiver)
+void readFromPi() {
+  // Configure pins for read mode
+  pinMode(clk, INPUT);     // Let Pi control the clock
+  pinMode(WValid, INPUT);
+  pinMode(WReady, OUTPUT);
+  pinMode(datapin, INPUT);
+  
+  int receivedData[14];
+  int i = 0;
+  bool timeout = false;
+  unsigned long startTime = millis();
+
+  // Signal readiness
+  digitalWrite(WReady, HIGH);
+
+  while (i < 14) {
+    // Wait for rising edge of clk (Pi-generated)
+    if (digitalRead(clk) == HIGH) {
+      // Check if Pi asserts valid
+      if (digitalRead(WValid) == HIGH) {
+        receivedData[i++] = digitalRead(datapin);
+      }
+      // Debounce
+      while (digitalRead(clk) == HIGH);
+    }
+
+    // Timeout after 2 seconds
+    if (millis() - startTime > 2000) {
+      timeout = true;
+      break;
+    }
   }
-  Serial.println();
+
+  digitalWrite(WReady, LOW); // End transmission
+  if (timeout) Serial.println("Read timeout!");
+  else {
+    Serial.print("Received: ");
+    for (int j=0; j<14; j++) Serial.print(receivedData[j]);
+    Serial.println();
+  }
 }
