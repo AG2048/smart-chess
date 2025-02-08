@@ -1,14 +1,3 @@
-import RPi.GPIO as GPIO
-import time
-
-# Pin definitions
-CLK_PIN = 17    # GPIO pin for clock signal (input)
-VALID_PIN = 27  # GPIO pin for valid signal (input)
-READY_PIN = 22  # GPIO pin for ready signal (output)
-DATA_PIN = 23   # GPIO pin for data signal (input)
-
-# Initialize GPIO
-GPIO.setmode(GPIO.BCM)
 GPIO.setup(CLK_PIN, GPIO.IN)     # Clock signal (input)
 GPIO.setup(VALID_PIN, GPIO.IN)   # Valid signal (input)
 GPIO.setup(READY_PIN, GPIO.OUT)  # Ready signal (output)
@@ -25,14 +14,18 @@ def read_from_arduino(bits_to_receive=14):
 
     # Set initial state of READY signal
     GPIO.output(READY_PIN, GPIO.HIGH)  # Ready to receive data
-
+    print("READY SET")
+    valid = 0
     while True:
         # read the current data value, before clock edge.
         current_data = GPIO.input(DATA_PIN)
         # Read current clock state
         current_clk = GPIO.input(CLK_PIN)
         # Read valid signal
-        valid = GPIO.input(VALID_PIN)
+        temp_valid = GPIO.input(VALID_PIN)
+        if temp_valid != valid:
+            print(f"temp_valid {temp_valid}")
+        valid = temp_valid
 
         # Check for clock edge (rising edge: last_clk = 0, current_clk = 1)
         if last_clk == GPIO.LOW and current_clk == GPIO.HIGH:
@@ -40,6 +33,7 @@ def read_from_arduino(bits_to_receive=14):
                 # Start receiving data
                 receiving = True
                 GPIO.output(READY_PIN, GPIO.LOW)  # Not ready for new data
+                print("READY CLEARED")
                 # print("RPi: Started receiving data...")
 
             if receiving:
@@ -53,4 +47,8 @@ def read_from_arduino(bits_to_receive=14):
 
         # Update last clock state
         last_clk = current_clk
-print(read_from_arduino())
+import time
+while True:
+    GPIO.output(READY_PIN, GPIO.LOW)
+    #time.sleep(1)
+    read_from_arduino()
