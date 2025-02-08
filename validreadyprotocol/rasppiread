@@ -1,0 +1,42 @@
+import RPi.GPIO as GPIO
+import time
+
+# Pin definitions
+clk = 17       # Clock signal input (from Arduino)
+WValid = 27    # Valid signal input (from Arduino)
+WReady = 22    # Ready signal output (to Arduino)
+datapin = 23   # Data signal input (from Arduino)
+
+def setup_gpio():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(clk, GPIO.IN)
+    GPIO.setup(WValid, GPIO.IN)
+    GPIO.setup(WReady, GPIO.OUT)
+    GPIO.setup(datapin, GPIO.IN)
+    GPIO.output(WReady, GPIO.HIGH)  # Ready to receive data
+
+def read_from_arduino():
+    setup_gpio()
+    received_data = []
+    last_clk_state = GPIO.input(clk)
+    
+    while len(received_data) < 14:
+        current_clk = GPIO.input(clk)
+        valid_state = GPIO.input(WValid)
+        
+        # Detect rising edge
+        if last_clk_state == GPIO.LOW and current_clk == GPIO.HIGH:
+            if valid_state == GPIO.HIGH:
+                # Read data on rising edge
+                received_data.append(GPIO.input(datapin))
+        
+        last_clk_state = current_clk
+        time.sleep(0.001)  # Match Arduino's clock timing
+    
+    GPIO.cleanup()
+    return received_data
+
+# Example usage
+if __name__ == "__main__":
+    received_data = read_from_arduino()
+    print("Received data:", received_data)
