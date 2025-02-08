@@ -18,8 +18,7 @@ void setup() {
 
 void loop() {
   // Data to send (14 bits)
-  char data[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
-  int datas[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0}; // Example data
+  char data[8] = {};
 
   // Call the write function
   write(data);
