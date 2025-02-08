@@ -1,47 +1,58 @@
 // Pin definitions
-const int CLK_PIN = 13;     // Clock signal (output)
-const int VALID_PIN = 12;   // Valid signal (output)
-const int READY_PIN = 11;   // Ready signal (input)
-const int DATA_PIN = 10;    // Data signal (output)
+const int clk = 13;       // Clock signal (output)
+const int WValid = 12;    // Valid signal (output)
+const int WReady = 11;    // Ready signal (input)
+const int datapin = 10;   // Data signal (output)
 
 void setup() {
-  pinMode(CLK_PIN, OUTPUT);
-  pinMode(VALID_PIN, OUTPUT);
-  pinMode(READY_PIN, INPUT);
-  pinMode(DATA_PIN, OUTPUT);
+  pinMode(clk, OUTPUT);
+  pinMode(WValid, OUTPUT);
+  pinMode(WReady, INPUT);
+  pinMode(datapin, OUTPUT);
   
-  digitalWrite(CLK_PIN, LOW);
-  digitalWrite(VALID_PIN, LOW);
-  digitalWrite(DATA_PIN, LOW);
+  digitalWrite(clk, LOW);
+  digitalWrite(WValid, LOW);
+  digitalWrite(datapin, LOW);
   Serial.begin(9600);
 }
 
 void loop() {
   // Data to send (14 bits)
-  bool data[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+  char data[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+  int datas[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0}; // Example data
 
-  // Wait for Raspberry Pi to be ready
-  while (digitalRead(READY_PIN) == LOW) {
-    delayMicroseconds(10);
-  }
+  // Call the write function
+  write(data);
+  delay(1000); // Delay between transmissions
+}
 
-  // Start transmission
-  digitalWrite(VALID_PIN, HIGH); // Indicate data is valid
-  for (int i = 0; i < 14; i++) {
-    // Set data bit
-    digitalWrite(DATA_PIN, data[i]);
+int write(char data[8]) {
+  int transmitting = 0;
+  int i = 0;
+  int datas[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0}; // Example data
 
-    // Generate clock pulse
-    digitalWrite(CLK_PIN, HIGH);
+  delay(1);
+  digitalWrite(clk, HIGH);
+  delay(1);
+  digitalWrite(clk, LOW);
+
+  digitalWrite(WValid, HIGH); // Indicate data is valid
+  delay(1);
+
+  while (true) {
+    transmitting = digitalRead(WReady);
+    digitalWrite(clk, HIGH);
+    if (transmitting) {
+      digitalWrite(WValid, LOW); // Set valid back to zero
+      digitalWrite(datapin, datas[i++]);
+    }
     delay(1);
-    digitalWrite(CLK_PIN, LOW);
+    digitalWrite(clk, LOW);
     delay(1);
+    if (i == 14) {
+      break;
+    }
   }
-
-  // End transmission
-  digitalWrite(VALID_PIN, LOW);
   Serial.println("Data sent to Raspberry Pi.");
-
-  // Delay before next transmission
-  delay(1000);
+  return 0; // Return success
 }
