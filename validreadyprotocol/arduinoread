@@ -1,0 +1,56 @@
+// Pin definitions
+const int clk = 13;       // Clock signal (output)
+const int WValid = 12;    // Valid signal (input)
+const int WReady = 11;    // Ready signal (output)
+const int datapin = 10;   // Data signal (input)
+
+void setup() {
+  pinMode(clk, OUTPUT);
+  pinMode(WValid, INPUT);
+  pinMode(WReady, OUTPUT);
+  pinMode(datapin, INPUT);
+  
+  digitalWrite(clk, LOW);
+  digitalWrite(WReady, LOW);
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Signal ready to receive
+  digitalWrite(WReady, HIGH);
+
+  // Wait for valid signal from Raspberry Pi
+  while (digitalRead(WValid) == LOW) {
+    delayMicroseconds(10);
+  }
+
+  // Receive 14-bit data
+  int receivedData[14];
+  int i = 0;
+  while (i < 14) {
+    // Generate clock pulse
+    digitalWrite(clk, HIGH);
+    delay(1);
+
+    // Read data on rising edge
+    receivedData[i++] = digitalRead(datapin);
+
+    // Lower clock
+    digitalWrite(clk, LOW);
+    delay(1);
+  }
+
+  // End of transmission
+  digitalWrite(WReady, LOW);
+
+  // Print received data
+  Serial.print("Received: ");
+  for (int j = 0; j < 14; j++) {
+    Serial.print(receivedData[j]);
+    Serial.print(" ");
+  }
+  Serial.println();
+
+  // Delay before next transmission
+  delay(1000);
+}
