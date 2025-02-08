@@ -14,6 +14,8 @@ GPIO.setup(VALID_PIN, GPIO.IN)   # Valid signal (input)
 GPIO.setup(READY_PIN, GPIO.OUT)  # Ready signal (output)
 GPIO.setup(DATA_PIN, GPIO.IN)    # Data signal (input)
 
+bits_to_recieve = 14
+
 def read_from_arduino(bits_to_receive=14):
     # Variables
     last_clk = GPIO.input(CLK_PIN)  # Store the last clock state
