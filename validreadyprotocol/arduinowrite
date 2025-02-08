@@ -2,7 +2,7 @@
 const int clk = 13;       // Clock signal (output)
 const int WValid = 12;    // Valid signal (output)
 const int WReady = 11;    // Ready signal (input)
-const int datapin = 10;   // Data signal (output)
+const int WData = 10;   // Data signal (output)
 const int clock_half_period = 10;
 
 void setup() {
@@ -43,7 +43,7 @@ int write(int data_rep) {
   digitalWrite(clk, LOW);
 
   digitalWrite(WValid, HIGH); // Indicate data is valid
-  digitalWrite(datapin, datas[i]);
+  digitalWrite(WData, datas[i]);
   delay(clock_half_period);
 
   while (true) {
@@ -55,7 +55,7 @@ int write(int data_rep) {
     digitalWrite(clk, LOW);
     if (transmitting) {
       digitalWrite(WValid, LOW);
-      digitalWrite(datapin, datas[++i]);
+      digitalWrite(WData, datas[++i]);
     }
     delay(clock_half_period);
     if (i >= 14) {
