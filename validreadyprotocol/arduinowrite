@@ -1,0 +1,47 @@
+// Pin definitions
+const int CLK_PIN = 13;     // Clock signal (output)
+const int VALID_PIN = 12;   // Valid signal (output)
+const int READY_PIN = 11;   // Ready signal (input)
+const int DATA_PIN = 10;    // Data signal (output)
+
+void setup() {
+  pinMode(CLK_PIN, OUTPUT);
+  pinMode(VALID_PIN, OUTPUT);
+  pinMode(READY_PIN, INPUT);
+  pinMode(DATA_PIN, OUTPUT);
+  
+  digitalWrite(CLK_PIN, LOW);
+  digitalWrite(VALID_PIN, LOW);
+  digitalWrite(DATA_PIN, LOW);
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Data to send (14 bits)
+  bool data[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+
+  // Wait for Raspberry Pi to be ready
+  while (digitalRead(READY_PIN) == LOW) {
+    delayMicroseconds(10);
+  }
+
+  // Start transmission
+  digitalWrite(VALID_PIN, HIGH); // Indicate data is valid
+  for (int i = 0; i < 14; i++) {
+    // Set data bit
+    digitalWrite(DATA_PIN, data[i]);
+
+    // Generate clock pulse
+    digitalWrite(CLK_PIN, HIGH);
+    delay(1);
+    digitalWrite(CLK_PIN, LOW);
+    delay(1);
+  }
+
+  // End transmission
+  digitalWrite(VALID_PIN, LOW);
+  Serial.println("Data sent to Raspberry Pi.");
+
+  // Delay before next transmission
+  delay(1000);
+}
