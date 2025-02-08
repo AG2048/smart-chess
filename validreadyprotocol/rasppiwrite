@@ -1,0 +1,46 @@
+import RPi.GPIO as GPIO
+import time
+
+# Pin definitions
+clk = 17       # Clock signal input (from Arduino)
+WValid = 27    # Valid signal output (to Arduino)
+WReady = 22    # Ready signal input (from Arduino)
+datapin = 23   # Data signal output (to Arduino)
+
+def setup_gpio():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(clk, GPIO.IN)
+    GPIO.setup(WValid, GPIO.OUT)
+    GPIO.setup(WReady, GPIO.IN)
+    GPIO.setup(datapin, GPIO.OUT)
+    GPIO.output(WValid, GPIO.LOW)
+    GPIO.output(datapin, GPIO.LOW)
+
+def write_to_arduino():
+    setup_gpio()
+    GPIO.output(WValid, GPIO.HIGH)  # Indicate data is valid
+    
+    data = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]  # Example data
+    i = 0
+    last_clk_state = GPIO.input(clk)
+    
+    while i < len(data):
+        current_clk = GPIO.input(clk)
+        ready_state = GPIO.input(WReady)
+        
+        # Detect rising edge
+        if last_clk_state == GPIO.LOW and current_clk == GPIO.HIGH:
+            if ready_state == GPIO.HIGH:
+                # Transfer data
+                GPIO.output(datapin, data[i])
+                i += 1
+        
+        last_clk_state = current_clk
+        time.sleep(0.001)  # Match Arduino's clock timing
+    
+    GPIO.output(WValid, GPIO.LOW)  # Data transfer complete
+    GPIO.cleanup()
+
+# Example usage
+if __name__ == "__main__":
+    write_to_arduino()
