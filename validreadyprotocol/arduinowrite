@@ -3,7 +3,7 @@ const int clk = 13;       // Clock signal (output)
 const int WValid = 12;    // Valid signal (output)
 const int WReady = 11;    // Ready signal (input)
 const int datapin = 10;   // Data signal (output)
-const int clock_half_period = 500;
+const int clock_half_period = 10;
 
 void setup() {
   pinMode(clk, OUTPUT);
@@ -23,7 +23,7 @@ void loop() {
   // char data[8] = {};
 
   // Call the write function
-  delay(1000); // Delay between transmissions
+  // delay(1000); // Delay between transmissions
   char data[8] = {};
   write(data_rep++);
 }
@@ -47,15 +47,16 @@ int write(int data_rep) {
   delay(clock_half_period);
 
   while (true) {
-    if (!transmitting) {transmitting = digitalRead(WReady); digitalWrite(WValid, LOW);} // Set valid back to zero
+    if (!transmitting) {transmitting = digitalRead(WReady);} // Set valid back to zero
     Serial.print("WREADY: ");
     Serial.println(digitalRead(WReady));
     digitalWrite(clk, HIGH);
-    if (transmitting) {
-      digitalWrite(datapin, datas[++i]);
-    }
     delay(clock_half_period);
     digitalWrite(clk, LOW);
+    if (transmitting) {
+      digitalWrite(WValid, LOW);
+      digitalWrite(datapin, datas[++i]);
+    }
     delay(clock_half_period);
     if (i >= 14) {
       break;
