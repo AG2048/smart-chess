@@ -3,6 +3,7 @@ const int clk = 13;       // Clock signal (output)
 const int WValid = 12;    // Valid signal (output)
 const int WReady = 11;    // Ready signal (input)
 const int datapin = 10;   // Data signal (output)
+const int clock_half_period = 500;
 
 void setup() {
   pinMode(clk, OUTPUT);
@@ -16,42 +17,55 @@ void setup() {
   Serial.begin(9600);
 }
 
+int data_rep = 0;
 void loop() {
   // Data to send (14 bits)
-  char data[8] = {};
+  // char data[8] = {};
 
   // Call the write function
-  write(data);
   delay(1000); // Delay between transmissions
+  char data[8] = {};
+  write(data_rep++);
 }
 
-int write(char data[8]) {
+int write(int data_rep) {
   int transmitting = 0;
   int i = 0;
-  int datas[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0}; // Example data
+  int datas[14] = {0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1}; // Example data
+  for(int j = 0; j < 14; j++){
+    datas[j] = (data_rep >> j) & 1;
+  }
+  digitalWrite(WValid, LOW);
 
-  delay(1);
+  delay(clock_half_period);
   digitalWrite(clk, HIGH);
-  delay(1);
+  delay(clock_half_period);
   digitalWrite(clk, LOW);
 
   digitalWrite(WValid, HIGH); // Indicate data is valid
-  delay(1);
+  digitalWrite(datapin, datas[i]);
+  delay(clock_half_period);
 
   while (true) {
-    transmitting = digitalRead(WReady);
+    if (!transmitting) {transmitting = digitalRead(WReady); digitalWrite(WValid, LOW);} // Set valid back to zero
+    Serial.print("WREADY: ");
+    Serial.println(digitalRead(WReady));
     digitalWrite(clk, HIGH);
     if (transmitting) {
-      digitalWrite(WValid, LOW); // Set valid back to zero
-      digitalWrite(datapin, datas[i++]);
+      digitalWrite(datapin, datas[++i]);
     }
-    delay(1);
+    delay(clock_half_period);
     digitalWrite(clk, LOW);
-    delay(1);
-    if (i == 14) {
+    delay(clock_half_period);
+    if (i >= 14) {
       break;
     }
   }
   Serial.println("Data sent to Raspberry Pi.");
+  for(int j = 0; j < 14; j++){
+    Serial.print(datas[j]);
+    Serial.print(" ");
+  }
+  Serial.println("");
   return 0; // Return success
 }
