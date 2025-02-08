@@ -4,6 +4,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "Timer.h"
+#include "ArduinoSTL.h"
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -14,12 +15,24 @@
 
 #define OLED_RESET     -1 // Reset pin (-1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C // Address is 0x3D for 128x64
+#define SCREEN_ADDRESS_TWO 0x7A
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_SSD1306 displayTwo(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+enum PieceType {
+  EMPTY,
+  KING,
+  QUEEN,
+  BISHOP,
+  KNIGHT,
+  ROOK,
+  PAWN
+};
 
 bool player_turn; // 0 for white, 1 for black
 
 /* OLED wrapper functions
- * display_idle_screen(unsigned long time_called, interacted)
+ * display_idle_screen(...)
 
 
 */
@@ -32,11 +45,11 @@ Timer OLED_timer;
 #define IDLE_ONE_DELAY_MS 1000*5 //20 seconds in ms
 #define IDLE_TWO_DELAY_MS 1000*10 //40 seconds in ms
 #define IDLE_DELAY_MS 1000*5 // 5 seconds in ms
-#define NUMFLAKES 10 // number of snowflakes to use in idle animation
+#define NUM_FLAKES 10 // number of snowflakes to use in idle animation
 #define LOGO_WIDTH 16     // bitmap dimensions
 #define LOGO_HEIGHT 16
 
-static int8_t icons[NUMFLAKES][3]; // Used for idle animation
+static int8_t icons[NUM_FLAKES][3]; // Used for idle animation
 #define XPOS   0 // Indexes into the 'icons' array for display_idle_screen fn
 #define YPOS   1
 #define DELTAY 2
@@ -61,19 +74,10 @@ static const unsigned char PROGMEM logo_bmp[] = // A bitmap that we can change t
 
 /*
   TODO
-
-  make functions to wrap the code to display the different screens
-
-  draw the screens if not interacted, but not idle
-
-  for select screen, we can't reprint it every loop; this causes nothing to be displayed
-  need to modify such that we only print it the first time. we can add additional logic in the wrapper functions
-
-  don't need 2 vars for sel_player and sel_comp
-  
-  init function for the OLED timer, resetting flags
+  function for the OLED timer, resetting flags
+  *** Adding display two support ***
 */
-
+// This function handles the chess game's GAME_IDLE state.
 // No screen_num argument -- assuming both screens will display the same thing while idle
 void display_idle_screen(Timer timer, bool interacted, bool screen_select, uint8_t comp_diff) {
   /* display_idle_screen arguments
@@ -145,14 +149,7 @@ void display_idle_screen(Timer timer, bool interacted, bool screen_select, uint8
         display_idle_animation(current_time);
 
       }
-/*
-if current - last interacted > IDLE delay && current - lastIdleChange > 5s:
-  // we are in idle, and it's time to change
-  lastIdleChange = current; // next change would be 5 s from now -- if no interaction
-  if idleone: set idle1 to false, idle 2 true, do snowflake whatever...
-  else: set idle1 to true, idle 2 to false do whatever. 
-  (make sure to have a "default", that idle 1 comes first)
-*/
+
  
     } else { // We're not idle, but user hasn't interacted
       if (screen_select) {
@@ -178,17 +175,174 @@ if current - last interacted > IDLE delay && current - lastIdleChange > 5s:
   }
 }
 
-void display_select(bool screen_num) {
-  /* To be called over & over whenever a screen needs to be updated (new move selected, a piece has been moved)
-   * 
 
-   */
+
+void display_initialization() {
+  // Display initialization message to both screens
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print(F("Initializing..."));
+  display.display();
+
+  displayTwo.clearDisplay();
+  displayTwo.setTextSize(1);
+  displayTwo.setCursor(0, 0);
+  displayTwo.print(F("Initializing..."));
+  displayTwo.display();
 }
 
-void display_promotion(bool screen_num) {
+/* display_turn_select encompasses the following states
+
+  GAME_WAIT_FOR_SELECT
+  GAME_WAIT_FOR_MOVE
+  GAME_MOVE_MOTOR
+
+*/
+void display_turn_select(int8_t selector, int8_t joystick_x, int8_t joystick_y, int8_t selected_x, int8_t selected_y, 
+int8_t destination_x, int8_t destination_y) {
+  /* display_turn_select args
+
+    selector ; indicates which player is selecting a move right now (1 for P1, 2 for P2)
+
+    joystick_x, joystick_y ; coordinate currently selected via joystick. will be constantly updated
+
+    selected_x, selected_y ; the first move coordinate that player selects
+      both assumed to be -1 if not set
+
+    destination_x, destination_y ; the second move coordinate that player selects
+      both assumed to be -1 if not set
+  */
+
+  // Convert joystick_x and joystick_y into correct ASCII values
+    // joystick_x + 'a'
+    // joystick_y + '1'
+
+  if (selected_x == -1 && selected_y == -1) { // if the user is still selecting their first move
+
+    // msg: Moving joystick_x and joystick_y ...
+
+  } else if (destination_x == -1 && destination_y == -1) { // if the user is selecting their second move
+
+    // msg: Moving from selected coords to joystick coords (all converted into board coords)
+
+  } else { // Motor is moving (selected coords and destination coords have all been set)
+
+    // msg: Motor moving!
+
+  }
 
 }
 
+
+
+void display_promotion(int8_t player_promoting, int8_t piece) {
+  /* display_promotion arguments
+
+    player_promoting to know which player is promoting; that way, we know which player to display "opponent is promoting..." message
+    
+    piece to know which piece the promoting player is currently hovering, so we can print it on their display.
+
+  */
+
+  if (player_promoting == 1) {
+
+    // Player 1 is promoting
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);    
+    display.println(F("You are currently promoting to a..."));
+
+    switch(piece) {
+      case QUEEN:
+        display.print(F("QUEEN"));
+        break;
+      case KNIGHT:
+        display.print(F("KNIGHT"));
+        break;
+      case ROOK:
+        display.print(F("ROOK"));
+        break;
+      case BISHOP:
+        display.print(F("BISHOP"));
+        break;
+    }
+
+    display.display();
+
+    // Player 2 is waiting
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);
+    displayTwo.print(F("Your opponent is promoting..."));
+    displayTwo.display();
+    
+  } else if (player_promoting == 2) {
+
+     // Player 2 is promoting
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);    
+    displayTwo.println(F("You are currently promoting to a..."));
+
+    switch(piece) {
+      case 0:
+        displayTwo.print(F("QUEEN"));
+        break;
+      case 1:
+        displayTwo.print(F("KNIGHT"));
+        break;
+      case 2:
+        displayTwo.print(F("ROOK"));
+        break;
+      case 3:
+        displayTwo.print(F("BISHOP"));
+        break;
+    }
+
+    displayTwo.display();
+
+    // Player 1 is waiting
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print(F("Your opponent is promoting..."));
+    display.display();
+
+  }
+
+}
+
+void display_game_over(int8_t winner) {
+  /* display_game_over arguments
+
+    winner to know which player won: 
+      1 for player 1
+      2 for player 2
+      0 for draw
+    
+    depending on winner value, the corresponding helper functions will be called to display information to each display
+
+  */
+
+  if (winner == 0) {
+
+    display_stalemate(); // Displays stalemate to both displays
+
+  } else if (winner == 1) {
+
+    display_winner(1);
+    display_loser(2);
+
+  } else if (winner == 2) {
+
+    display_winner(2);
+    display_loser(1);
+
+  }
+
+}
+// display_idle_screen helper functions
 void display_select_player() {
   display.clearDisplay();
   display.setTextSize(1);
@@ -228,7 +382,7 @@ void display_idle_animation(uint32_t current_time) {
 
   if (current_time == last_idle_change) { // We are just entering idle animation. Initialize!
 
-    for (int8_t f = 0; f < NUMFLAKES; f++) {
+    for (int8_t f = 0; f < NUM_FLAKES; f++) {
       icons[f][XPOS]   = random(1 - LOGO_WIDTH, display.width());
       icons[f][YPOS]   = -LOGO_HEIGHT;
       icons[f][DELTAY] = random(1, 6);
@@ -238,7 +392,7 @@ void display_idle_animation(uint32_t current_time) {
     display.clearDisplay();
 
     // Draw each snowflake:
-    for (int8_t f = 0; f < NUMFLAKES; f++) {
+    for (int8_t f = 0; f < NUM_FLAKES; f++) {
       display.drawBitmap(icons[f][XPOS], icons[f][YPOS], logo_bmp, LOGO_WIDTH, LOGO_HEIGHT, SSD1306_WHITE);
     }
 
@@ -246,7 +400,7 @@ void display_idle_animation(uint32_t current_time) {
     // delay(200);        // Pause for 1/10 second. Should we?
 
     // Then update coordinates of each flake...
-    for (int8_t f = 0; f < NUMFLAKES; f++) {
+    for (int8_t f = 0; f < NUM_FLAKES; f++) {
       icons[f][YPOS] += icons[f][DELTAY];
       // If snowflake is off the bottom of the screen...
       if (icons[f][YPOS] >= display.height()) {
@@ -256,6 +410,68 @@ void display_idle_animation(uint32_t current_time) {
         icons[f][DELTAY] = random(1, 6);
       }
     }
+
+  }
+}
+
+//display_game_over helper functions
+
+void display_stalemate() {
+
+  // Display to player 1
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print(F("Draw!"));
+  display.display();
+
+  // Display to player 2
+  displayTwo.clearDisplay();
+  displayTwo.setTextSize(1);
+  displayTwo.setCursor(0, 0);
+  displayTwo.print(F("Draw!"));
+  displayTwo.display();
+}
+
+void display_winner(int8_t winner) {
+
+  if (winner == 1) {
+
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print(F("P1 Wins!"));
+    display.display();
+
+  } else if (winner == 2) {
+
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);
+    displayTwo.print(F("P2 Wins!"));
+    displayTwo.display();
+
+  }
+
+}
+
+void display_loser(int8_t loser) {
+
+  if (loser == 1) {
+
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print(F("P1 Loses!"));
+    display.display();
+
+  } else if (loser == 2) {
+
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);
+    displayTwo.print(F("P2 Loses!"));
+    displayTwo.display();
 
   }
 }
@@ -274,7 +490,12 @@ void setup() {
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
+    Serial.println(F("SSD1306 ONE allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  if(!displayTwo.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
+    Serial.println(F("SSD1306 TWO allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
 
