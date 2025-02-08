@@ -1,0 +1,98 @@
+// Pin definitions
+const int clk = 13;       // Clock signal (output for write, input for read)
+const int WValid = 12;    // Valid signal (output for write, input for read)
+const int WReady = 11;    // Ready signal (input for write, output for read)
+const int datapin = 10;   // Data signal (output for write, input for read)
+
+void setup() {
+  pinMode(clk, OUTPUT);
+  pinMode(WValid, OUTPUT);
+  pinMode(WReady, OUTPUT);
+  pinMode(datapin, OUTPUT);
+  
+  digitalWrite(clk, LOW);
+  digitalWrite(WValid, LOW);
+  digitalWrite(WReady, LOW);
+  digitalWrite(datapin, LOW);
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Write data to Raspberry Pi
+  writeToPi();
+
+  // Read data from Raspberry Pi
+  readFromPi();
+
+  // Delay between operations
+  delay(1000);
+}
+
+// Function to write data to Raspberry Pi
+void writeToPi() {
+  int transmitting = 0;
+  int i = 0;
+  int datas[14] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0}; // Example data
+
+  delay(1);
+  digitalWrite(clk, HIGH);
+  delay(1);
+  digitalWrite(clk, LOW);
+
+  digitalWrite(WValid, HIGH); // Indicate data is valid
+  delay(1);
+
+  while (true) {
+    transmitting = digitalRead(WReady);
+    digitalWrite(clk, HIGH);
+    if (transmitting) {
+      digitalWrite(WValid, LOW); // Set valid back to zero
+      digitalWrite(datapin, datas[i++]);
+    }
+    delay(1);
+    digitalWrite(clk, LOW);
+    delay(1);
+    if (i == 14) {
+      break;
+    }
+  }
+  Serial.println("Data sent to Raspberry Pi.");
+}
+
+// Function to read data from Raspberry Pi
+void readFromPi() {
+  // Signal ready to receive
+  digitalWrite(WReady, HIGH);
+
+  // Wait for valid signal from Raspberry Pi
+  while (digitalRead(WValid) == LOW) {
+    delayMicroseconds(10);
+  }
+
+  // Receive 14-bit data
+  int receivedData[14];
+  int i = 0;
+  while (i < 14) {
+    // Generate clock pulse
+    digitalWrite(clk, HIGH);
+    delay(1);
+
+    // Read data on rising edge
+    receivedData[i++] = digitalRead(datapin);
+
+    // Lower clock
+    digitalWrite(clk, LOW);
+    delay(1);
+  }
+
+  // End of transmission
+  digitalWrite(WReady, LOW);
+
+  // Print received data
+  Serial.print("Received: ");
+  for (int j = 0; j < 14; j++) {
+    Serial.print(receivedData[j]);
+    Serial.print(" ");
+  }
+  Serial.println();
+}
