@@ -35,6 +35,8 @@ int write(int data_rep) {
   for(int j = 0; j < 14; j++){
     datas[j] = (data_rep >> j) & 1;
   }
+
+  digitalWrite(clk, LOW);
   digitalWrite(WValid, LOW);
 
   delay(clock_half_period);
