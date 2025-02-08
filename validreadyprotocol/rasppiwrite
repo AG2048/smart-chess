@@ -3,44 +3,53 @@ import time
 
 # Pin definitions
 clk = 17       # Clock signal input (from Arduino)
-WValid = 27    # Valid signal output (to Arduino)
-WReady = 22    # Ready signal input (from Arduino)
-datapin = 23   # Data signal output (to Arduino)
+RValid = 27    # Valid signal output (to Arduino)
+RReady = 22    # Ready signal input (from Arduino)
+RData = 10   # Data signal output (to Arduino)
 
 def setup_gpio():
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(clk, GPIO.IN)
-    GPIO.setup(WValid, GPIO.OUT)
-    GPIO.setup(WReady, GPIO.IN)
-    GPIO.setup(datapin, GPIO.OUT)
-    GPIO.output(WValid, GPIO.LOW)
-    GPIO.output(datapin, GPIO.LOW)
+    GPIO.setup(RValid, GPIO.OUT)
+    GPIO.setup(RReady, GPIO.IN)
+    GPIO.setup(RData, GPIO.OUT)
+    GPIO.output(RValid, GPIO.LOW)
 
-def write_to_arduino():
+def write_to_arduino(number):
     setup_gpio()
-    GPIO.output(WValid, GPIO.HIGH)  # Indicate data is valid
-    
+    GPIO.output(RValid, GPIO.HIGH)  # Indicate data is valid
+    writing = False
+
     data = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]  # Example data
+    data = [(number >> i)&1 for i in range(14)]
     i = 0
     last_clk_state = GPIO.input(clk)
-    
-    while i < len(data):
+    GPIO.output(RData, data[i])
+
+    while True:
         current_clk = GPIO.input(clk)
-        ready_state = GPIO.input(WReady)
-        
+        ready_state = GPIO.input(RReady)
+
         # Detect rising edge
         if last_clk_state == GPIO.LOW and current_clk == GPIO.HIGH:
             if ready_state == GPIO.HIGH:
+                # Begin transfer
+                writing = True
+                GPIO.output(RValid, GPIO.LOW)
+                print("VALID CLEARED")
+            if writing:
                 # Transfer data
-                GPIO.output(datapin, data[i])
                 i += 1
-        
+                if i >= 14:
+                    break
+                GPIO.output(RData, data[i])
+
         last_clk_state = current_clk
-        time.sleep(0.001)  # Match Arduino's clock timing
-    
-    GPIO.output(WValid, GPIO.LOW)  # Data transfer complete
-    GPIO.cleanup()
 
 # Example usage
 if __name__ == "__main__":
-    write_to_arduino()
+    i = 0
+    while True:
+
+        write_to_arduino(i)
+        i += 1
