@@ -57,12 +57,13 @@ int write(int data_rep) {
     digitalWrite(clk, LOW);
     if (transmitting) {
       digitalWrite(WValid, LOW);
-      digitalWrite(WData, datas[++i]);
+      i++;
+      if (i >= 14) {
+        break;
+      }
+      digitalWrite(WData, datas[i]);
     }
     delay(clock_half_period);
-    if (i >= 14) {
-      break;
-    }
   }
   Serial.println("Data sent to Raspberry Pi.");
   for(int j = 0; j < 14; j++){
