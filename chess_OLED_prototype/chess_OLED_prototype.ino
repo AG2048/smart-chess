@@ -31,16 +31,23 @@ enum PieceType {
 
 bool player_turn; // 0 for white, 1 for black
 
-/* OLED wrapper functions
- * display_idle_screen(...)
-
+/* OLED Game State functions --> @ indicates functionality has been verified
+ @ void display_init()
+ @ void display_idle_screen(Timer timer, bool interacted, bool screen_select, uint8_t comp_diff)
+ @ void display_initialization() 
+ @ void display_turn_select(int8_t selector, int8_t joystick_x, int8_t joystick_y, int8_t selected_x, int8_t selected_y, 
+   int8_t destination_x, int8_t destination_y)
+ @ void display_promotion(int8_t player_promoting, int8_t piece)
+ @ void display_game_over(int8_t winner)
 
 */
 
+// TODO: do all of these even need to be static? they are global variables that don't live in just the scope of the OLED functions
 static uint32_t last_interacted_time, last_idle_change;
+static int8_t old_joystick_x, old_joystick_y, old_promotion_piece;
+
 // Flags to ensure we only print corresponding screens ONCE, not every loop
-static bool idle_one, idle_two, displayed_player, displayed_computer;
-bool button;
+static bool idle_one, idle_two, displayed_player, displayed_computer, displayed_initializing, displayed_motor_moving, displayed_game_over;
 Timer OLED_timer;
 #define IDLE_ONE_DELAY_MS 1000*5 //20 seconds in ms
 #define IDLE_TWO_DELAY_MS 1000*10 //40 seconds in ms
@@ -71,6 +78,44 @@ static const unsigned char PROGMEM logo_bmp[] = // A bitmap that we can change t
   0b01111100, 0b11110000,
   0b01110000, 0b01110000,
   0b00000000, 0b00110000 };
+
+// This function initializes the timer, the displays, as well as all the different game state flags
+void display_init() {
+
+  // Initializing flags
+  last_interacted_time = 0;
+  last_idle_change = 0;
+  idle_one = 1; // Display idle screen one first by default
+  idle_two = 0;
+  displayed_computer = 0;
+  displayed_player = 0;
+  displayed_initializing = 0;
+  displayed_motor_moving = 0;
+  old_joystick_x = -1;
+  old_joystick_y = -1;
+  old_promotion_piece = -1;
+  displayed_game_over = 0;
+
+  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 ONE allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  if(!displayTwo.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
+    Serial.println(F("SSD1306 TWO allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  Serial.println("Allocation succeeded, proceeding");
+
+  // Show initial display buffer contents on the screen --
+  // the library initializes this with an Adafruit splash screen.
+  display.display();
+  delay(500);
+  display.setTextColor(SSD1306_WHITE);
+  OLED_timer.start();
+}
 
 /*
   TODO
@@ -175,21 +220,24 @@ void display_idle_screen(Timer timer, bool interacted, bool screen_select, uint8
   }
 }
 
-
-
 void display_initialization() {
   // Display initialization message to both screens
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print(F("Initializing..."));
-  display.display();
+  if (!displayed_initializing) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print(F("Initializing..."));
+    display.display();
+    
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);
+    displayTwo.print(F("Initializing..."));
+    displayTwo.display();
 
-  displayTwo.clearDisplay();
-  displayTwo.setTextSize(1);
-  displayTwo.setCursor(0, 0);
-  displayTwo.print(F("Initializing..."));
-  displayTwo.display();
+    displayed_initializing = 1;
+  }
+  
 }
 
 /* display_turn_select encompasses the following states
@@ -213,28 +261,85 @@ int8_t destination_x, int8_t destination_y) {
     destination_x, destination_y ; the second move coordinate that player selects
       both assumed to be -1 if not set
   */
-
+  char msg[100];
   // Convert joystick_x and joystick_y into correct ASCII values
     // joystick_x + 'a'
     // joystick_y + '1'
 
-  if (selected_x == -1 && selected_y == -1) { // if the user is still selecting their first move
+  if (old_joystick_x != joystick_x || old_joystick_y != joystick_y) {
 
-    // msg: Moving joystick_x and joystick_y ...
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);
+
+    if (selected_x == -1 && selected_y == -1) { // if the user is still selecting their first move
+      sprintf(msg, "Moving %c%c...", (joystick_x + 'a'), (joystick_y + '1'));
+
+      if (selector == 1) {
+
+        display.print(msg);
+        msg[0] = 'm';
+        displayTwo.println(F("Your opponent is "));
+        displayTwo.print(msg);
+
+      } else {
+
+        displayTwo.print(msg);
+        msg[0] = 'm';
+        display.println(F("Your opponent is "));
+        display.print(msg);
+      }
 
   } else if (destination_x == -1 && destination_y == -1) { // if the user is selecting their second move
+    sprintf(msg, "Moving %c%c to %c%c...", (selected_x + 'a'), (selected_y + '1'), (joystick_x + 'a'), (joystick_y + '1'));
 
     // msg: Moving from selected coords to joystick coords (all converted into board coords)
 
-  } else { // Motor is moving (selected coords and destination coords have all been set)
+    if (selector == 1) {
+ 
+      display.print(msg);
+      msg[0] = 'm';
+      displayTwo.println(F("Your opponent is "));
+      displayTwo.print(msg);     
 
-    // msg: Motor moving!
+    } else {
+      displayTwo.print(msg);
+      msg[0] = 'm';
+      display.println(F("Your opponent is "));
+      display.print(msg);
+    }
 
   }
 
+  display.display();
+  displayTwo.display();
+  old_joystick_x = joystick_x;
+  old_joystick_y = joystick_y;
+
+  } else { // Joystick hasn't changed
+
+  }
+
+  if (!displayed_motor_moving && selected_x != -1 && destination_x != -1) {
+    // msg: Motor moving!
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print(F("Motor is moving!"));
+    display.display();
+
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);
+    displayTwo.print(F("Motor is moving!"));
+    displayTwo.display();
+    displayed_motor_moving = 1;
+  }
+
 }
-
-
 
 void display_promotion(int8_t player_promoting, int8_t piece) {
   /* display_promotion arguments
@@ -244,72 +349,67 @@ void display_promotion(int8_t player_promoting, int8_t piece) {
     piece to know which piece the promoting player is currently hovering, so we can print it on their display.
 
   */
+  if (old_promotion_piece != piece) {
 
-  if (player_promoting == 1) {
-
-    // Player 1 is promoting
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 0);    
-    display.println(F("You are currently promoting to a..."));
-
-    switch(piece) {
-      case QUEEN:
-        display.print(F("QUEEN"));
-        break;
-      case KNIGHT:
-        display.print(F("KNIGHT"));
-        break;
-      case ROOK:
-        display.print(F("ROOK"));
-        break;
-      case BISHOP:
-        display.print(F("BISHOP"));
-        break;
-    }
-
-    display.display();
-
-    // Player 2 is waiting
-    displayTwo.clearDisplay();
-    displayTwo.setTextSize(1);
-    displayTwo.setCursor(0, 0);
-    displayTwo.print(F("Your opponent is promoting..."));
-    displayTwo.display();
-    
-  } else if (player_promoting == 2) {
-
-     // Player 2 is promoting
-    displayTwo.clearDisplay();
-    displayTwo.setTextSize(1);
-    displayTwo.setCursor(0, 0);    
-    displayTwo.println(F("You are currently promoting to a..."));
-
-    switch(piece) {
-      case 0:
-        displayTwo.print(F("QUEEN"));
-        break;
-      case 1:
-        displayTwo.print(F("KNIGHT"));
-        break;
-      case 2:
-        displayTwo.print(F("ROOK"));
-        break;
-      case 3:
-        displayTwo.print(F("BISHOP"));
-        break;
-    }
-
-    displayTwo.display();
-
-    // Player 1 is waiting
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.print(F("Your opponent is promoting..."));
-    display.display();
+    displayTwo.clearDisplay();
+    displayTwo.setTextSize(1);
+    displayTwo.setCursor(0, 0);
 
+    if (player_promoting == 1) {
+
+      // Player 1 is promoting   
+      display.println(F("You are currently promoting to a..."));
+
+      switch(piece) {
+        case QUEEN:
+          display.print(F("QUEEN"));
+          break;
+        case KNIGHT:
+          display.print(F("KNIGHT"));
+          break;
+        case ROOK:
+          display.print(F("ROOK"));
+          break;
+        case BISHOP:
+          display.print(F("BISHOP"));
+          break;
+      }
+      // Player 2 is waiting
+      displayTwo.print(F("Your opponent is promoting..."));
+      display.display();
+      displayTwo.display();
+      
+    } else if (player_promoting == 2) {
+
+      // Player 2 is promoting   
+      displayTwo.println(F("You are currently promoting to a..."));
+
+      switch(piece) {
+        case QUEEN:
+          displayTwo.print(F("QUEEN"));
+          break;
+        case KNIGHT:
+          displayTwo.print(F("KNIGHT"));
+          break;
+        case ROOK:
+          displayTwo.print(F("ROOK"));
+          break;
+        case BISHOP:
+          displayTwo.print(F("BISHOP"));
+          break;
+      }
+      // Player 1 is waiting
+      display.print(F("Your opponent is promoting..."));
+      display.display();
+      displayTwo.display();
+
+    }
+    old_promotion_piece = piece;
   }
+
 
 }
 
@@ -325,20 +425,20 @@ void display_game_over(int8_t winner) {
 
   */
 
-  if (winner == 0) {
+  if (!displayed_game_over) {
 
+    if (winner == 0) {
+      
     display_stalemate(); // Displays stalemate to both displays
-
-  } else if (winner == 1) {
-
-    display_winner(1);
-    display_loser(2);
-
-  } else if (winner == 2) {
-
-    display_winner(2);
-    display_loser(1);
-
+    } else if (winner == 1) {
+      display_winner(1);
+      display_loser(2);
+    } else if (winner == 2) {
+      display_winner(2);
+      display_loser(1);
+    }  
+  
+    displayed_game_over = 1;
   }
 
 }
@@ -475,44 +575,43 @@ void display_loser(int8_t loser) {
 
   }
 }
+int8_t x_test = 0;
+int8_t y_test = 0;
 
 void setup() {
   Serial.begin(9600);
-  last_interacted_time = 0;
-  last_idle_change = 0;
-  idle_one = 1; // Display idle screen one first by default
-  idle_two = 0;
-  displayed_computer = 0;
-  displayed_player = 0;
+
+  display_init();
   
-  bool selecting_player = 0, selecting_computer = 0; // To be passed into display_idle_screen, we'll change these variables to simulate
-                                                      // joystick input or whatever to switch screens
+  // Some variables to be passed into display_idle_screen()
+  bool selecting_player = 0, selecting_computer = 0; 
 
-  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 ONE allocation failed"));
-    for(;;); // Don't proceed, loop forever
-  }
-
-  if(!displayTwo.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
-    Serial.println(F("SSD1306 TWO allocation failed"));
-    for(;;); // Don't proceed, loop forever
-  }
-
-  Serial.println("Allocation succeeded, proceeding");
   pinMode(22, INPUT_PULLUP);
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
-  display.display();
-  delay(500); // Pause for 2 seconds
-
-  // Code to test the functionality of display_idle_screen
-  OLED_timer.start();
+  pinMode(24, INPUT_PULLUP);
   Serial.println("Setup done. Entering loop");
-  display.setTextColor(SSD1306_WHITE);
 }
-
+bool x_change, y_change;
 void loop() {
-  button = digitalRead(22); // Digital pin 22
-  display_idle_screen(OLED_timer, !button, 0, 5); // test values for screens & comp_diff
+  x_change = digitalRead(22); // Digital pin 22
+  y_change = digitalRead(24);
+  if (!x_change) {
+    x_test++;
+    if (x_test > 7) x_test = 0;
+    Serial.println("Incremented x");
+    delay(1000);
+  }
+  if (!y_change) {
+    y_test++;
+    if (y_test > 7) y_test = 0;
+    Serial.println("Incremented y");
+    delay(1000);
+  }
+
+  //display_idle_screen(OLED_timer, !button, 0, 5); // test values for screens & comp_diff
+  //display_initialization();
+  //void display_turn_select(int8_t selector, int8_t joystick_x, int8_t joystick_y, int8_t selected_x, int8_t selected_y, 
+  //int8_t destination_x, int8_t destination_y)
+  //display_turn_select(2, x_test, y_test, -1, -1, -1, -1);
+  //display_promotion(2, QUEEN + x_test);
+  display_game_over(0);
 }
