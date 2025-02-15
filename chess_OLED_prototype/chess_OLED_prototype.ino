@@ -124,6 +124,10 @@ void display_init() {
 */
 // This function handles the chess game's GAME_IDLE state.
 // No screen_num argument -- assuming both screens will display the same thing while idle
+
+// still keep timer but ONLY for idle animation switching. Have a "is-idle" flag that the main will tell if we are in idle or not
+// have a player_0_state, player_1_state, player_0_difficulty, player_1_difficulty (note that these numbers will range from 0 to 19 for diff. Display need to +1)
+// screen_index maybe... then only need one set of state/difficulty
 void display_idle_screen(Timer timer, bool interacted, bool screen_select, uint8_t comp_diff) {
   /* display_idle_screen arguments
   Timer timer, passed in so we can poll and see the current time and hence how much time has passed
