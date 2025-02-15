@@ -6,6 +6,7 @@
 // #include "MemoryFree.h"
 #include "Piece.h"
 #include "PieceType.h"
+#include "Timer.h"
 
 // ############################################################
 // #                    GAME STATE CONTROL                    #
@@ -35,6 +36,8 @@ enum GameState {
 
 // Game state
 GameState game_state;
+
+Timer game_timer;
 
 // ############################################################
 // #                  GAME STATUS VARIABLES                   #
@@ -365,6 +368,14 @@ bool prev_confirm_button_pressed[2];
 bool prev_joystick_neutral[2];
 // Promotion Joystick Selection - index of promotion piece selected (0,1,2,3)
 int8_t promotion_joystick_selection;  // only happening on one player's turn, so no need for 2
+// Joystick selection for idle screen difficulty selection
+int8_t idle_joystick_x[2];
+int8_t idle_joystick_y[2];
+// Memory to see if a player is ready (game starts when both players ready)
+bool player_ready[2];
+// Remember if the game is in full idle screen or not
+bool in_idle_screen;
+uint32_t last_idle_change_time; // last time a button was pressed.
 
 void move_user_joystick_x_y(bool color) {
   // Get input from the joystick and modify the corresponding joystick coord for the color (player)
@@ -482,6 +493,96 @@ void move_user_joystick_promotion(bool color) {
   prev_confirm_button_pressed[color] = !button_val;  // active low
 }
 
+void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
+  // Get input from the joystick and modify the corresponding joystick coord for the color (player)
+  // update_y == true: then update y. Else don't update y.
+  // max_y is usually the highest difficulty level before looping back.
+  // color: 0 for white, 1 for black
+  // Update the joystick coordinates and confirm button pressed flag
+  // Result: <color>_joystick_<x,y> ++ or -- (no longer mod 8, depends on the selection data)
+  // <color>_confirm_button_pressed = true if confirm button is pressed from
+  // neutral state
+
+  // Read the joystick values -- low is pressed, high is not pressed
+  int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
+  int y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
+  int neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
+  int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
+  int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+
+  // Update the joystick values if joystick WAS neutral and now has a value.
+  // Update neutral flag. Note active low for button (pressed is low 0)
+  if (prev_joystick_neutral[color]) {
+    // a joystick movement happened, reset the idle timer
+    last_idle_change_time = game_timer.read();
+
+    if (in_idle_screen) {
+      // We are currently in idle screen, just break out of the idle state. Don't update the joystick values
+      in_idle_screen = false;
+    } else {
+      // If previous joystick WAS neutral
+      bool change_happened =
+          false;  // For displaying, only serial printif change happened.
+      if (x_val == 0) {
+        idle_joystick_x[color]++;
+        prev_joystick_neutral[color] = false;
+        change_happened = true;
+      } else if (neg_x_val == 0) {
+        idle_joystick_x[color]--;
+        prev_joystick_neutral[color] = false;
+        change_happened = true;
+      } else if (y_val == 0 && update_y) {
+        idle_joystick_y[color]++;
+        prev_joystick_neutral[color] = false;
+        change_happened = true;
+      } else if (neg_y_val == 0 && update_y) {
+        idle_joystick_y[color]--;
+        prev_joystick_neutral[color] = false;
+        change_happened = true;
+      }
+      // joystick x and y loop from 0 to 7
+      idle_joystick_x[color] = (idle_joystick_x[color]) % 2;
+      idle_joystick_y[color] = (idle_joystick_y[color]) % max_y;
+      // if no joystick movement, joystick_neutral stays true
+
+      // TEMP DISPLAY CODE:
+      Serial.print("color: ");
+      Serial.print(color);
+      Serial.print(" idle_joystick_x: ");
+      Serial.print(idle_joystick_x[color]);
+      Serial.print(" idle_joystick_y: ");
+      Serial.println(idle_joystick_y[color]);
+    }
+    
+  } else {
+    // If previous joystick was NOT neutral, set to neutral if all joystick values are high
+    if (x_val == 1 && neg_x_val == 1 && y_val == 1 && neg_y_val == 1) {
+      prev_joystick_neutral[color] = true;
+    }
+  }
+
+  // Update the confirm button pressed flag
+  // Note active low for button (pressed is low 0)
+  // Flag is true if button was pressed from previous state
+  if (button_val == 0 && prev_confirm_button_pressed[color] == 0) {
+    last_idle_change_time = game_timer.read(); // a button press happened, reset the idle timer
+    if (in_idle_screen) {
+      // We are currently in idle screen, just break out of the idle state. Don't update the joystick values
+      in_idle_screen = false;
+    } else {
+      confirm_button_pressed[color] = true;
+    }
+  } else {
+    confirm_button_pressed[color] = false;  
+    // Note: this also automatically reset the confirm_button_pressed flag
+    // If your state machine requires multiple cycles to "load in" the confirm
+    // button press, you need to remove this line from this function
+  }
+  // Update the previous confirm button pressed flag (true if button was
+  // pressed, but button is active low)
+  prev_confirm_button_pressed[color] = !button_val;  // active low
+}
+
 // ############################################################
 // #                        LED CONTROL                       #
 // ############################################################
@@ -591,6 +692,8 @@ void loop() {
   if (game_state == GAME_POWER_ON) {
     // Power on the board, motors calibrate, initialize pins, set LED to blank / off
 
+    game_timer.start();  // Start the game timer
+
     // LED pin initialize:
     LEDS.addLeds<WS2812B, LED_BOARD_PIN, GRB>(led_display, stripLen);
     FastLED.setBrightness(LED_BRIGHTNESS);
@@ -615,6 +718,28 @@ void loop() {
     // Set LED to blank initially
     fill_solid(led_display, stripLen, CRGB(0, 0, 0));
 
+    joystick_x[0] = 4;
+    joystick_y[0] = 0;
+    joystick_x[1] = 4;
+    joystick_y[1] = 7;
+    confirm_button_pressed[0] = false;
+    confirm_button_pressed[1] = false;
+    prev_confirm_button_pressed[0] = true;  // Assume the button is pressed before the game starts, so force user to release the button
+    prev_confirm_button_pressed[1] = true;
+    prev_joystick_neutral[0] = true;
+    prev_joystick_neutral[1] = true;
+    
+    idle_joystick_x[0] = 0;
+    idle_joystick_y[0] = 0;
+    idle_joystick_x[1] = 0;
+    idle_joystick_y[1] = 0;
+
+    player_ready[0] = false;
+    player_ready[1] = false;
+
+    in_idle_screen = false;
+    last_idle_change_time = game_timer.read();
+
     // TODO
     game_state = GAME_IDLE;
   } else if (game_state == GAME_IDLE) {
@@ -623,12 +748,66 @@ void loop() {
     // Wait for a button press to start the game
     // If button pressed, initialize the game
     // If button not pressed, stay in this state
+
+    // Enter idle screen if no button is pressed for 60 seconds
+    uint32_t time_since_last_change = game_timer.read() - last_idle_change_time;
+    if (time_since_last_change > 60000) {
+      in_idle_screen = true;
+      // reset confirm button pressed
+      confirm_button_pressed[0] = false;
+      confirm_button_pressed[1] = false;
+      // reset player ready
+      player_ready[0] = false;
+      player_ready[1] = false;
+      // reset idle screen joystick
+      idle_joystick_x[0] = 0;
+      idle_joystick_y[0] = 0;
+      idle_joystick_x[1] = 0;
+      idle_joystick_y[1] = 0;
+    }
+
+    // Collect both joystick inputs. base on if joystick x == 0 or 1.
+    // x==0 means player, x==1 means computer
+    // only move_y if computer is selected
+    // If we are in idle_screen, nothing happens, we only break out of idle screen if a button is pressed
+    move_user_joystick_idle(0, idle_joystick_x[0] == 1, 20); // max stockfish level is 20
+    move_user_joystick_idle(1, idle_joystick_x[1] == 1, 20);
+
+    // Check button presses: if button pressed, toggle player_ready
+    if (confirm_button_pressed[0]) {
+      player_ready[0] = !player_ready[0];
+      confirm_button_pressed[0] = false;
+    }
+    if (confirm_button_pressed[1]) {
+      player_ready[1] = !player_ready[1];
+      confirm_button_pressed[1] = false;
+    }
     
-    // Idle animation (for now all LEDs off) TODO
+    // Board LED IDLE animation
     fill_solid(led_display, stripLen, CRGB(0, 0, 0));
 
-    // TODO: currently we just skip this state, assume game is always started
-    game_state = GAME_INITIALIZE;
+    // OLED display: show the current selection
+    // TODO:
+    // display_idle(timer=game_timer, screen=0, player_ready[0], idle_joystick_x[0], idle_joystick_y[0])
+    // display_idle(timer=game_timer, screen=1, player_ready[1], idle_joystick_x[1], idle_joystick_y[1])
+
+    // If both players are ready, start the game
+    if (player_ready[0] && player_ready[1]) {
+      game_state = GAME_INITIALIZE;
+      // reset confirm button pressed
+      confirm_button_pressed[0] = false;
+      confirm_button_pressed[1] = false;
+      // reset player ready
+      player_ready[0] = false;
+      player_ready[1] = false;
+      // reset idle screen joystick
+      idle_joystick_x[0] = 0;
+      idle_joystick_y[0] = 0;
+      idle_joystick_x[1] = 0;
+      idle_joystick_y[1] = 0;
+    }
+
+    // game_state = GAME_INITIALIZE;
   } else if (game_state == GAME_INITIALIZE) {
     // Game started, initialize the board
 
@@ -782,6 +961,10 @@ void loop() {
     led_display[coordinate_to_index(joystick_x[player_turn],
                                     joystick_y[player_turn])] = CRGB(0, 0, 255);
     // Also light up previous move of opponent
+
+    // OLED display: show the current selection
+    // TODO
+    // display_turn_select()...
     
     if(number_of_turns != 0){
       led_display[coordinate_to_index(previous_selected_x, previous_selected_y)] = CRGB(255, 255, 0);
@@ -840,6 +1023,10 @@ void loop() {
                                     joystick_y[player_turn])] = CRGB(0, 0, 255);
     led_display[coordinate_to_index(selected_x, selected_y)] = CRGB(0, 255, 0);
     // Also light up previous move of opponent
+
+    // OLED display: show the current selection
+    // TODO
+    // display_turn_select()...
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -911,6 +1098,10 @@ void loop() {
     // selected_y, destination_x, destination_y, (capture_x, capture_y -- don't
     // need to display this, but ok if you want to)
     // Make sure to update the LED display to show the new move - WHILE THE MOTORS ARE MOVING
+
+    // OLED display: show the current selection
+    // TODO
+    // display_turn_select()...
 
    
     // Check if capture:
@@ -1072,6 +1263,10 @@ void loop() {
     // goes thru) Also display the "move" that just happened by highlight
     // pieces... (orange colour)
 
+    // OLED display: show the current selection
+    // TODO
+    // display_promotion()...
+
     // Get button input, update joystick location (Special for pawn promotion,
     // use promotion_joystick_selection) (there's only 4 possible values, 0, 1, 2, 3)
     move_user_joystick_promotion(player_turn);
@@ -1128,6 +1323,10 @@ void loop() {
     // LED: keep the "promotion light" on, but with a different color (maybe
     // purple?)
     // Make sure the LED is on throughout the duration of the motor movement
+
+    // OLED display: show the current selection
+    // TODO
+    // display_promotion()...
   
     // Check if there's a valid piece in the graveyard to be used for promotion
     bool valid_graveyard_piece = false;
@@ -1214,17 +1413,26 @@ void loop() {
   } else if (game_state == GAME_OVER_WHITE_WIN) {
     // White wins
 
+    // OLED:
+    // display_game_over()
+
     // TODO: some sort of display, and reset the game (Maybe on the OLED display)
     Serial.println("White wins!");
     game_state = GAME_RESET;
   } else if (game_state == GAME_OVER_BLACK_WIN) {
     // Black wins
 
+    // OLED:
+    // display_game_over()
+
     // TODO: some sort of display, and reset the game (Maybe on the OLED display)
     Serial.println("Black wins!");
     game_state = GAME_RESET;
   } else if (game_state == GAME_OVER_DRAW) {
     // Draw
+
+    // OLED:
+    // display_game_over()
 
     // TODO: some sort of display, and reset the game (Maybe on the OLED display)
     Serial.println("Draw!");
@@ -1250,6 +1458,8 @@ void loop() {
 
     // Clear vectors (find ones that aren't cleared by game_initialize)
     // TODO
+
+    // Check the remaining variables from game_poweron or game_idle TODO
 
     // Reset game state
     game_state = GAME_POWER_ON;
