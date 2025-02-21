@@ -417,7 +417,7 @@ void display_promotion(int8_t player_promoting, int8_t piece) {
 
 }
 
-void display_game_over(int8_t winner) {
+void display_game_over(int8_t winner, int8_t draw) {
   /* display_game_over arguments
 
     winner to know which player won: 
@@ -425,7 +425,11 @@ void display_game_over(int8_t winner) {
       2 for player 2
       0 for draw
 
-    
+    draw to know what kind of draw it is
+      0 for no draw
+      1 for 50 move draw
+      2 for 3 fold repetition    
+      3 for draw via insufficient material
     
     depending on winner value, the corresponding helper functions will be called to display information to each display
 
@@ -434,8 +438,10 @@ void display_game_over(int8_t winner) {
   if (!displayed_game_over) {
 
     if (winner == 0) {
-      
-    display_stalemate(); // Displays stalemate to both displays
+    // Displays stalemate to both displays
+    display_stalemate(draw, display);
+    display_stalemate(draw, displayTwo); 
+
     } else if (winner == 1) {
       display_winner(1, display);
       display_loser(2, displayTwo);
@@ -522,21 +528,39 @@ void display_idle_animation(uint32_t current_time) {
 
 //display_game_over helper functions
 
-void display_stalemate() {
+void display_stalemate(int8_t draw, Adafruit_SSD1306 display) {
+
+  /*
+    0 for no draw
+    1 for 50 move draw
+    2 for 3 fold repetition    
+    3 for draw via insufficient material 
+
+  */
 
   // Display to player 1
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.print(F("Draw!"));
-  display.display();
 
-  // Display to player 2
-  displayTwo.clearDisplay();
-  displayTwo.setTextSize(1);
-  displayTwo.setCursor(0, 0);
-  displayTwo.print(F("Draw!"));
-  displayTwo.display();
+  if (draw == 1) {
+
+    display.println(F("Draw by 50 move rule!"));
+
+  } else if (draw == 2) {
+
+    display.println(F("Draw by 3 fold repetition!"));
+
+  } else if (draw == 3) {
+
+    display.println(F("Draw by insufficient material!"));
+
+  } else {
+    Serial.println("Bad draw argument");
+    return;
+  }
+
+  display.display();
 }
 
 void display_winner(int8_t winner, Adafruit_SSD1306 display) {
@@ -603,5 +627,5 @@ void loop() {
   //int8_t destination_x, int8_t destination_y)
   //display_turn_select(2, x_test, y_test, -1, -1, -1, -1);
   //display_promotion(2, QUEEN + x_test);
-  display_game_over(2);
+  display_game_over(0, 3);
 }
