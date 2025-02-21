@@ -424,6 +424,8 @@ void display_game_over(int8_t winner) {
       1 for player 1
       2 for player 2
       0 for draw
+
+    
     
     depending on winner value, the corresponding helper functions will be called to display information to each display
 
@@ -435,11 +437,11 @@ void display_game_over(int8_t winner) {
       
     display_stalemate(); // Displays stalemate to both displays
     } else if (winner == 1) {
-      display_winner(1);
-      display_loser(2);
+      display_winner(1, display);
+      display_loser(2, displayTwo);
     } else if (winner == 2) {
-      display_winner(2);
-      display_loser(1);
+      display_winner(2, displayTwo);
+      display_loser(1, display);
     }  
   
     displayed_game_over = 1;
@@ -537,47 +539,31 @@ void display_stalemate() {
   displayTwo.display();
 }
 
-void display_winner(int8_t winner) {
+void display_winner(int8_t winner, Adafruit_SSD1306 display) {
 
-  if (winner == 1) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
 
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.print(F("P1 Wins!"));
-    display.display();
+  display.print(F("P"));
+  display.print(winner);
+  display.println(F(" wins!"));
 
-  } else if (winner == 2) {
-
-    displayTwo.clearDisplay();
-    displayTwo.setTextSize(1);
-    displayTwo.setCursor(0, 0);
-    displayTwo.print(F("P2 Wins!"));
-    displayTwo.display();
-
-  }
+  display.display();
 
 }
 
-void display_loser(int8_t loser) {
+void display_loser(int8_t loser, Adafruit_SSD1306 display) {
 
-  if (loser == 1) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
 
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.print(F("P1 Loses!"));
-    display.display();
+  display.print(F("P"));
+  display.print(loser);
+  display.print(F(" loses!"));
 
-  } else if (loser == 2) {
-
-    displayTwo.clearDisplay();
-    displayTwo.setTextSize(1);
-    displayTwo.setCursor(0, 0);
-    displayTwo.print(F("P2 Loses!"));
-    displayTwo.display();
-
-  }
+  display.display();
 }
 int8_t x_test = 0;
 int8_t y_test = 0;
@@ -617,5 +603,5 @@ void loop() {
   //int8_t destination_x, int8_t destination_y)
   //display_turn_select(2, x_test, y_test, -1, -1, -1, -1);
   //display_promotion(2, QUEEN + x_test);
-  display_game_over(0);
+  display_game_over(2);
 }
