@@ -128,100 +128,66 @@ void display_init() {
 // still keep timer but ONLY for idle animation switching. Have a "is-idle" flag that the main will tell if we are in idle or not
 // have a player_0_state, player_1_state, player_0_difficulty, player_1_difficulty (note that these numbers will range from 0 to 19 for diff. Display need to +1)
 // screen_index maybe... then only need one set of state/difficulty
-void display_idle_screen(Timer timer, bool interacted, bool screen_select, uint8_t comp_diff) {
+void display_idle_screen(Timer timer, bool is_idle, bool screen_select, uint8_t comp_diff, Adafruit_SSD1306 display) {
   /* display_idle_screen arguments
   Timer timer, passed in so we can poll and see the current time and hence how much time has passed
 
-  bool interacted, passed high if a user has interacted with the screen, so if necessary we know to 
-  exit idle states
+  is_idle, true if we are currently displaying an idle screen
 
-  bool screen_select, high if displaying select_player screen, low if displaying select_computer
+  screen_select to know which screen we are on; 1 for choosing player opponent, 0 for changing computer opponent difficulty
 
-  uint8_t comp_diff, the difficulty value the user is selecting for Stockfish
+  comp_diff to know the current difficulty to be displayed when setting up computer opponents (0 to 19)
+
+  display to display to a specific display
   */
+
   uint32_t current_time = timer.read();
-  
-  if (interacted) { // If the user has interacted with the display
+  if (is_idle) {
 
-    // Setting idle screens back to default, so we can enter them again later
-    idle_one = 1;
-    idle_two = 0; 
-    display.stopscroll();
+    displayed_computer = 0;
+    displayed_player = 0; // resetting flags
 
-    // Draw the screen we're currently on
-    // TO DO: find images for both screens (sel_player, sel_comp) and convert them to bitmaps 
+    if ( current_time - last_idle_change > IDLE_DELAY_MS ) { // Swapping idle screens
+      idle_one = !idle_one;
+      idle_two = !idle_two;
+      last_idle_change = current_time;
+      display.stopscroll();
+    }
+
+    if (idle_one) { // Scrolling text
+
+      if (current_time == last_idle_change) { // If we are displaying this idle screen for the first time
+        display_idle_scroll();
+      }
+
+    } else if (idle_two) { // Idle animation
+
+      display_idle_animation(current_time);
+
+    }    
+
+  } else { // Displaying setup screens
+
     if (screen_select) {
 
       if (!displayed_player) {
-        display_select_player();
+        display_select_player(display);
         displayed_player = 1;
-        Serial.println("Interacted, displayed player");
       }
       displayed_computer = 0;
 
-    } else { // If screen_select is low
+    } else {
 
       if (!displayed_computer) {
-        display_select_computer(comp_diff);
+        display_select_computer(display, comp_diff);
         displayed_computer = 1;
-        Serial.println("Interacted, displayed computer");
-
       }
       displayed_player = 0;
-    }
-
-    last_interacted_time = current_time;
-
-  } else { // If the user hasn't interacted with the display
-
-    if ( current_time - last_interacted_time > IDLE_DELAY_MS ) {// Showing an idle animation
-
-      // Reset display_screen flags, so that we can display them again once we exit idle screens
-      displayed_computer = 0;
-      displayed_player = 0;
-
-      if ( current_time - last_idle_change > IDLE_DELAY_MS ) { // Swapping idle screens
-        idle_one = !idle_one;
-        idle_two = !idle_two;
-        last_idle_change = current_time;
-        display.stopscroll();
-      }
-
-      if (idle_one) { // Scrolling text
-
-        if (current_time == last_idle_change) { // If we are displaying this idle screen for the first time
-          display_idle_scroll();
-        }
-
-      } else if (idle_two) { // Idle animation
-
-        display_idle_animation(current_time);
-
-      }
-
- 
-    } else { // We're not idle, but user hasn't interacted
-      if (screen_select) {
-
-        if (!displayed_player) {
-          display_select_player();
-          displayed_player = 1;
-        }
-        displayed_computer = 0;
-
-      } else {
-
-        if (!displayed_computer) {
-          display_select_computer(comp_diff);
-          displayed_computer = 1;
-        }
-        displayed_player = 0;
-
-      }
 
     }
 
   }
+
 }
 
 void display_initialization() {
@@ -455,7 +421,7 @@ void display_game_over(int8_t winner, int8_t draw) {
 
 }
 // display_idle_screen helper functions
-void display_select_player() {
+void display_select_player(Adafruit_SSD1306 display) {
   display.clearDisplay();
   display.setTextSize(1);
   // Draw bitmap
@@ -466,14 +432,14 @@ void display_select_player() {
   display.display();
 }
 
-void display_select_computer(uint8_t comp_diff) {
+void display_select_computer(Adafruit_SSD1306 display, uint8_t comp_diff) {
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.println(F("STOCKFISH"));
   display.print(F("<Human  LV:"));
   // Draw bitmap
-  display.print(comp_diff, DEC);
+  display.print(comp_diff+1, DEC);
   display.display();
 }
 
@@ -621,11 +587,11 @@ void loop() {
     delay(1000);
   }
 
-  //display_idle_screen(OLED_timer, !button, 0, 5); // test values for screens & comp_diff
+  display_idle_screen(OLED_timer, 0, 0, 15, display); // test values for screens & comp_diff
   //display_initialization();
   //void display_turn_select(int8_t selector, int8_t joystick_x, int8_t joystick_y, int8_t selected_x, int8_t selected_y, 
   //int8_t destination_x, int8_t destination_y)
   //display_turn_select(2, x_test, y_test, -1, -1, -1, -1);
   //display_promotion(2, QUEEN + x_test);
-  display_game_over(0, 3);
+  //display_game_over(0, 3);
 }
