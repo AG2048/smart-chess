@@ -1,5 +1,8 @@
 // Include
-
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include "FastLED.h"
 #include "ArduinoSTL.h"
 #include "Board.h"
@@ -424,6 +427,9 @@ void move_user_joystick_x_y(bool color) {
     // TEMP DISPLAY CODE:
     if (change_happened) {
       serial_display_board_and_selection();
+
+      // Display OLED
+      display_turn_select(color, joystick_x[color], joystick_y[color], selected_x, selected_y, destination_x, destination_y, display_one, display_two);
     }
   } else {
     // If previous joystick was NOT neutral
@@ -463,14 +469,18 @@ void move_user_joystick_promotion(bool color) {
 
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
+  bool change_happened = false;  // For displaying, only serial printif change happened.
+
   if (prev_joystick_neutral[color]) {
     // If previous joystick WAS neutral
     if (x_val == 0) {
       promotion_joystick_selection = (promotion_joystick_selection + 1) % 4;
       prev_joystick_neutral[color] = false;
+      change_happened = true;
     } else if (neg_x_val == 0) {
       promotion_joystick_selection = (promotion_joystick_selection - 1) % 4;
       prev_joystick_neutral[color] = false;
+      change_happened = true;
     }
     // if no joystick movement, joystick_neutral stays true
   } else {
@@ -478,6 +488,16 @@ void move_user_joystick_promotion(bool color) {
     if (x_val == 1 && neg_x_val == 1 && y_val == 1 && neg_y_val == 1) {
       prev_joystick_neutral[color] = true;
     }
+  }
+
+  if (change_happened) {
+    // TEMP DISPLAY CODE:
+    Serial.print("color: ");
+    Serial.print(color);
+    Serial.print(" promotion_joystick_selection: ");
+    Serial.println(promotion_joystick_selection);
+
+    display_promotion(color, promotion_joystick_selection, display_one, display_two);
   }
 
   // Update the confirm button pressed flag
@@ -597,6 +617,518 @@ struct CRGB led_display[stripLen];
 // Also we may need a separate LED strip timer variable to keep track "how long ago was the last LED update"
 // A function to update LED strip in each situation
 
+// ############################################################
+// #                       OLED DISPLAY                       #
+// ############################################################
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// The pins for I2C are defined by the Wire-library. 
+// On an arduino MEGA 2560: 20(SDA), 21(SCL)
+
+#define OLED_RESET     -1 // Reset pin (-1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS_ONE 0x3C // Address is 0x3D for 128x64
+#define SCREEN_ADDRESS_TWO 0x3D  // Apparently the next address is 0x3D not 0x7A on the board.
+Adafruit_SSD1306 display_one(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_SSD1306 display_two(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Keep track of when IDLE is supposed to switch
+uint32_t last_interacted_time, last_idle_change;
+
+// So we don't display idle or waiting screen multiple times...
+bool idle_one, idle_two;
+int8_t displayed_player[2];
+int8_t displayed_computer[2];
+
+// Defining some info for IDLE screen
+#define IDLE_DELAY_MS 1000*5 // 5 seconds in ms
+#define NUM_FLAKES 10 // number of snowflakes to use in idle animation
+#define LOGO_WIDTH 16     // bitmap dimensions
+#define LOGO_HEIGHT 16
+
+// Flakes
+int8_t icons[NUM_FLAKES][3]; // Used for idle animation
+#define XPOS   0 // Indexes into the 'icons' array for display_idle_screen fn
+#define YPOS   1
+#define DELTAY 2
+static const unsigned char PROGMEM logo_bmp[] = // A bitmap that we can change to draw whatever image we want.
+{ 0b00000000, 0b11000000,
+  0b00000001, 0b11000000,
+  0b00000001, 0b11000000,
+  0b00000011, 0b11100000,
+  0b11110011, 0b11100000,
+  0b11111110, 0b11111000,
+  0b01111110, 0b11111111,
+  0b00110011, 0b10011111,
+  0b00011111, 0b11111100,
+  0b00001101, 0b01110000,
+  0b00011011, 0b10100000,
+  0b00111111, 0b11100000,
+  0b00111111, 0b11110000,
+  0b01111100, 0b11110000,
+  0b01110000, 0b01110000,
+  0b00000000, 0b00110000 };
+
+void display_init() {
+
+  // Initializing flags
+  last_interacted_time = 0;
+  last_idle_change = 0;
+  idle_one = 1; // Display idle screen one first by default
+  idle_two = 0;
+  displayed_computer[0] = 0;
+  displayed_computer[1] = 0;
+  displayed_player[0] = 0;
+  displayed_player[1] = 0;
+
+  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_ONE)) {
+    Serial.println(F("SSD1306 ONE allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  if(!displayTwo.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
+    Serial.println(F("SSD1306 TWO allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  Serial.println("Allocation succeeded, proceeding");
+
+  // Show initial display buffer contents on the screen --
+  // the library initializes this with an Adafruit splash screen.
+  display.display();
+  display.setTextColor(SSD1306_WHITE);
+}
+
+void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, uint8_t comp_diff, Adafruit_SSD1306 display, int display_id) {
+  /* display_idle_screen arguments
+  Timer timer, passed in so we can poll and see the current time and hence how much time has passed
+
+  is_idle, true if we are currently displaying an idle screen
+
+  screen_select to know which screen we are on; 1 for choosing player opponent, 0 for changing computer opponent difficulty
+
+  comp_diff to know the current difficulty to be displayed when setting up computer opponents (0 to 19)
+
+  display to display to a specific display
+  */
+
+  uint32_t current_time = timer.read();
+  if (is_idle) {
+
+    // Reset all displayed flags
+    displayed_player[display_id] = 0;
+    displayed_computer[display_id] = 0;
+
+    // Display idle screen - including switching between two idle screens
+
+    if ( current_time - last_idle_change > IDLE_DELAY_MS ) { // Swapping idle screens
+      idle_one = !idle_one;
+      idle_two = !idle_two;
+      last_idle_change = current_time;
+      display.stopscroll();
+    }
+
+    if (idle_one) { // Scrolling text
+
+      if (current_time == last_idle_change) { // If we are displaying this idle screen for the first time
+        display_idle_scroll(display);
+      }
+
+    } else if (idle_two) { // Idle animation
+
+      display_idle_animation(display, current_time);
+
+    }    
+
+  } else { // Displaying setup screens
+
+    if (!is_display_computer) {
+      // Player
+
+      if (!displayed_player[display_id]) {
+        display_select_player(display);
+        displayed_player[display_id] = 1;
+      }
+      displayed_computer[display_id] = 0;
+
+    } else {
+
+      if (!displayed_computer[display_id]) {
+        display_select_computer(display, comp_diff);
+        displayed_computer[display_id] = 1;
+      }
+      displayed_player[display_id] = 0;
+
+    }
+
+  }
+
+}
+
+// Displayes who is making what moves
+// This function should only be called when the joystick actually is moved
+// OR after "selected_x" or "destination_x" is changed
+void display_turn_select(int8_t player_id, int8_t joystick_x, int8_t joystick_y, int8_t selected_x, int8_t selected_y, int8_t destination_x, int8_t destination_y, Adafruit_SSD1306 display_one, Adafruit_SSD1306 display_two) {
+  /* display_turn_select args
+
+    selector ; indicates which player is selecting a move right now (1 for P1, 2 for P2)
+
+    joystick_x, joystick_y ; coordinate currently selected via joystick. will be constantly updated
+
+    selected_x, selected_y ; the first move coordinate that player selects
+      both assumed to be -1 if not set
+
+    destination_x, destination_y ; the second move coordinate that player selects
+      both assumed to be -1 if not set
+  */
+  char msg[100];
+  // Convert joystick_x and joystick_y into correct ASCII values
+  // joystick_x + 'a'
+  // joystick_y + '1'
+
+  // Display what the player's cursor is ON
+
+  // Clear the display
+  display_one.clearDisplay();
+  display_one.setTextSize(1);
+  display_one.setCursor(0, 0);
+  display_two.clearDisplay();
+  display_two.setTextSize(1);
+  display_two.setCursor(0, 0);
+
+  // If we have not yet selected
+  if (selected_x == -1 && selected_y == -1) { // if the user is still selecting their first move
+    sprintf(msg, "Moving %c%c...", (joystick_x + 'a'), (joystick_y + '1'));
+
+    if (player_id == 1) {
+      // Player id 1 is selecting, corresponds to screen id 2... cuz index...
+
+      display_two.print(msg);
+      msg[0] = 'm'; // display lower case m
+      display_one.println(F("Your opponent is "));
+      display_one.print(msg);
+
+    } else {
+      // Display on the other screen
+      display_one.print(msg);
+      msg[0] = 'm'; // display lower case m
+      display_two.println(F("Your opponent is "));
+      display_two.print(msg);
+    }
+
+  // A piece has been successfully selected, now selecting second move
+  } else if (destination_x == -1 && destination_y == -1) { // if the user is selecting their second move
+    // Display the Second coordinate player is selecting
+
+    sprintf(msg, "Moving %c%c to %c%c...", (selected_x + 'a'), (selected_y + '1'), (joystick_x + 'a'), (joystick_y + '1'));
+
+    // msg: Moving from selected coords to joystick coords (all converted into board coords)
+
+    if (player_id == 1) {
+      display_two.print(msg);
+      msg[0] = 'm';
+      display_one.println(F("Your opponent is "));
+      display_one.print(msg);  
+
+    } else {
+      display_one.print(msg);
+      msg[0] = 'm';
+      display_two.println(F("Your opponent is "));
+      display_two.print(msg);
+    }
+  }
+
+  display_one.display();
+  display_two.display();
+}
+
+// This part is run by motor code once
+// Same argument as display_turn_select, but no joystick_x and joystick_y. Show "you are moving" or "opponent is moving" from xxx to yyy
+void display_while_motor_moving(int8_t player_id, int8_t selected_x, int8_t selected_y, int8_t destination_x, int8_t destination_y, Adafruit_SSD1306 display_one, Adafruit_SSD1306 display_two) {
+  /* display_while_motor_moving args
+
+    selector ; indicates which player is selecting a move right now (1 for P1, 2 for P2)
+
+    selected_x, selected_y ; the first move coordinate that player selects
+      both assumed to be -1 if not set
+
+    destination_x, destination_y ; the second move coordinate that player selects
+      both assumed to be -1 if not set
+  */
+  char msg[100];
+
+  // Clear the display
+  display_one.clearDisplay();
+  display_one.setTextSize(1);
+  display_one.setCursor(0, 0);
+  display_two.clearDisplay();
+  display_two.setTextSize(1);
+  display_two.setCursor(0, 0);
+
+  // At this time of code, we always have a valid selected_x and selected_y, and destination_x and destination_y
+  // player_id is whoever is moving
+  
+  sprintf(msg, "Moving %c%c to %c%c...", (selected_x + 'a'), (selected_y + '1'), (destination_x + 'a'), (destination_y + '1'));
+
+  if (player_id == 1) {
+    display_two.print(msg);
+    msg[0] = 'm';
+    display_one.println(F("Your opponent is "));
+    display_one.print(msg);
+
+  } else {
+    display_one.print(msg);
+    msg[0] = 'm';
+    display_two.println(F("Your opponent is "));
+    display_two.print(msg);
+  }
+
+  display_one.display();
+  display_two.display();
+}
+
+// Only call in the promotion_joystick when joystick is moving, or right before entering the promotion select state
+void display_promotion(int8_t player_promoting, int8_t piece, ADAFRUIT_SSD1306 display_one, ADAFRUIT_SSD1306 display_two) {
+  /* display_promotion arguments
+
+    player_promoting to know which player is promoting; that way, we know which player to display "opponent is promoting..." message
+    
+    piece to know which piece the promoting player is currently hovering, so we can print it on their display.
+
+  */
+  display_one.clearDisplay();
+  display_one.setTextSize(1);
+  display_one.setCursor(0, 0);
+  display_two.clearDisplay();
+  display_two.setTextSize(1);
+  display_two.setCursor(0, 0);
+
+  if (player_promoting == 1) {
+
+    // Player black is promoting   
+    display_two.println(F("You are currently promoting to a..."));
+
+    switch(piece) {
+      // Order is Queen Rook Bishop Knight
+      case 0:
+        display_two.print(F("QUEEN"));
+        break;
+      case 3:
+        display_two.print(F("KNIGHT"));
+        break;
+      case 1:
+        display_two.print(F("ROOK"));
+        break;
+      case 2:
+        display_two.print(F("BISHOP"));
+        break;
+    }
+    // Player 2 is waiting
+    display_one.print(F("Your opponent is promoting..."));
+    display_one.display();
+    display_two.display();
+    
+  } else {
+
+    // Player 2 is promoting   
+    display_one.println(F("You are currently promoting to a..."));
+
+    switch(piece) {
+      case 0:
+        display_one.print(F("QUEEN"));
+        break;
+      case 3:
+        display_one.print(F("KNIGHT"));
+        break;
+      case 1:
+        display_one.print(F("ROOK"));
+        break;
+      case 2:
+        display_one.print(F("BISHOP"));
+        break;
+    }
+    // Player 1 is waiting
+    display_two.print(F("Your opponent is promoting..."));
+    display_one.display();
+    display_two.display();
+
+  }
+}
+
+void display_game_over(int8_t winner, int8_t draw, Adafruit_SSD1306 display_one, Adafruit_SSD1306 display_two) {
+  /* display_game_over arguments
+
+    winner to know which player won: 
+    0 for white
+    1 for black
+
+    draw to know what kind of draw it is
+      0 for no draw
+      1 for 50 move draw
+      2 for 3 fold repetition    
+      3 for draw via insufficient material
+    
+    depending on winner value, the corresponding helper functions will be called to display information to each display
+
+  */
+  if (draw == 0){
+    // display winner
+    if (winner == 0) {
+      display_winner(0, display_one);
+      display_loser(1, display_two);
+    } else {
+      display_winner(1, display_two);
+      display_loser(0, display_one);
+    }
+
+  } else {
+    // Display draw
+    display_draw(draw, display_one);
+    display_draw(draw, display_two);
+  }
+}
+
+
+void display_select_player(Adafruit_SSD1306 display) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  // Draw bitmap
+  display.setCursor(0, 0);
+  display.println(F(      "PLAYER"));
+  display.println(F("HUMAN  Comp>"));
+  display.print(F("MODE"));
+  display.display();
+}
+
+void display_select_computer(Adafruit_SSD1306 display, uint8_t comp_diff) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println(F("STOCKFISH"));
+  display.print(F("<Human  LV:"));
+  // Draw bitmap
+  display.print(comp_diff+1, DEC);
+  display.display();
+}
+
+void display_idle_scroll(Adafruit_SSD1306 display) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(0, 0);
+  display.println(F(" > Spark <"));
+  display.print(F("SMARTCHESS"));
+  display.display();
+  // display.startscrollleft(0, 1); // (row 1, row 2). Scrolls just the first row of text.
+  display.startscrollright(2, 3); // SSD1306 can't handle two concurrent scroll directions.
+}
+
+void display_idle_animation(Adafruit_SSD1306 display, uint32_t current_time) {
+
+  /* Once we make OLED_timer a global thing in our library, we won't need to pass in current_time anymore */
+
+  if (current_time == last_idle_change) { // We are just entering idle animation. Initialize!
+
+    for (int8_t f = 0; f < NUM_FLAKES; f++) {
+      icons[f][XPOS]   = random(1 - LOGO_WIDTH, display.width());
+      icons[f][YPOS]   = -LOGO_HEIGHT;
+      icons[f][DELTAY] = random(1, 6);
+    }
+
+  } else { // We've already initialized this idle screen. Draw next frame!
+    display.clearDisplay();
+
+    // Draw each snowflake:
+    for (int8_t f = 0; f < NUM_FLAKES; f++) {
+      display.drawBitmap(icons[f][XPOS], icons[f][YPOS], logo_bmp, LOGO_WIDTH, LOGO_HEIGHT, SSD1306_WHITE);
+    }
+
+    display.display(); // Show the display buffer on the screen
+    // delay(200);        // Pause for 1/10 second. Should we?
+
+    // Then update coordinates of each flake...
+    for (int8_t f = 0; f < NUM_FLAKES; f++) {
+      icons[f][YPOS] += icons[f][DELTAY];
+      // If snowflake is off the bottom of the screen...
+      if (icons[f][YPOS] >= display.height()) {
+        // Reinitialize to a random position, just off the top
+        icons[f][XPOS]   = random(1 - LOGO_WIDTH, display.width());
+        icons[f][YPOS]   = -LOGO_HEIGHT;
+        icons[f][DELTAY] = random(1, 6);
+      }
+    }
+
+  }
+}
+
+//display_game_over helper functions
+
+void display_draw(int8_t draw, Adafruit_SSD1306 display) {
+
+  /*
+    0 for no draw
+    1 for 50 move draw
+    2 for 3 fold repetition    
+    3 for draw via insufficient material 
+
+  */
+
+  // Display to player 1
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+
+  if (draw == 1) {
+
+    display.println(F("Draw by 50 move rule!"));
+
+  } else if (draw == 2) {
+
+    display.println(F("Draw by 3 fold repetition!"));
+
+  } else if (draw == 3) {
+
+    display.println(F("Draw by stalemate!"));
+
+  } else if (draw == 4) {
+
+    display.println(F("Draw by insufficient material!"));
+
+  } else {
+    Serial.println("Bad draw argument");
+    return;
+  }
+
+  display.display();
+}
+
+void display_winner(int8_t winner, Adafruit_SSD1306 display) {
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+
+  if (winner == 0) display.print("White");
+  else display.print("Black");
+  display.println(F(" wins!"));
+
+  display.display();
+
+}
+
+void display_loser(int8_t loser, Adafruit_SSD1306 display) {
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+
+  if (loser == 0) display.print("White");
+  else display.print("Black");
+  display.print(F(" loses!"));
+
+  display.display();
+}
 // ############################################################
 // #                           UTIL                           #
 // ############################################################
@@ -774,6 +1306,10 @@ void loop() {
     move_user_joystick_idle(0, idle_joystick_x[0] == 1, 20); // max stockfish level is 20
     move_user_joystick_idle(1, idle_joystick_x[1] == 1, 20);
 
+    // OLED display ((Timer timer, bool is_idle, bool is_display_computer, uint8_t comp_diff, Adafruit_SSD1306 display, int display_id))
+    display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[0], idle_joystick_y[0], display_one, 0);
+    display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[1], idle_joystick_y[1], display_two, 1);
+
     // Check button presses: if button pressed, toggle player_ready
     if (confirm_button_pressed[0]) {
       player_ready[0] = !player_ready[0];
@@ -824,17 +1360,19 @@ void loop() {
     draw_stalemate = false;              // If true, the game is a draw due to stalemate
     draw_insufficient_material = false;  // If true, the game is a draw due to insufficient material
 
-    // Currently no piece is selected, so initialize to 0, 0
-    selected_x = 0;
-    selected_y = 0;
-    destination_x = 0;
-    destination_y = 0;
-    capture_x = 0;
-    capture_y = 0;
+    // Currently no piece is selected, so initialize to -1, -1
+    selected_x = -1;
+    selected_y = -1;
+    destination_x = -1;
+    destination_y = -1;
+    capture_x = -1;
+    capture_y = -1;
+    // The followings are for LED display to show previously "from" and "to"
     previous_destination_x = 0;
     previous_destination_y = 0;
     previous_selected_x = 0;
     previous_selected_y = 0;
+
     number_of_turns = 0;
 
     // Graveyard count all sets to 0, except for temp pieces which is 8
@@ -938,6 +1476,17 @@ void loop() {
 
     // TEMP DISPLAY CODE:
     serial_display_board_and_selection();
+
+    // Before every turn, set unspecified values to -1
+    selected_x = -1;
+    selected_y = -1;
+    destination_x = -1;
+    destination_y = -1;
+    capture_x = -1;
+    capture_y = -1;
+    // Display screen once before moving to next state
+    display_turn_select(player_turn, joystick_x[player_turn], joystick_y[player_turn], selected_x, selected_y, destination_x, destination_y, display_one, display_two);
+
 
     // Move to the next state
     game_state = GAME_WAIT_FOR_SELECT;
@@ -1052,6 +1601,12 @@ void loop() {
     if (destination_x == selected_x && destination_y == selected_y) {
       // Move back to select
       game_state = GAME_WAIT_FOR_SELECT;
+      destination_x = -1;
+      destination_y = -1;
+      selected_x = -1;
+      selected_y = -1;
+      // Display on OLED
+      display_turn_select(player_turn, joystick_x[player_turn], joystick_y[player_turn], selected_x, selected_y, destination_x, destination_y, display_one, display_two);
       return;
     }
     // If we selected another piece of our own, replace selected piece
@@ -1061,6 +1616,9 @@ void loop() {
       // Replace selected piece, and repeat this state
       selected_x = destination_x;
       selected_y = destination_y;
+      destination_x = -1;
+      destination_y = -1;
+      display_turn_select(player_turn, joystick_x[player_turn], joystick_y[player_turn], selected_x, selected_y, destination_x, destination_y, display_one, display_two);
       return;
     }
     // Check if the move is valid (if the destination is in the list of possible moves)
@@ -1103,7 +1661,7 @@ void loop() {
     // OLED display: show the current selection
     // TODO
     // display_turn_select()...
-
+    display_while_motor_moving(player_turn, selected_x, selected_y, destination_x, destination_y, display_one, display_two);
    
     // Check if capture:
     if (capture_x != -1) {
@@ -1245,6 +1803,8 @@ void loop() {
     // Check if a pawn can promote
     if (p_board->can_pawn_promote(destination_x, destination_y)) {
       game_state = GAME_WAIT_FOR_SELECT_PAWN_PROMOTION;
+      promotion_joystick_selection = 0; // default to queen
+      display_promotion(player_turn, 0, display_one, display_two);
     } else {
       game_state = GAME_END_TURN;
     }
@@ -1416,6 +1976,7 @@ void loop() {
 
     // OLED:
     // display_game_over()
+    display_game_over(0, 0, display_one, display_two);
 
     // TODO: some sort of display, and reset the game (Maybe on the OLED display)
     Serial.println("White wins!");
@@ -1425,6 +1986,7 @@ void loop() {
 
     // OLED:
     // display_game_over()
+    display_game_over(1, 0, display_one, display_two);
 
     // TODO: some sort of display, and reset the game (Maybe on the OLED display)
     Serial.println("Black wins!");
@@ -1440,12 +2002,16 @@ void loop() {
     Serial.println("Reason: ");
     if (draw_fifty_move_rule) {
       Serial.println("Fifty move rule");
+      display_game_over(0, 1, display_one, display_two);
     } else if (draw_three_fold_repetition) {
       Serial.println("Three fold repetition");
+      display_game_over(0, 2, display_one, display_two);
     } else if (draw_stalemate) {
       Serial.println("Stalemate");
+      display_game_over(0, 3, display_one, display_two);
     } else if (draw_insufficient_material) {
       Serial.println("Insufficient material");
+      display_game_over(0, 4, display_one, display_two);
     }
     game_state = GAME_RESET;
   } else if (game_state == GAME_RESET) {
