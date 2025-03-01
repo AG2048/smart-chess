@@ -13,7 +13,7 @@ void Board::update_three_fold_repetition_vector() {
 
     for (int8_t i = 0; i < 8; i++) {
       for (int8_t j = 0; j < 8; j++) {
-        if (pieces[i][j]->get_type() != EMPTY) { // If empty, not tracking it
+        if (pieces[i][j]->get_type() != EMPTY && pieces[i][j]->get_type() != PAWN) { // If empty, not tracking it. Also don't track pawns because pawns move clears the 3-fold track
           if (pieces[i][j]->get_color() == 0) {
             sub_vector.push_back(std::make_pair(i*8 + j, pieces[i][j]->get_type()));
           } else { 
@@ -129,7 +129,7 @@ void Board::move_piece(int8_t x, int8_t y, int8_t new_x, int8_t new_y, int8_t ca
   // PAWN:
   if (pieces[y][x]->get_type() == PAWN) {
     draw_move_counter = 0; // Reset the draw move counter
-    // Draw move counter has been reset; we should also flush three_fold_repetition_vector
+    // Draw move counter has been reset; we should also flush three_fold_repetition_vector (since if pawn moves, it cannot repeat...)
     three_fold_repetition_vector.clear();
 
     // If the pawn moves two squares, it can be taken en passant
