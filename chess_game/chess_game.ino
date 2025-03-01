@@ -752,7 +752,7 @@ void loop() {
 
     // Enter idle screen if no button is pressed for 60 seconds
     uint32_t time_since_last_change = game_timer.read() - last_idle_change_time;
-    if (time_since_last_change > IDLE_TIME * 1000) {
+    if (time_since_last_change > IDLE_SCREEN_TIMEOUT * 1000) {
       in_idle_screen = true;
       // reset confirm button pressed
       confirm_button_pressed[0] = false;
