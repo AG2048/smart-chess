@@ -127,7 +127,7 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
   //    pawn to (-2,0 to -2,7) 
   // The specific coordinate is decided by graveyard[index] and index is decided by piece_type and color
 
-  int graveyard_index = 0;
+  int8_t graveyard_index = 0;
   if (piece_type == 1) {
     graveyard_index = 0;
   } else if (piece_type == 2) {
@@ -192,9 +192,9 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 // ############################################################
 
 // MOTOR CONTROL VARIABLES
-const int PUL_PIN[] = {9, 9}; // x, y
-const int DIR_PIN[] = {8, 8}; // x, y
-const int LIMIT_PIN[] = {11, 11, 11, 11}; // x-, x+, y-, y+
+const int8_t PUL_PIN[] = {9, 9}; // x, y
+const int8_t DIR_PIN[] = {8, 8}; // x, y
+const int8_t LIMIT_PIN[] = {11, 11, 11, 11}; // x-, x+, y-, y+
 const int STEPS_PER_MM = 40; // measured value from testing, 3.95cm per rotation (1600 steps)
 const int MM_PER_SQUARE = 50; // width of chessboard squares in mm
 const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
@@ -373,11 +373,11 @@ void stepper_square_wave(int axis, int stepDelay) {
 
 // JOYSTICK CONTROL (each corresponds to the pin number) (first index is for white's joystick, second index is for black's joystick)
 // Joystick is active LOW, so connect the other pin to GND
-const int JOYSTICK_POS_X_PIN[] = {2, 2};
-const int JOYSTICK_POS_Y_PIN[] = {3, 3};
-const int JOYSTICK_NEG_X_PIN[] = {4, 4};
-const int JOYSTICK_NEG_Y_PIN[] = {5, 5};
-const int JOYSTICK_BUTTON_PIN[] = {6, 45};
+const int8_t JOYSTICK_POS_X_PIN[] = {2, 2};
+const int8_t JOYSTICK_POS_Y_PIN[] = {3, 3};
+const int8_t JOYSTICK_NEG_X_PIN[] = {4, 4};
+const int8_t JOYSTICK_NEG_Y_PIN[] = {5, 5};
+const int8_t JOYSTICK_BUTTON_PIN[] = {6, 45};
 // User Joystick Location - keeping track of white x, black x, white y, black y
 int8_t joystick_x[2];
 int8_t joystick_y[2];
@@ -406,11 +406,11 @@ void move_user_joystick_x_y(bool color) {
   // neutral state
 
   // Read the joystick values -- low is pressed, high is not pressed
-  int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
-  int y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
-  int neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
-  int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
-  int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+  int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
+  int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
+  int8_t neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
+  int8_t neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
+  int8_t button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
 
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
@@ -477,11 +477,11 @@ void move_user_joystick_promotion(bool color) {
   // Result: promotion_joystick_selection ++ or --, confirm_button_pressed = true if confirm button is pressed from neutral state
 
   // Read the joystick values -- low is pressed, high is not pressed
-  int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
-  int y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
-  int neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
-  int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
-  int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+  int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
+  int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
+  int8_t neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
+  int8_t neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
+  int8_t button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
 
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
@@ -541,11 +541,11 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
   // neutral state
 
   // Read the joystick values -- low is pressed, high is not pressed
-  int x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
-  int y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
-  int neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
-  int neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
-  int button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+  int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
+  int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
+  int8_t neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
+  int8_t neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
+  int8_t button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
 
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
@@ -621,7 +621,7 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
 // ############################################################
 // LED variables
 const int stripLen = 64;
-const int LED_BOARD_PIN = 12;
+const int8_t LED_BOARD_PIN = 12;
 const int LED_BRIGHTNESS = 10;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
 struct CRGB led_display[stripLen];
@@ -666,7 +666,7 @@ void display_init() {
   display_two.setTextColor(SSD1306_WHITE);
 }
 
-void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, uint8_t comp_diff, Adafruit_SSD1306 &display, int display_id) {
+void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, uint8_t comp_diff, Adafruit_SSD1306 &display, int8_t display_id) {
   /* display_idle_screen arguments
   Timer timer, passed in so we can poll and see the current time and hence how much time has passed
 
@@ -927,7 +927,6 @@ void display_select_player(Adafruit_SSD1306 &display) {
   display.println(F("HUMAN  Comp>"));
   display.print(F("MODE"));
   display.display();
-  Serial.println("END OF DISPLAY FUNC player select screen");
 }
 
 void display_select_computer(Adafruit_SSD1306 &display, uint8_t comp_diff) {
@@ -972,11 +971,11 @@ void display_draw(int8_t draw, Adafruit_SSD1306 &display) {
 
   if (draw == 1) {
 
-    display.println(F("50 move rule!"));
+    display.println(F("50 move!"));
 
   } else if (draw == 2) {
 
-    display.println(F("3 fold repetition!"));
+    display.println(F("3 fold!"));
 
   } else if (draw == 3) {
 
@@ -1028,13 +1027,15 @@ const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P',
                                  'k', 'q', 'b', 'n', 'r', 'p'};
 
 void serial_display_board_and_selection() {
+  // Show free memory
+  Serial.println(freeMemory());
   // print the "-------..." in for loop
-  for (int8_t i = 0; i < 51; i++) {
+  for (uint8_t i = 0; i < 51; i++) {
     Serial.print("-");
   }
   Serial.println("");
-  for (int row = 7; row >= 0; row--) {
-    for (int col = 0; col < 8; col++) {
+  for (int8_t row = 7; row >= 0; row--) {
+    for (int8_t col = 0; col < 8; col++) {
       bool showed = false;
       for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
         if (all_moves[selected_y][selected_x][i].second.first == col &&
@@ -1058,8 +1059,8 @@ void serial_display_board_and_selection() {
       if (p_board->pieces[row][col]->get_type() == EMPTY) {
         Serial.print(" ");
       } else {
-        // Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
-        // 6*p_board->pieces[row][col]->get_color()];
+        Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
+        6*p_board->pieces[row][col]->get_color()];
         Serial.print(
             CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
                              6 * p_board->pieces[row][col]->get_color()]);
@@ -1071,7 +1072,7 @@ void serial_display_board_and_selection() {
       Serial.println();
     } else {
       // print "^" below the row
-      for (int i = 0; i < 8; i++) {
+      for (uint8_t i = 0; i < 8; i++) {
         if (joystick_x[player_turn] == i) {
           Serial.print("^");
         } else {
@@ -1292,7 +1293,7 @@ void loop() {
     number_of_turns = 0;
 
     // Graveyard count all sets to 0, except for temp pieces which is 8
-    for (int i = 0; i < 10; i++) {
+    for (int8_t i = 0; i < 10; i++) {
       graveyard[i] = 0;  // initialize graveyard
     }
     graveyard[10] = 8;  // initialize temp pieces
@@ -1590,7 +1591,7 @@ void loop() {
       bool captured_piece_is_temp = false;
       int8_t captured_temp_piece_x = -1;
       int8_t captured_temp_piece_y = -1;
-      for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
+      for (int8_t i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
         if (promoted_pawns_using_temp_pieces[i].first == capture_x &&
             promoted_pawns_using_temp_pieces[i].second == capture_y) {
           captured_piece_is_temp = true;
@@ -1608,7 +1609,7 @@ void loop() {
         // Update the graveyard memory
         graveyard[10 + p_board->pieces[capture_y][capture_x]->get_color()]++;
         // Remove the promoted pawn from the vector
-        for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
+        for (int8_t i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
           if (promoted_pawns_using_temp_pieces[i].first == capture_x &&
               promoted_pawns_using_temp_pieces[i].second == capture_y) {
             promoted_pawns_using_temp_pieces.erase(promoted_pawns_using_temp_pieces.begin() + i);
@@ -1620,7 +1621,7 @@ void loop() {
         bool capture_piece_can_replace_promoted_pawn = false;
         // This part is about seeing if the captured piece can replace a
         // promoted pawn. So, we can add a check to see if captured-piece is a temp piece
-        for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
+        for (int8_t i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
           // Check for all promoted pawns, if colour matches captured_x,
           // captured_y's piece AND type matches If they do match, tell the
           // motor to make a replacement.
@@ -1681,7 +1682,7 @@ void loop() {
     // Move the piece - regardless of capture
     // If the piece that's moving is a temp piece, edit its coordinates in the
     // promoted_pawns_using_temp_pieces vector
-    for (int i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
+    for (int8_t i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
       if (promoted_pawns_using_temp_pieces[i].first == selected_x &&
           promoted_pawns_using_temp_pieces[i].second == selected_y) {
         promoted_pawns_using_temp_pieces[i].first = destination_x;
