@@ -29,7 +29,7 @@ void Board::update_three_fold_repetition_vector() {
       if (three_fold_repetition_vector[i].first == sub_vector) {
         // Found the sub-vector in the three_fold vector. Increment the count.
         three_fold_repetition_vector[i].second++;
-        break;
+        return; // If we found it, do not push another pair. We are done.
       }
     }
     // Didn't find the sub-vector in the three_fold vector. Add it.
