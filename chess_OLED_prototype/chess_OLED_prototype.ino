@@ -15,7 +15,7 @@
 
 #define OLED_RESET     -1 // Reset pin (-1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C // Address is 0x3D for 128x64
-#define SCREEN_ADDRESS_TWO 0x7A
+#define SCREEN_ADDRESS_TWO 0x3D  // Apparently the next address is 0x3D not 0x7A on the board.
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 Adafruit_SSD1306 displayTwo(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
