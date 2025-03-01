@@ -11,6 +11,20 @@
 #include "PieceType.h"
 #include "Timer.h"
 
+// OLED DEFINES
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// The pins for I2C are defined by the Wire-library. 
+// On an arduino MEGA 2560: 20(SDA), 21(SCL)
+
+#define OLED_RESET     -1 // Reset pin (-1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS_ONE 0x3C // Address is 0x3D for 128x64
+#define SCREEN_ADDRESS_TWO 0x3D  // Apparently the next address is 0x3D not 0x7A on the board.
+Adafruit_SSD1306 display_one(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_SSD1306 display_two(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
 // ############################################################
 // #                    GAME STATE CONTROL                    #
 // ############################################################
@@ -180,8 +194,8 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 // MOTOR CONTROL VARIABLES
 const int PUL_PIN[] = {9, 9}; // x, y
 const int DIR_PIN[] = {8, 8}; // x, y
-const int LIMIT_PIN[] = {11, 11, 11, 11} // x-, x+, y-, y+
-const int STEPS_PER_MM = 40 // measured value from testing, 3.95cm per rotation (1600 steps)
+const int LIMIT_PIN[] = {11, 11, 11, 11}; // x-, x+, y-, y+
+const int STEPS_PER_MM = 40; // measured value from testing, 3.95cm per rotation (1600 steps)
 const int MM_PER_SQUARE = 50; // width of chessboard squares in mm
 const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
 const int SLOW_STEP_DELAY = 100; // half the period of square wave pulse for stepper motor
@@ -203,10 +217,11 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y) {
   // TODO: don't write the motor moving code here, just write the logic to move the motor and call motor_move_to_coordinate function
   
   // Convert square coordinates to mm coordinates
-  from_x = form_x * MM_PER_SQUARE;
+  from_x = from_x * MM_PER_SQUARE;
   from_y = from_y * MM_PER_SQUARE;
   to_x = to_x * MM_PER_SQUARE;
   to_y = to_y * MM_PER_SQUARE;
+  int ret;
 
   // Move motor to starting location
   if (ret = move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY)) return ret;
@@ -313,6 +328,7 @@ int move_motor_to_origin(int offset) {
   // Sets direction
   digitalWrite(DIR_PIN[0], dx > 0);
   digitalWrite(DIR_PIN[1], dy > 0);
+  int ret;
 
   // Moves to a bit short of where origin is
   if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
@@ -620,19 +636,6 @@ struct CRGB led_display[stripLen];
 // ############################################################
 // #                       OLED DISPLAY                       #
 // ############################################################
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-// The pins for I2C are defined by the Wire-library. 
-// On an arduino MEGA 2560: 20(SDA), 21(SCL)
-
-#define OLED_RESET     -1 // Reset pin (-1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS_ONE 0x3C // Address is 0x3D for 128x64
-#define SCREEN_ADDRESS_TWO 0x3D  // Apparently the next address is 0x3D not 0x7A on the board.
-Adafruit_SSD1306 display_one(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-Adafruit_SSD1306 display_two(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
 // Keep track of when IDLE is supposed to switch
 uint32_t last_interacted_time, last_idle_change;
 
@@ -683,12 +686,12 @@ void display_init() {
   displayed_player[1] = 0;
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_ONE)) {
+  if(!display_one.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_ONE)) {
     Serial.println(F("SSD1306 ONE allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
 
-  if(!displayTwo.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
+  if(!display_two.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
     Serial.println(F("SSD1306 TWO allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
@@ -697,8 +700,11 @@ void display_init() {
 
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
-  display.display();
-  display.setTextColor(SSD1306_WHITE);
+  display_one.display();
+  display_one.setTextColor(SSD1306_WHITE);
+
+  display_two.display();
+  display_two.setTextColor(SSD1306_WHITE);
 }
 
 void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, uint8_t comp_diff, Adafruit_SSD1306 display, int display_id) {
@@ -890,7 +896,7 @@ void display_while_motor_moving(int8_t player_id, int8_t selected_x, int8_t sele
 }
 
 // Only call in the promotion_joystick when joystick is moving, or right before entering the promotion select state
-void display_promotion(int8_t player_promoting, int8_t piece, ADAFRUIT_SSD1306 display_one, ADAFRUIT_SSD1306 display_two) {
+void display_promotion(int8_t player_promoting, int8_t piece, Adafruit_SSD1306 display_one, Adafruit_SSD1306 display_two) {
   /* display_promotion arguments
 
     player_promoting to know which player is promoting; that way, we know which player to display "opponent is promoting..." message
