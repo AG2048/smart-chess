@@ -1059,8 +1059,8 @@ void serial_display_board_and_selection() {
       if (p_board->pieces[row][col]->get_type() == EMPTY) {
         Serial.print(" ");
       } else {
-        Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
-        6*p_board->pieces[row][col]->get_color()];
+        // Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
+        // 6*p_board->pieces[row][col]->get_color()];
         Serial.print(
             CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
                              6 * p_board->pieces[row][col]->get_color()]);
