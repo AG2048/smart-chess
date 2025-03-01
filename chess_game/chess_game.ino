@@ -374,6 +374,7 @@ int8_t idle_joystick_y[2];
 // Memory to see if a player is ready (game starts when both players ready)
 bool player_ready[2];
 // Remember if the game is in full idle screen or not
+#define IDLE_SCREEN_TIMEOUT 60 // 60 seconds
 bool in_idle_screen;
 uint32_t last_idle_change_time; // last time a button was pressed.
 
@@ -751,7 +752,7 @@ void loop() {
 
     // Enter idle screen if no button is pressed for 60 seconds
     uint32_t time_since_last_change = game_timer.read() - last_idle_change_time;
-    if (time_since_last_change > 60000) {
+    if (time_since_last_change > IDLE_TIME * 1000) {
       in_idle_screen = true;
       // reset confirm button pressed
       confirm_button_pressed[0] = false;
