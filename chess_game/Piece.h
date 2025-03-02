@@ -36,7 +36,7 @@ class Piece {
 
     // Function that returns x,y coordinates of all possible moves
 
-    std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> get_possible_moves(Board* board) const;
+    std::vector<std::pair<int8_t, int8_t>> Piece::get_possible_moves(Board* board) const;
 
     // Constructor
 

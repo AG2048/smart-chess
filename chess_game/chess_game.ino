@@ -107,7 +107,7 @@ std::vector<std::pair<int8_t, int8_t>> promoted_pawns_using_temp_pieces;
 
 // Initialize Memory for the Board Object and Moves Vector (keeping track of possible moves)
 Board *p_board;
-std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>>
+std::vector<std::pair<int8_t, int8_t>>
     all_moves[8][8];
 
 std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
@@ -1064,8 +1064,6 @@ const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P',
                                  'k', 'q', 'b', 'n', 'r', 'p'};
 
 void serial_display_board_and_selection() {
-  // Show free memory
-  Serial.println(freeMemory());
   // print the "-------..." in for loop
   for (uint8_t i = 0; i < 51; i++) {
     Serial.print("-");
@@ -1075,15 +1073,18 @@ void serial_display_board_and_selection() {
     for (int8_t col = 0; col < 8; col++) {
       bool showed = false;
       for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
-        if (all_moves[selected_y][selected_x][i].second.first == col &&
-            all_moves[selected_y][selected_x][i].second.second == row) {
+        if (selected_x == -1 || selected_y == -1) {
+          break;
+        }
+        if (all_moves[selected_y][selected_x][i].second%8 == col &&
+            all_moves[selected_y][selected_x][i].second/8 == row) {
           Serial.print("X");
           Serial.print("\t");
           showed = true;
           break;
         }
-        if (all_moves[selected_y][selected_x][i].first.first == col &&
-            all_moves[selected_y][selected_x][i].first.second == row) {
+        if (all_moves[selected_y][selected_x][i].first%8 == col &&
+            all_moves[selected_y][selected_x][i].first/8 == row) {
           Serial.print("O");
           Serial.print("\t");
           showed = true;
@@ -1592,11 +1593,11 @@ void loop() {
     // Check if the move is valid (if the destination is in the list of possible moves)
     bool valid_move = false;
     for (int8_t i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
-      if (all_moves[selected_y][selected_x][i].first.first == destination_x &&
-          all_moves[selected_y][selected_x][i].first.second == destination_y) {
+      if (all_moves[selected_y][selected_x][i].first%8 == destination_x &&
+          all_moves[selected_y][selected_x][i].first/8 == destination_y) {
         valid_move = true;
-        capture_x = all_moves[selected_y][selected_x][i].second.first;
-        capture_y = all_moves[selected_y][selected_x][i].second.second;
+        capture_x = all_moves[selected_y][selected_x][i].second%8;
+        capture_y = all_moves[selected_y][selected_x][i].second/8;
         break;
       }
     }

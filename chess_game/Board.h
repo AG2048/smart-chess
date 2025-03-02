@@ -47,7 +47,7 @@ class Board {
     
     Board copy_board();
 
-    void remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> &moves);
+    void remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std::pair<int8_t, int8_t>> &moves);
 
     bool can_pawn_promote(int8_t x, int8_t y);
 

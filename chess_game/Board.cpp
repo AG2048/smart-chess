@@ -250,11 +250,11 @@ bool Board::under_check(bool color) {
       // If the piece is an enemy piece
       if (pieces[i][j]->get_color() != color && pieces[i][j]->get_type() != EMPTY) {
         // Get all possible moves of the piece
-        std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> moves = pieces[i][j]->get_possible_moves(this);
+        std::vector<std::pair<int8_t, int8_t>> moves = pieces[i][j]->get_possible_moves(this);
         // Check if any of the moves are on the king
         for (int8_t k = 0; k < moves.size(); k++) {
           // The second pair is the capture square, which we care about
-          if (moves[k].second.first == (color == 0 ? white_king_x : black_king_x) && moves[k].second.second == (color == 0 ? white_king_y : black_king_y)) {
+          if (moves[k].second%8 == (color == 0 ? white_king_x : black_king_x) && moves[k].second/8 == (color == 0 ? white_king_y : black_king_y)) {
             return true;
           }
         }
@@ -275,11 +275,11 @@ std::vector<std::pair<int8_t, int8_t>> Board::sources_of_check(bool color) {
       // If the piece is an enemy piece
       if (pieces[i][j]->get_color() != color && pieces[i][j]->get_type() != EMPTY) {
         // Get all possible moves of the piece
-        std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> moves = pieces[i][j]->get_possible_moves(this);
+        std::vector<std::pair<int8_t, int8_t>> moves = pieces[i][j]->get_possible_moves(this);
         // Check if any of the moves are on the king
         for (int8_t k = 0; k < moves.size(); k++) {
           // The second pair is the capture square, which we care about
-          if (moves[k].second.first == (color == 0 ? white_king_x : black_king_x) && moves[k].second.second == (color == 0 ? white_king_y : black_king_y)) {
+          if (moves[k].second%8 == (color == 0 ? white_king_x : black_king_x) && moves[k].second/8 == (color == 0 ? white_king_y : black_king_y)) {
             sources.push_back(std::make_pair(j, i));
           }
         }
@@ -334,7 +334,7 @@ Board Board::copy_board() {
 }
 
 // when checking if a move is illegal due to checks, make sure to consider the path of king's castling
-void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std::pair<std::pair<int8_t, int8_t>, std::pair<int8_t, int8_t>>> &moves) {
+void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std::pair<int8_t, int8_t>> &moves) {
   bool piece_color = pieces[y][x]->get_color();
 
   // If the piece is a king, check if the king is under check after the move
@@ -343,7 +343,7 @@ void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std
     if (under_check(piece_color)){
       // Find move that changes king's position by 2
       for (int8_t i = 0; i < moves.size(); i++) {
-        if (abs(moves[i].first.first - x) == 2) {
+        if (abs(moves[i].first%8 - x) == 2) {
           moves.erase(moves.begin() + i);
           i--;
         }
@@ -353,14 +353,14 @@ void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std
     // Find move that changes king's position by 1
     for (int8_t i = 0; i < moves.size(); i++) {
       // TODO: for efficiency, can check the "castle flag first"
-      if (abs(moves[i].first.first - x) == 1 && moves[i].first.second == y) {
+      if (abs(moves[i].first%8 - x) == 1 && moves[i].first/8 == y) {
         // Now, copy new board, and check if king is under check after ONE move to left / right. Remove if it is, and remove subsequent castling moves
         Board new_board = copy_board();
-        new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
+        new_board.move_piece(x, y, moves[i].first%8, moves[i].first/8, moves[i].second%8, moves[i].second/8);
         if (new_board.under_check(piece_color)) {
           // Now, remove castling moves
           for (int8_t j = 0; j < moves.size(); j++) {
-            if ((moves[j].first.first - x) == 2 * (moves[i].first.first - x)) {
+            if ((moves[j].first%8 - x) == 2 * (moves[i].first%8 - x)) {
               moves.erase(moves.begin() + j);
               j--;
               if (j < i) i--;
@@ -378,7 +378,7 @@ void Board::remove_illegal_moves_for_a_piece(int8_t x, int8_t y, std::vector<std
     Board new_board = copy_board();
 
     // Move the piece
-    new_board.move_piece(x, y, moves[i].first.first, moves[i].first.second, moves[i].second.first, moves[i].second.second);
+    new_board.move_piece(x, y, moves[i].first%8, moves[i].first/8, moves[i].second%8, moves[i].second/8);
     
     // Check if the king is under check
     if (new_board.under_check(piece_color)) {
