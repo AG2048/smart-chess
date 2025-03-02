@@ -408,6 +408,8 @@ void move_user_joystick_x_y(bool color) {
   // <color>_confirm_button_pressed = true if confirm button is pressed from
   // neutral state
 
+  // Also display the OLED if a joystick movement is detected
+
   // Read the joystick values -- low is pressed, high is not pressed
   int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
   int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
@@ -479,6 +481,8 @@ void move_user_joystick_promotion(bool color) {
   // Update the promotion_joystick_selection, and confirm button pressed flag 
   // Result: promotion_joystick_selection ++ or --, confirm_button_pressed = true if confirm button is pressed from neutral state
 
+  // Also show the OLED screen for joystick promotion selection
+
   // Read the joystick values -- low is pressed, high is not pressed
   int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
   int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
@@ -543,6 +547,8 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
   // <color>_confirm_button_pressed = true if confirm button is pressed from
   // neutral state
 
+  // Handle displaying the IDLE screen. Only run if a change happened (joystick moved or button pressed)
+
   // Read the joystick values -- low is pressed, high is not pressed
   int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
   int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
@@ -602,7 +608,9 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
     last_idle_change_time = game_timer.read(); // a button press happened, reset the idle timer
     if (in_idle_screen) {
       // We are currently in idle screen, just break out of the idle state. Don't update the joystick values
-      in_idle_screen = false; // Issue: 
+      in_idle_screen = false; 
+      // Issue: Do note that this code will have issues if both buttons are tied together. Since this case, player_0's button will trigger an "exit idle screen", but player_1's button (which is the same thing), triggers button press...
+      // This should be fine since in reality they are not the same button, and will have at least some sort of delay between them
       display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[1], idle_joystick_y[1], display_two, 1);
       display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[0], idle_joystick_y[0], display_one, 0);
     } else {
@@ -704,6 +712,10 @@ void display_init() {
 }
 
 void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, uint8_t comp_diff, Adafruit_SSD1306 *display, int8_t display_id) {
+  // This code is run by IDLE joystick (if a change is detected such as a button press or joystick movement)
+  // The IDLE animation is run first time the game enters IDLE state. (Currently this part of code is removed due to testing purposes)
+  // This code is also run when the game FIRST starts up. (since joystick won't be pressed...)
+
   /* display_idle_screen arguments
   Timer timer, passed in so we can poll and see the current time and hence how much time has passed
 
