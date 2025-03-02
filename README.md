@@ -74,3 +74,16 @@ Raspberry Pi 5, all GPIO and I2C and any other interfaces are set open.
 git cloned stockfish from official stockfish into `~/` directory. 
 
 created a python venv at `~/venv` and installed the stockfish pip library. 
+
+## Arduino Mega running out of memory
+The inclusion of 2 displays is really costly in terms of memory. So some fixes regarding that:
+1. Before we run begin_turn, we actually just delete the display object, which also frees the memory associated with its buffer. And whenever we want the display again, we will call init_display() which will create the display object again.
+2. We **HOPE** to re-write the remove_illegal_moves function to be more memory efficient, currently it copies the entire board object which can be expensive.
+3. We reduced some memory usage of 3-fold repetition vector, by not storing ANY pawn states, since in our code, we restart any counter / 3-fold checks every time a pawn makes a move (since that state can never be repeated).
+4. Reduced the space required for possible_moves vector. Before it stores a `vector<pair<pair<int, int>, pair<int, int>>>` which is 16 bytes per move. Now it stores a `vector<pair<int, int>>` which is 8 bytes per move. Done by replacing any pair(x,y) into y*8 + x. (We can extract x and y by y = move/8, x = move%8).
+5. We kinda removed one animation for the OLED display, which is the "stars falling" animation. We can re-add it later, but just throw the control code in the main loop, and not in the OLED code... (since this is only for IDLE animation)
+
+Memory regarding LED: LED seems to only need 1 pixel at a time, so we can use some algorithm to reduce memory usage. 
+
+## Bug with OLED display:
+When adding OLED display code, we changed the selected_x, selected_y,... to be initialized to -1. Instead of previously determined 0. This kinda caused a small error in the display code, where a selected_x of -1 causes it to access wrong memory... and cause the print statement to output wrong value..
