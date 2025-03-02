@@ -1997,6 +1997,7 @@ void loop() {
     free_displays();
     game_state = GAME_RESET;
   } else if (game_state == GAME_RESET) {
+    delay(10000);
     // Reset the game (move pieces back to initial position, clear memory (mainly focusing on vectors))
 
     // First, move the pieces back to the initial position
