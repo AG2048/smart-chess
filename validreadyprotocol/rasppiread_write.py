@@ -7,9 +7,56 @@ stockfish = Stockfish(path="/Users/gawtham3/Downloads/Stockfish-master/src/stock
 
 # Pin definitions
 CLK_PIN = 17    # Clock (input from Arduino)
-VALID_PIN = 27  # Valid (output to Arduino)
-READY_PIN = 22  # Ready (input from Arduino)
-DATA_PIN = 10   # Data (output to Arduino)
+RVALID_PIN = 27  # Valid (output to Arduino)
+RREADY_PIN = 22  # Ready (input from Arduino)
+RDATA_PIN = 10   # Data (output to Arduino)
+WVALID_PIN = 9   # Valid (input from Arduino)
+WREADY_PIN = 11  # Ready (output to Arduino)
+WDATA_PIN = 5    # Data (input from Arduino)
+OVERWRITE_PIN = 6  # Overwrite (input from Arduino)
+
+"""
+Initially, set all pin types to LOW (all the output pins)
+Then, start the "write" protocol, to write full repeating 1 and 0s.
+If the "overwrite" pin is set to HIGH, then break out of the write loop.
+Begin the "read" protocol.
+
+Inside READ:
+We read 16 bits.
+MSB: 1 for a move, 0 for starting an agent. 
+next bit: 0 for white, 1 for black
+(Arduino always write the data for BOTH sides)
+next 14 bits: difficulty of agent (0 indexed) (If arduino write all 1s, then it is a human side)
+OR
+next 14 bits: move (12 bits for from and to index, and 2 bits for promotion)
+
+If we are setting up agent: 
+- Reset the stockfish object
+- Remember if the side is a computer or human
+
+
+Main loop:
+- Do the write 1010101010... loop
+- READ until it's a move (when it's not a move, turn is always set to 0)
+- If it is a move, then:
+    - If it's all 0s (It's arduino telling the pi to make the first move)
+        - Do WRITE: write agent[0]'s best move
+        - turn = 1
+    - Else:
+        - Update the stockfish object for both players. 
+        - Write: agent[!turn]'s best move -- ONLY IF !turn is a computer.
+        - (note if !turn isn't a computer, then skip write)
+    turn = !turn
+
+
+For arduino:
+On game start: sends a AI agent initialize signal for both colours. 
+IF colour 0 is an agent, sends 000000000000000...
+READ FROM PI (when gathering moves)
+at turn ending: write the move to the pi (do not write if that move was a checkmate)
+repeat
+"""
+
 
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
