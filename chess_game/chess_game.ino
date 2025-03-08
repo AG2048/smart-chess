@@ -631,7 +631,23 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
 // #                        LED CONTROL                       #
 // ############################################################
 // LED variables
-const int stripLen = 64;
+
+// Decleration for number of rows, the number of leds in a single 1x8 row, 
+// and he number of nuber of leds in a row of a single 4x4 chess square
+// LED colours, led_display struct and strip length are defined.
+const int COLUMNS = 32;
+const int LEDSPERROW = 128;
+const int LEDSPERSQUAREROW = 4;
+const int CYAN = 0;
+const int GREEN = 1;
+const int YELLOW = 2;
+const int WHITE = 3;
+const int RED = 4;
+const int PURPLE = 5;
+const int SOLID = 0;
+const int CURSOR = 1;
+const int CAPTURE = 2;
+const int stripLen = 128;
 const int8_t LED_BOARD_PIN = 12;
 const int LED_BRIGHTNESS = 10;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
@@ -639,6 +655,64 @@ struct CRGB led_display[stripLen];
 // If we wish to add cosmetic things, add another array of "previous states", or "pre-set patterns" or other stuff
 // Also we may need a separate LED strip timer variable to keep track "how long ago was the last LED update"
 // A function to update LED strip in each situation
+
+void setPattern(int x, int y, int patternType, int R, int G, int B){
+
+  if(patternType == SOLID){
+    for(int i = 0; i < LEDSPERSQUAREROW; i++){
+      for(int j = 0; j < LEDSPERSQUAREROW; j++){
+        led_display[coordinate_to_index(x,y,i,j)] = CRGB(R, G, B);
+      }
+    }
+  }else if(patternType == CURSOR){
+    for(int i = 1; i < LEDSPERSQUAREROW - 1; i++){
+       for(int j = 1; j < LEDSPERSQUAREROW - 1; j++){
+        led_display[coordinate_to_index(x,y,i,j)] = CRGB(R, G, B);
+      }
+    }
+  }else if(patternType == CAPTURE){
+    for(int i = 0; i < LEDSPERSQUAREROW; i++){
+      led_display[coordinate_to_index(x,y,i,i)] = CRGB(R, G, B);
+      led_display[coordinate_to_index(x,y,i,LEDSPERSQUAREROW - 1 - i)] = CRGB(R, G, B);
+    }
+  }
+}
+
+void setSquareLED(int x, int y, int colourNumber, int patternType){
+
+  // Colour Coding
+  // 0-Cyan, 1-Green, 2-Yellow, 3-Orange, 4-Red, 5-Purple
+
+  for(int i = 0; i < 4; i++){
+
+    for(int j = 0; j < 4; j++){
+
+      if(colourNumber == CYAN){
+        setPattern(x,y,patternType, 0, 255, 255);
+        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(0, 255, 255);
+      }else if(colourNumber == GREEN){
+        setPattern(x,y,patternType, 0, 255, 15);
+        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(3, 255, 15);
+      }else if(colourNumber == YELLOW){
+        setPattern(x,y,patternType, 255, 247, 18);
+        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 247, 18);
+      }else if(colourNumber == ORANGE){
+        setPattern(x,y,patternType, 255, 153, 0;
+        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 255, 255);
+      }else if(colourNumber == RED){
+        setPattern(x,y,patternType, 255, 0, 0);
+        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 0, 0);
+      }else if(colourNumber == PURPLE){
+        setPattern(x,y,patternType, 209, 22, 219);
+        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(209, 22, 219);
+      }
+
+    }
+
+  }
+  
+}
+
 
 // ############################################################
 // #                       OLED DISPLAY                       #
@@ -1135,13 +1209,14 @@ void serial_display_board_and_selection() {
   }
 }
 
-int coordinate_to_index(int x, int y) {
-  // Returns equivalent index of LED of an (x, y) coordinate
-  if (y % 2 == 0) {
-    return y * 8 + x;
-  } else {
-    return y * 8 + 8 - x - 1;
+int coordinate_to_index(int x, int y, int u, int v){
+
+  if(v % 2 == 0){
+    return u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * y);
+  }else{
+    return -u + COLUMNS * (v + 1) - (LEDSPERSQUAREROW * x) + (LEDSPERROW * y) - 1;
   }
+
 }
 
 // ############################################################
@@ -1174,7 +1249,7 @@ void loop() {
     game_timer.start();  // Start the game timer
 
     // LED pin initialize:
-    LEDS.addLeds<WS2812B, LED_BOARD_PIN, GRB>(led_display, stripLen);
+    LEDS.addLeds<WS2812B, LED_BOARD_PIN, GRB>(led_display, stripLen); //should this go in void setup()?
     FastLED.setBrightness(LED_BRIGHTNESS);
 
     // Pins initialization
@@ -1475,24 +1550,28 @@ void loop() {
 
     // LED display
     // HERE, highlight the "previous move" that just happened by highlighting
-    // pieces... (orange) Also display the cursor location - which is
+    // pieces... (yellow) Also display the cursor location - which is
     // joystick_x[player_turn], joystick_y[player_turn] (green - overwrites
     // orange) Also display sources of check, if any (red) (will be overwritten
     // by green if the cursor is on the same square) red on king square if under
     // check
     fill_solid(led_display, stripLen, CRGB(0, 0, 0));
-    led_display[coordinate_to_index(joystick_x[player_turn],
-                                    joystick_y[player_turn])] = CRGB(0, 0, 255);
-    // Also light up previous move of opponent
+    
+    if(number_of_turns != 0){
+      setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
+      setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
+    }
+
+    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], 
+            CYAN, CURSOR);
+    
+    
 
     // OLED display: show the current selection
     // TODO
     // display_turn_select()...
     
-    if(number_of_turns != 0){
-      led_display[coordinate_to_index(previous_selected_x, previous_selected_y)] = CRGB(255, 255, 0);
-      led_display[coordinate_to_index(previous_destination_x, previous_destination_y)] = CRGB(255, 255, 0);
-    }
+  
 
 
     // Don't move until the confirm button is pressed
@@ -1546,10 +1625,37 @@ void loop() {
     // Also display sources of check, if any (red) (will be overwritten by green if the cursor is on the same square) red on king square if under check, unless selected piece is on the king square
     // ALSO, display the possible moves of the selected piece (yellow) (overwrites orange)
     fill_solid(led_display, stripLen, CRGB(0, 0, 0));
-    led_display[coordinate_to_index(joystick_x[player_turn],
-                                    joystick_y[player_turn])] = CRGB(0, 0, 255);
-    led_display[coordinate_to_index(selected_x, selected_y)] = CRGB(0, 255, 0);
-    // Also light up previous move of opponent
+    
+    if(number_of_turns != 0){
+      setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
+      setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
+    }
+    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
+    setSquareLED(selected_x, selected_y, GREEN, SOLID);
+
+    std::vector<std::pair<int8_t, int8_t>> pairs_of_possible_moves;
+    pairs_of_possible_moves = pieces[joystick_x[playerturn]][joystick_y[playerturn]]->get_possible_moves(p_board);
+    for(int i = 0; i < pairs_of_possible_moves.size(); i++){
+      int x_move = pairs_of_possible_moves[i].first % 8;
+      int isCapture = pairs_of_possible_moves[i].second;
+      int y_move = pairs_of_possible_moves[i].first / 8;
+      setSquareLED(x_move, y_move, ORANGE, SOLID);
+
+      if(isCapture != -1){
+        setSquareLED(x_move, y_move, RED, CAPTURE);
+      }
+
+      // if(p_board->under_check(player_turn % 2) == true){
+
+      // }
+
+    }
+
+    
+
+    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
+
+
 
     // OLED display: show the current selection
     // TODO
@@ -1638,6 +1744,13 @@ void loop() {
     // selected_y, destination_x, destination_y, (capture_x, capture_y -- don't
     // need to display this, but ok if you want to)
     // Make sure to update the LED display to show the new move - WHILE THE MOTORS ARE MOVING
+
+    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+
+    setSquareLED(selected_x, selected_y, GREEN, SOLID);
+    setSquareLED(destination_x, destination_y, RED, CAPTURE);
+
+
 
     // OLED display: show the current selection
     // TODO
@@ -1810,6 +1923,9 @@ void loop() {
     // when this light is on... queen-shaped black line or queen-shaped light
     // goes thru) Also display the "move" that just happened by highlight
     // pieces... (orange colour)
+
+
+
 
     // OLED display: show the current selection
     // TODO
