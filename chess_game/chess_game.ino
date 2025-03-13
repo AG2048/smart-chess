@@ -193,9 +193,9 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 // ############################################################
 
 // MOTOR CONTROL VARIABLES
-const int8_t PUL_PIN[] = {9, 9}; // x, y
-const int8_t DIR_PIN[] = {8, 8}; // x, y
-const int8_t LIMIT_PIN[] = {11, 11, 11, 11}; // x-, x+, y-, y+
+const int8_t PUL_PIN[] = {9, 7}; // x, y
+const int8_t DIR_PIN[] = {8, 6}; // x, y
+const int8_t LIMIT_PIN[] = {11, 12, 13, 14}; // x-, x+, y-, y+
 const int STEPS_PER_MM = 40; // measured value from testing, 3.95cm per rotation (1600 steps)
 const int MM_PER_SQUARE = 50; // width of chessboard squares in mm
 const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
@@ -205,43 +205,12 @@ const int ORIGIN_RESET_TIMEOUT = 50000; // how many steps motor will attempt to 
 int motor_error = 0; // 0: normal operation, 1: misaligned origin, 2: cannot reach origin (stuck)
 int motor_coordinates[2] = {0, 0};  // x, y coordinates of the motor in millimeters
 
-// TODO: motor function need a "safe move" parameter, to tell if the motor need to move the piece along an edge, or just straight to the destination
-int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y) {
-  Serial.println("MOVING CODE RUNNING");
-  // Move the motor from one square to another
-  // from_x, from_y: x, y coordinates of the square to move from
-  // to_x, to_y: x, y coordinates of the square to move to
-  // stepDelay: time in microseconds to wait between each step (half a period)
-  // fastMove: if true, move piece in a straight line to destination, else, move along edges
-  // Move the motor from (from_x, from_y) to (to_x, to_y)
-
-  // TODO
-  // TODO: don't write the motor moving code here, just write the logic to move the motor and call motor_move_to_coordinate function
-  
-  // Convert square coordinates to mm coordinates
-  from_x = from_x * MM_PER_SQUARE;
-  from_y = from_y * MM_PER_SQUARE;
-  to_x = to_x * MM_PER_SQUARE;
-  to_y = to_y * MM_PER_SQUARE;
-  int ret;
-
-  // Move motor to starting location
-  if (ret = move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY)) return ret;
-
-  delay(1000); // pick up piece
-  Serial.println("Pick up piece");
-
-  // Move motor onto edges instead of centers, then move to destination
-  if (ret = move_motor_to_coordinate(from_x+(MM_PER_SQUARE/2), from_y+(MM_PER_SQUARE/2), false, FAST_STEP_DELAY)) return ret;
-  if (ret = move_motor_to_coordinate(to_x+(MM_PER_SQUARE/2), to_y+(MM_PER_SQUARE/2), true, FAST_STEP_DELAY)) return ret;
-
-  delay(1000); // release piece
-  Serial.println("Release piece");
-
-  // Move motor back from edge to centers at final location
-  if (ret = move_motor_to_coordinate(to_x, to_y, false, FAST_STEP_DELAY)) return ret;
-
-  return 0;
+void stepper_square_wave(int axis, int stepDelay) {
+  // Generates a square wave of period (stepDelay*2)
+  digitalWrite(PUL_PIN[axis], HIGH);
+  delayMicroseconds(stepDelay);
+  digitalWrite(PUL_PIN[axis], LOW);
+  delayMicroseconds(stepDelay);
 }
 
 int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
@@ -253,35 +222,38 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
 
   // TODO
   Serial.println("Move motor code running");
-  const int dx = x-motor_coordinates[0];
-  const int dy = y-motor_coordinates[1];
+  int dx = x-motor_coordinates[0];
+  int dy = y-motor_coordinates[1];
 
   // Setting direction
   digitalWrite(DIR_PIN[0], dx > 0);
   digitalWrite(DIR_PIN[1], dy > 0);
 
+  dx = abs(dx);
+  dy = abs(dy);
+
   // Check if movement should be axis-aligned or diagonal
   if (axisAligned || dx == 0 || dy == 0) {
     // Move x axis
-    for (int i = 0; i < abs(dx)*STEPS_PER_MM; i++) {
+    for (int i = 0; i < dx*STEPS_PER_MM; i++) {
       if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
       stepper_square_wave(0, stepDelay);
     }
 
     // Move y axis
-    for (int i = 0; i < abs(dy)*STEPS_PER_MM; i++) {
+    for (int i = 0; i < dy*STEPS_PER_MM; i++) {
       if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
       stepper_square_wave(1, stepDelay);
     }
   } else {
     float error = 0.0; // Track error between expected slope and actual slope
     // Check if x or y has greater change
-    if (abs(dx) >= abs(dy)) {
+    if (dx >= dy) {
       // Moves the x axis normally, while occasionally incrementing the y axis
-      for (int i = 0; i < abs(dx)*STEPS_PER_MM; i++) {
+      for (int i = 0; i < dx*STEPS_PER_MM; i++) {
         if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
         stepper_square_wave(0, stepDelay);
-        error += abs((float)dy/dx); // accumulates the error
+        error += (float)dy/dx; // accumulates the error
 
         // if error is bigger than what can be adjusted in one step, fix the error
         if (error >= 1.0) { 
@@ -291,11 +263,11 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
         }
       }
     } else {
-      // Moves the x axis normally, while occasionally incrementing the y axis
-      for (int i = 0; i < abs(dy)*STEPS_PER_MM; i++) {
+      // Moves the y axis normally, while occasionally incrementing the x axis
+      for (int i = 0; i < dy*STEPS_PER_MM; i++) {
         if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
         stepper_square_wave(1, stepDelay);
-        error += abs((float)dx/dy); // accumulates the error
+        error += (float)dx/dy; // accumulates the error
 
         // if error is bigger than what can be adjusted in one step, fix the error
         if (error >= 1.0) { 
@@ -320,13 +292,59 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
   return 0;
 }
 
+// TODO: motor function need a "safe move" parameter, to tell if the motor need to move the piece along an edge, or just straight to the destination
+int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAligned) {
+  Serial.println("MOVING CODE RUNNING");
+  // Move the motor from one square to another
+  // from_x, from_y: x, y coordinates of the square to move from
+  // to_x, to_y: x, y coordinates of the square to move to
+  // stepDelay: time in microseconds to wait between each step (half a period)
+  // fastMove: if true, move piece in a straight line to destination, else, move along edges
+  // Move the motor from (from_x, from_y) to (to_x, to_y)
+
+  // TODO
+  // TODO: don't write the motor moving code here, just write the logic to move the motor and call motor_move_to_coordinate function
+  
+  // Convert square coordinates to mm coordinates
+  from_x = from_x * MM_PER_SQUARE;
+  from_y = from_y * MM_PER_SQUARE;
+  to_x = to_x * MM_PER_SQUARE;
+  to_y = to_y * MM_PER_SQUARE;
+  int ret;
+  int corner_x, corner_y;
+
+  // Move motor to starting location
+  if (ret = move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY)) return ret;
+
+  delay(1000); // pick up piece
+  Serial.println("Pick up piece");
+
+  if (gridAligned) {
+    // Move motor onto edges instead of centers, then move to destination
+    corner_x = from_x < to_x ? from_x + (MM_PER_SQUARE)/2 : from_x - (MM_PER_SQUARE)/2;
+    corner_y = from_y < to_y ? from_y + (MM_PER_SQUARE)/2 : from_y - (MM_PER_SQUARE)/2;
+    if (ret = move_motor_to_coordinate(corner_x, corner_y, false, FAST_STEP_DELAY)) return ret;
+
+    corner_x = from_x < to_x ? to_x - (MM_PER_SQUARE)/2 : to_x + (MM_PER_SQUARE)/2;
+    corner_y = from_y < to_y ? to_y - (MM_PER_SQUARE)/2 : to_y + (MM_PER_SQUARE)/2;
+    if (ret = move_motor_to_coordinate(corner_x, corner_y, true, FAST_STEP_DELAY)) return ret;
+  }
+
+  if (ret = move_motor_to_coordinate(to_x, to_y, false, FAST_STEP_DELAY)) return ret;
+
+  delay(1000); // release piece
+  Serial.println("Release piece");
+
+  return 0;
+}
+
 int move_motor_to_origin(int offset) {
   // resets the motor to origin (0, 0) and re-calibrate the motor
   // fastMove: if true, it will move fast until the last 50mm until "supposed" origin and move slowly until it hits the limit switch
   //           if false, it will move slowly from the beginning until it hits the limit switch
   // The function should reference motor_coordinates variable to estimate where it is
-  const int dx = -motor_coordinates[0];
-  const int dy = -motor_coordinates[1];
+  int dx = -motor_coordinates[0];
+  int dy = -motor_coordinates[1];
   
   // Sets direction
   digitalWrite(DIR_PIN[0], dx > 0);
@@ -360,14 +378,6 @@ int move_motor_to_origin(int offset) {
   motor_coordinates[1] = offset;
 
   return 0;
-}
-
-void stepper_square_wave(int axis, int stepDelay) {
-  // Generates a square wave of period (stepDelay*2)
-  digitalWrite(PUL_PIN[axis], HIGH);
-  delayMicroseconds(stepDelay);
-  digitalWrite(PUL_PIN[axis], LOW);
-  delayMicroseconds(stepDelay);
 }
 
 // ############################################################
@@ -635,28 +645,31 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
 // Decleration for number of rows, the number of leds in a single 1x8 row, 
 // and he number of nuber of leds in a row of a single 4x4 chess square
 // LED colours, led_display struct and strip length are defined.
-const int COLUMNS = 32;
-const int LEDSPERROW = 128;
-const int LEDSPERSQUAREROW = 4;
-const int CYAN = 0;
-const int GREEN = 1;
-const int YELLOW = 2;
-const int WHITE = 3;
-const int RED = 4;
-const int PURPLE = 5;
-const int SOLID = 0;
-const int CURSOR = 1;
-const int CAPTURE = 2;
-const int stripLen = 128;
-const int8_t LED_BOARD_PIN = 12;
-const int LED_BRIGHTNESS = 10;
+const uint8_t COLUMNS = 32;
+const uint8_t LEDSPERROW = 128;
+const uint8_t LEDSPERSQUAREROW = 4;
+const uint8_t CYAN = 0;
+const uint8_t GREEN = 1;
+const uint8_t YELLOW = 2;
+const uint8_t WHITE = 3;
+const uint8_t RED = 4;
+const uint8_t PURPLE = 5;
+const uint8_t SOLID = 0;
+const uint8_t CURSOR = 1;
+const uint8_t CAPTURE = 2;
+const uint16_t STRIP_LEN = 1024;
+const uint8_t PROMOTION_STRIP_LEN = 4;
+const uint8_t LED_BOARD_PIN = 12;
+const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
-struct CRGB led_display[stripLen];
+struct CRGB led_display[STRIP_LEN+PROMOTION_STRIP_LEN];
 // If we wish to add cosmetic things, add another array of "previous states", or "pre-set patterns" or other stuff
 // Also we may need a separate LED strip timer variable to keep track "how long ago was the last LED update"
 // A function to update LED strip in each situation
 
-void setPattern(int x, int y, int patternType, int R, int G, int B){
+// Assumes a fill_solid is called before this function
+// This function will NOT reset LEDs of squares that are not being used
+void set_LED_Pattern(int x, int y, int patternType, int R, int G, int B){
 
   if(patternType == SOLID){
     for(int i = 0; i < LEDSPERSQUAREROW; i++){
@@ -688,22 +701,22 @@ void setSquareLED(int x, int y, int colourNumber, int patternType){
     for(int j = 0; j < 4; j++){
 
       if(colourNumber == CYAN){
-        setPattern(x,y,patternType, 0, 255, 255);
+        set_LED_Pattern(x,y,patternType, 0, 255, 255);
         // led_display[coordinate_to_index(x,y,i,j)] = CRGB(0, 255, 255);
       }else if(colourNumber == GREEN){
-        setPattern(x,y,patternType, 0, 255, 15);
+        set_LED_Pattern(x,y,patternType, 0, 255, 15);
         // led_display[coordinate_to_index(x,y,i,j)] = CRGB(3, 255, 15);
       }else if(colourNumber == YELLOW){
-        setPattern(x,y,patternType, 255, 247, 18);
+        set_LED_Pattern(x,y,patternType, 255, 247, 18);
         // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 247, 18);
       }else if(colourNumber == ORANGE){
-        setPattern(x,y,patternType, 255, 153, 0;
+        set_LED_Pattern(x,y,patternType, 255, 153, 0);
         // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 255, 255);
       }else if(colourNumber == RED){
-        setPattern(x,y,patternType, 255, 0, 0);
+        set_LED_Pattern(x,y,patternType, 255, 0, 0);
         // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 0, 0);
       }else if(colourNumber == PURPLE){
-        setPattern(x,y,patternType, 209, 22, 219);
+        set_LED_Pattern(x,y,patternType, 209, 22, 219);
         // led_display[coordinate_to_index(x,y,i,j)] = CRGB(209, 22, 219);
       }
 
@@ -1227,6 +1240,10 @@ void setup() {
   Serial.begin(9600);
   Serial.println(freeMemory());
 
+  // LED pin initialize:
+  LEDS.addLeds<WS2812B, LED_BOARD_PIN, GRB>(led_display, STRIP_LEN);
+  FastLED.setBrightness(LED_BRIGHTNESS);
+
   // Initial game state
   game_state = GAME_POWER_ON;
 }
@@ -1248,10 +1265,6 @@ void loop() {
 
     game_timer.start();  // Start the game timer
 
-    // LED pin initialize:
-    LEDS.addLeds<WS2812B, LED_BOARD_PIN, GRB>(led_display, stripLen); //should this go in void setup()?
-    FastLED.setBrightness(LED_BRIGHTNESS);
-
     // Pins initialization
     // JOYSTICK are active low, so set them as INPUT_PULLUP (default HIGH)
     pinMode(JOYSTICK_POS_X_PIN[0], INPUT_PULLUP);
@@ -1270,7 +1283,7 @@ void loop() {
     pinMode(PUL_PIN[1], OUTPUT);
     pinMode(DIR_PIN[1], OUTPUT);
     // Set LED to blank initially
-    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
 
     joystick_x[0] = 4;
     joystick_y[0] = 0;
@@ -1365,7 +1378,7 @@ void loop() {
     }
     
     // Board LED IDLE animation
-    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
 
     // OLED display: show the current selection
     // TODO:
@@ -1555,17 +1568,18 @@ void loop() {
     // orange) Also display sources of check, if any (red) (will be overwritten
     // by green if the cursor is on the same square) red on king square if under
     // check
-    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
     
     if(number_of_turns != 0){
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
       setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
 
-    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], 
-            CYAN, CURSOR);
+    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
     
-    
+    if (p_board->under_check(player_turn % 2)) {
+      setSquareLED((player_turn % 2) ? black_king_x : white_king_x, (player_turn % 2) ? black_king_y : white_king_y, RED, SOLID);
+    }
 
     // OLED display: show the current selection
     // TODO
@@ -1624,35 +1638,32 @@ void loop() {
     // Also highlight the "selected piece" with a different color (selected_x, selected_y) (blue) overwrites green 
     // Also display sources of check, if any (red) (will be overwritten by green if the cursor is on the same square) red on king square if under check, unless selected piece is on the king square
     // ALSO, display the possible moves of the selected piece (yellow) (overwrites orange)
-    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
     
     if(number_of_turns != 0){
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
       setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
-    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
-    setSquareLED(selected_x, selected_y, GREEN, SOLID);
 
     std::vector<std::pair<int8_t, int8_t>> pairs_of_possible_moves;
-    pairs_of_possible_moves = pieces[joystick_x[playerturn]][joystick_y[playerturn]]->get_possible_moves(p_board);
+    pairs_of_possible_moves = pieces[selected_x][selected_y]->get_possible_moves(p_board);
     for(int i = 0; i < pairs_of_possible_moves.size(); i++){
       int x_move = pairs_of_possible_moves[i].first % 8;
       int isCapture = pairs_of_possible_moves[i].second;
       int y_move = pairs_of_possible_moves[i].first / 8;
-      setSquareLED(x_move, y_move, ORANGE, SOLID);
 
       if(isCapture != -1){
         setSquareLED(x_move, y_move, RED, CAPTURE);
+      } else {
+        setSquareLED(x_move, y_move, ORANGE, SOLID);
       }
 
-      // if(p_board->under_check(player_turn % 2) == true){
-
-      // }
-
+      if (p_board->under_check(player_turn % 2)) {
+        setSquareLED((player_turn % 2) ? black_king_x : white_king_x, (player_turn % 2) ? black_king_y : white_king_y, RED, SOLID);
+      }
     }
 
-    
-
+    setSquareLED(selected_x, selected_y, GREEN, SOLID);
     setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
 
 
@@ -1745,10 +1756,10 @@ void loop() {
     // need to display this, but ok if you want to)
     // Make sure to update the LED display to show the new move - WHILE THE MOTORS ARE MOVING
 
-    fill_solid(led_display, stripLen, CRGB(0, 0, 0));
+    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
 
     setSquareLED(selected_x, selected_y, GREEN, SOLID);
-    setSquareLED(destination_x, destination_y, RED, CAPTURE);
+    setSquareLED(destination_x, destination_y, RED, SOLID);
 
 
 
@@ -1781,7 +1792,7 @@ void loop() {
             get_graveyard_empty_coordinate(6, p_board->pieces[capture_y][capture_x]->get_color());
         // Motor move the piece from capture_x, capture_y to graveyard_coordinate
         move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first,
-                   graveyard_coordinate.second);
+                   graveyard_coordinate.second, true);
         // Update the graveyard memory
         graveyard[10 + p_board->pieces[capture_y][capture_x]->get_color()]++;
         // Remove the promoted pawn from the vector
@@ -1809,10 +1820,10 @@ void loop() {
             // piece Move temp piece to graveyard (6 == temp piece)
             std::pair<int8_t, int8_t> graveyard_coordinate =
                 get_graveyard_empty_coordinate(6, p_board->pieces[pawn_y][pawn_x]->get_color());
-            move_piece_by_motor(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second);
+            move_piece_by_motor(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
 
             // Move captured piece to the pawn's location (use safe move)
-            move_piece_by_motor(capture_x, capture_y, pawn_x, pawn_y);
+            move_piece_by_motor(capture_x, capture_y, pawn_x, pawn_y, true);
 
             // Remove the promoted pawn from the vector - since it's replaced,
             // and can be treated as a normal piece
@@ -1847,7 +1858,7 @@ void loop() {
           // and 6 for temp piece)
           std::pair<int8_t, int8_t> graveyard_coordinate =
               get_graveyard_empty_coordinate(graveyard_index + 1, p_board->pieces[capture_y][capture_x]->get_color());
-          move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second);
+          move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
 
           // If colour is black, add 5 to the index, and update the graveyard
           graveyard_index += 5 * p_board->pieces[capture_y][capture_x]->get_color();
@@ -1867,7 +1878,7 @@ void loop() {
       }
     }
     // Move the piece (fast move except knight)
-    move_piece_by_motor(selected_x, selected_y, destination_x, destination_y);
+    move_piece_by_motor(selected_x, selected_y, destination_x, destination_y, p_board->pieces[selected_y][selected_x]->get_type() == KNIGHT);
 
     // If the piece is a king that moved 2 squares, move the rook (castling)
     if (p_board->pieces[selected_y][selected_x]->get_type() == KING &&
@@ -1886,7 +1897,7 @@ void loop() {
       }
       // Move the rook (BEWARE, THIS ROOK MOVE NEEDS TO MOVE ALONG THE EDGE, NOT LIKE ANY REGULAR ROOK MOVE)
       // HAVE TO GO AROUND THE KING
-      move_piece_by_motor(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y);
+      move_piece_by_motor(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y, true);
     }
 
     // TODO: motor should move back to origin and calibrate
@@ -1924,8 +1935,13 @@ void loop() {
     // goes thru) Also display the "move" that just happened by highlight
     // pieces... (orange colour)
 
-
-
+    for (int i = STRIP_LEN; i < STRIP_LEN+PROMOTION_STRIP_LEN; i++) {
+      if (i == STRIP_LEN+promotion_joystick_selection) {
+        led_display[i] = CRGB(255, 255, 255);
+      } else {
+        led_display[i] = CRGB(0, 0, 0);
+      }
+    }
 
     // OLED display: show the current selection
     // TODO
@@ -2020,7 +2036,7 @@ void loop() {
     std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate(
         5, p_board->pieces[destination_y][destination_x]->get_color());
     move_piece_by_motor(destination_x, destination_y, graveyard_coordinate.first,
-               graveyard_coordinate.second);
+               graveyard_coordinate.second, true);
     graveyard[4 + 5 * p_board->pieces[destination_y][destination_x]->get_color()]++;
 
     // If there is a valid piece in the graveyard, use that piece for promotion
@@ -2036,7 +2052,7 @@ void loop() {
       graveyard_coordinate = get_graveyard_empty_coordinate(
           graveyard_index - p_board->pieces[destination_y][destination_x]->get_color() * 5 + 1, p_board->pieces[destination_y][destination_x]->get_color());
       move_piece_by_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y);
+                 destination_x, destination_y, true);
     } else {
       // There isn't a valid piece in the graveyard, use a temp piece
 
@@ -2047,7 +2063,7 @@ void loop() {
       graveyard_coordinate = get_graveyard_empty_coordinate(
           6, p_board->pieces[destination_y][destination_x]->get_color());
       move_piece_by_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y);
+                 destination_x, destination_y, true);
 
       // Update the promoted pawns using temp pieces vector (add this promoted pawn)
       promoted_pawns_using_temp_pieces.push_back(
@@ -2071,6 +2087,8 @@ void loop() {
 
     // End a turn - switch player
     player_turn = !player_turn;
+
+    move_motor_to_origin(10); // input is offset value, eyeball it during testing
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
