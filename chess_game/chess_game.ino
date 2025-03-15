@@ -188,6 +188,100 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
   }
 }
 
+// Function to return a vector of motor moves that would
+// result in the board being reset to starting position.
+
+// The pair consists of Board indices, calculated using (y*8) + x
+std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
+{
+  // temporary -- check to be sure
+  int8_t temp_x = -1, temp_y = 0;
+  bool loop_detected;
+  std::vector<int8_t> current_chain; // Chain to hold the current chain of indices we're moving
+  std::vector<std::pair<int8_t, int8_t>> reset_moves;
+
+  // ### Moving all temp pieces off of the board ###
+
+  // An array where each element is the array index that the
+  // piece at that coordinate wishes to move to
+
+  // -1 indicates that the index is free, or that no piece would ever want to move here
+  // Spots "occupied" by temp pieces are considered -1, since they will be moved off first
+  // No two pieces will have the same destination square.
+  int8_t destination_arr[8] = {-1}; // Initialize every element to -1
+
+  // ### Setting the destination square of all pieces on the board ###
+
+  // ### Handling destination square chains and loops ###
+
+  for (int8_t i = 0; i < 8; i++)
+  {
+    for (int8_t j = 0; j < 8; j++)
+    {
+      int8_t curr_idx = (j * 8) + 1;
+      // If we've come across an index that is -1, continue
+      // This accounts for free squares as well as pieces moved in previous chains
+      if (destination_arr[curr_idx] < 0)
+        continue;
+
+      // Handle the chain of indices
+      while (1)
+      {
+        loop_detected = 0;
+        current_chain.push_back(curr_idx);
+        curr_idx = destination_arr[curr_idx]; // Go to the index that curr_idx wants to move to
+
+        if (destination_arr[curr_idx] == -1)
+        { // chain ends in a -1
+          current_chain.push_back(curr_idx); // Now last index in chain is free to be moved into
+          break; // Exit while loop
+        } // else, chain continues and we go to the next index
+
+        // Check if curr_idx wants to move to an index already in the current chain
+        for (int8_t a = 0;, a < current_chain.size(); a++)
+        {
+          if (destination_arr[curr_idx] == current_chain[a])
+          { // Loop detected in our chain. Will ALWAYS point back to the first index in the chain.
+            reset_moves.push_back(std::make_pair(current_chain[0], ((temp_y * 8) + temp_x)));
+            loop_detected = 1;
+            break; // Exit the for loop
+          }
+        }
+
+        if (loop_detected)
+          break; // If we spot a loop, exit while loop
+      }
+      // Add the sequence of motor moves, excluding <first --> temp> as that's handled already
+      // last idx --> first, ONLY if loop is detected
+      if (loop_detected) reset_moves.push_back(std::make_pair(current_chain[current_chain.size() - 1], current_chain[0] ));
+      for (int8_t a = 0; a < current_chain.size(); a++) {
+        // 2nd last idx --> last idx
+        // 3rd last idx --> 2nd last idx
+        if (a == current_chain.size() - 1) {
+          if (loop_detected) {// temp --> 2nd dx
+            reset_moves.push_back(std::make_pair(current_chain[((temp_y * 8) + temp_x)], current_chain[1]));
+            break; // exits for loop
+          } //else, loop will do 1st idx --> 2nd idx as normal
+          
+        }
+        reset_moves.push_back(std::make_pair(current_chain[current_chain.size() - a - 2], current_chain[current_chain.size() - a - 1]));
+
+      }
+      
+      // Set all involved piece indices to -1, as they've already been handled and are no longer occupying
+      // their spots. This way, we skip them on future loops
+
+      for (int8_t a = 0; a < current_chain.size(); a++) 
+        destination_arr[current_chain[a]] = -1;
+      
+      // Flush the stack
+      current_chain.clear();
+    }
+  }
+
+  // ### Moving pieces in graveyard to their starting squares
+}
+
 // ############################################################
 // #                       MOTOR CONTROL                      #
 // ############################################################
