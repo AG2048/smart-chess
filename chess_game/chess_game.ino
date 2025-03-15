@@ -1312,6 +1312,8 @@ void loop() {
     display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[1], idle_joystick_y[1], display_two, 1);
     display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[0], idle_joystick_y[0], display_one, 0);
 
+    // STOCKFISHTODO: Read from stockfish data pins until we get 10101010101010.... or 01010101010101... Then set OVERWRITE pin to true.
+
     // TODO
     game_state = GAME_IDLE;
   } else if (game_state == GAME_IDLE) {
@@ -1399,6 +1401,9 @@ void loop() {
       idle_joystick_y[0] = 0;
       idle_joystick_x[1] = 0;
       idle_joystick_y[1] = 0;
+
+      // STOCKFISHTODO: Send player types and game difficulty of BOTH players to Stockfish
+      // STOCKFISHTODO: If white is a computer, also write all zeros to indicate a beginning move
     }
 
     // game_state = GAME_INITIALIZE;
@@ -1542,6 +1547,7 @@ void loop() {
     destination_y = -1;
     capture_x = -1;
     capture_y = -1;
+    promotion_type = -1; // This is mostly for stockfish, so we know if there is a promotion or not when sending info to stockfish
     // Display screen once before moving to next state
     display_init();
     display_turn_select(player_turn, joystick_x[player_turn], joystick_y[player_turn], selected_x, selected_y, destination_x, destination_y, display_one, display_two);
@@ -1574,6 +1580,14 @@ void loop() {
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
       setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
+
+    // STOCKFISHTODO: Let LED display first.
+    // STOCKFISHTODO: If player is a computer: 
+    // STOCKFISHTODO: Read from stockfish. Decode the coordinates. Set selected_x, selected_y, destination_x, destination_y, capture_x, capture_y accordingly. 
+    // STOCKFISHTODO: Capture x,y have to be found within the list of possible moves...
+    // STOCKFISHTODO: If any error occurs here, just make the FIRST move in the list of possible moves.
+    // STOCKFISHTODO: Stockfish may also return promotion piece. If so, set promotion_joystick_selection to the correct value.
+    // STOCKFISHTODO: Then we directly move to GAME_MOVE_MOTOR
 
     setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
     
@@ -1912,6 +1926,8 @@ void loop() {
     // Check if a pawn can promote
     if (p_board->can_pawn_promote(destination_x, destination_y)) {
       game_state = GAME_WAIT_FOR_SELECT_PAWN_PROMOTION;
+      // STOCKFISHTODO: If this player is a computer, then the promotion_joystick_selection should already be set by stockfish
+      // STOCKFISHTODO: Then we do not modify promotion_joystick_selection here (since it's already set in get_move part)
       promotion_joystick_selection = 0; // default to queen
       // display_init();
       display_promotion(player_turn, 0, display_one, display_two);
@@ -1954,6 +1970,7 @@ void loop() {
     // free_displays();
 
     // Don't move until the confirm button is pressed
+    // STOCKFISHTODO: If this player is a computer, then just proceed... Do not wait for confirm button
     if (confirm_button_pressed[player_turn]) {
       confirm_button_pressed[player_turn] = false;
     } else {
@@ -1966,6 +1983,7 @@ void loop() {
     // Check for valid input
     if (promotion_type < 0 || promotion_type > 3) {
       // Invalid input
+      // STOCKFISHTODO: If stockfish gave invalid promotion here, then we should just default to queen
       return;
     }
 
@@ -2092,6 +2110,9 @@ void loop() {
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
+
+    // STOCKFISHTODO: Send the move that was made (selected_x, selected_y, destination_x, destination_y) to stockfish
+    // STOCKFISHTODO: Also include promotion if there was any (see if promotion_type is -1 or not)
 
     game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_OVER_WHITE_WIN) {
