@@ -208,9 +208,32 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
   // -1 indicates that the index is free, or that no piece would ever want to move here
   // Spots "occupied" by temp pieces are considered -1, since they will be moved off first
   // No two pieces will have the same destination square.
-  int8_t destination_arr[8] = {-1}; // Initialize every element to -1
+  int8_t destination_arr[64] = {-1}; // Initialize every element to -1
 
-  // ### Setting the destination square of all pieces on the board ###
+  // ### Setting piece destination squares and moving temp pieces off of the board ###
+
+  // Looping through all of the pieces in the board
+  for (int8_t i = 0; i < 8; i++) {
+    for (int8_t j = 0; j < 8; j++) {
+      
+      if (p_board->pieces[j][i].type == EMPTY) {
+        continue;
+      } else {
+        // check if this piece is currently using a placeholder
+        for (int8_t a = 0; a < promoted_pawns_using_temp_pieces.size(); a++) { 
+          if (std::make_pair<i, j> == promoted_pawns_using_temp_pieces[a]) {
+            // add this to the move list: curr_piece to graveyard[temp_pce_idx]
+            // destination square is already -1
+            break;
+          }
+        }
+      }
+      // if current coordinate piece type is empty, move on
+      // else, see if this coordinate is in the temp piece array.
+          // if 
+
+    }
+  }
 
   // ### Handling destination square chains and loops ###
 
