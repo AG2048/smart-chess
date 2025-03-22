@@ -13,7 +13,7 @@ WDATA_PIN = 5
 OVERWRITE_PIN = 6
 
 # Global Game State
-stockfish = None
+stockfish = [None, None]
 is_computer = [False, False]
 difficulty = [0, 0]
 turn = 0
@@ -36,47 +36,76 @@ def bits_to_move(bits):
     end_rank = (bits >> 2) & 0b111
     return f"{chr(start_file + ord('a'))}{start_rank + 1}{chr(end_file + ord('a'))}{end_rank + 1}"
 
-def write_initial_sequence():
-    pattern = [1, 0] * 7
-    while True:
-        if GPIO.input(OVERWRITE_PIN) == GPIO.HIGH:
-            break
-        for bit in pattern:
-            GPIO.output(RDATA_PIN, bit)
-            time.sleep(0.01)
-
 def read_from_arduino():
-    received_bits = []
-    try:
-        channel = GPIO.wait_for_edge(RVALID_PIN, GPIO.RISING, timeout=5000)
-        if channel is None:
-            print("Error: Timeout waiting for valid signal")
-            return None
+  # Variables
+    last_clk = GPIO.input(CLK_PIN)  # Store the last clock state
+    receiving = False               # Flag to indicate if data is being received
+    databank = []                   # List to store received data
+    i = 0                           # Counter for received data bits
 
-        for _ in range(16):
-            if GPIO.wait_for_edge(CLK_PIN, GPIO.RISING, timeout=1000) is None:
-                print("Error: Clock synchronization lost")
-                return None
-            
-            time.sleep(0.0001)
-            received_bits.append(GPIO.input(WDATA_PIN))
-            GPIO.wait_for_edge(CLK_PIN, GPIO.FALLING, timeout=1000)
+    # Set initial state of READY signal
+    GPIO.output(RREADY_PIN, GPIO.HIGH)  # Ready to receive data
+    valid = 0
+    while True:
+        # read the current data value, before clock edge.
+        current_data = GPIO.input(RDATA_PIN)
+        # Read current clock state
+        current_clk = GPIO.input(CLK_PIN)
+        # Read valid signal
+        temp_valid = GPIO.input(RVALID_PIN)
+        valid = temp_valid
 
-        return received_bits
-        
-    except KeyboardInterrupt:
-        GPIO.cleanup()
-        raise
+        # Check for clock edge (rising edge: last_clk = 0, current_clk = 1)
+        if last_clk == GPIO.LOW and current_clk == GPIO.HIGH:
+            if valid == GPIO.HIGH:
+                # Start receiving data
+                receiving = True
+                GPIO.output(RREADY_PIN, GPIO.LOW)  # Not ready for new data
+            if receiving:
+                databank.append(current_data)  # Store data in databank
+                i += 1
+
+        # Check if 16 bits have been received
+        if i >= 16:
+            return databank
+
+        # Update last clock state
+        last_clk = current_clk
 
 def write_to_arduino(data_bits):
-    GPIO.output(WREADY_PIN, GPIO.HIGH)
-    for bit in data_bits:
-        GPIO.output(RDATA_PIN, bit)
-        while GPIO.input(CLK_PIN) == GPIO.LOW:
-            time.sleep(0.01)
-        while GPIO.input(CLK_PIN) == GPIO.HIGH:
-            time.sleep(0.01)
-    GPIO.output(WREADY_PIN, GPIO.LOW)
+    i = 0  # Bit index
+    last_clk_state = GPIO.input(CLK_PIN)  # Store the last clock state
+    
+    # Send the first bit
+    GPIO.output(RDATA_PIN, data_bits[i])
+    if first_write:
+        first_write = 0
+        while OVERWRITE_PIN == GPIO.LOW:
+            current_clk = GPIO.input(CLK_PIN)
+            if last_clk_state == GPIO.LOW and current_clk == GPIO.HIGH:
+                if GPIO.input(WREADY_PIN) == GPIO.HIGH:
+                    i += 1 
+                    if i >= len(data_bits): 
+                        break
+                GPIO.output(WDATA_PIN, data_bits[i])
+            last_clk_state = current_clk
+    else:
+        while True:
+            # Read the current clock state
+            current_clk = GPIO.input(CLK_PIN)
+            
+            # Check for rising edge (LOW -> HIGH transition)
+            if last_clk_state == GPIO.LOW and current_clk == GPIO.HIGH:
+                # Check if the Arduino is ready to receive the next bit
+                if GPIO.input(WREADY_PIN) == GPIO.HIGH:
+                    i += 1  # Move to the next bit
+                    if i >= len(data_bits):  # Stop if all bits are sent
+                        break
+                    # Send the next bit
+                    GPIO.output(RDATA_PIN, data_bits[i])
+            
+            # Update the last clock state
+            last_clk_state = current_clk
 
 def process_received_bits(bits):
     global turn
@@ -87,34 +116,35 @@ def process_received_bits(bits):
     color = bits[1]
     payload = bits[2:]
     
-    if is_move:
-        if all(bit == 0 for bit in payload):
-            stockfish.set_position()
-            best_move = stockfish.get_best_move()
+    if is_move: #actual move
+        if all(bit == 0 for bit in payload): #arduino telling pi to make the first move     
+            stockfish[turn].set_position()
+            best_move = stockfish[turn].get_best_move()
             turn = 1
             return move_to_bits(best_move)
         
         move_bits = int(''.join(map(str, payload[:14])), 2)
         move_str = bits_to_move(move_bits)
-        stockfish.make_moves_from_current_position([move_str])
+        stockfish[0].make_moves_from_current_position([move_str])
+        stockfish[1].make_moves_from_current_position([move_str])
         
-        if is_computer[not turn]:
-            best_move = stockfish.get_best_move()
+        if is_computer[1-turn]:
+            best_move = stockfish[1-turn].get_best_move()
             return move_to_bits(best_move)
         turn = 1 - turn
-    else:
-        stockfish.set_position()
-        is_human = all(bit == 1 for bit in payload[:14])
-        difficulty = int(''.join(map(str, payload[:14])), 2)
+    else: #setup
+        stockfish[color].set_position() #clearing stockfish board
+        is_human = all(bit == 1 for bit in payload[:14]) #is_human is true if 
+        difficulty = int(''.join(map(str, payload[:14])), 2) #takes 14 bit payload, converts into individual strings, then join concatenates, then int converts binary into int
         is_computer[color] = not is_human
         if not is_human:
-            stockfish.update_engine_parameters({"Skill Level": difficulty})
+            stockfish[color].update_engine_parameters({"Skill Level": difficulty})
         turn = 0
     return None
 
 def main():
-    global stockfish, turn
-    
+    global stockfish, turn, first_write
+    first_write = 1
     # Initialize GPIO
     GPIO.setmode(GPIO.BCM)
     
@@ -133,15 +163,21 @@ def main():
     GPIO.output(WREADY_PIN, GPIO.LOW)
     
     # Initialize Stockfish
-    stockfish = Stockfish(
+    stockfish = [Stockfish(
         path="/Users/gawtham3/Downloads/Stockfish-master/src/stockfish",
         depth=18,
         parameters={"Threads": 2, "Minimum Thinking Time": 30}
-    )
+    ), Stockfish(
+        path="/Users/gawtham3/Downloads/Stockfish-master/src/stockfish",
+        depth=18,
+        parameters={"Threads": 2, "Minimum Thinking Time": 30}
+    )]
     
     # Initial sequence
-    write_initial_sequence()
-    stockfish.set_position()
+    initial_sequence = [1,0,1,0,1,0,1,0,1,0,1,0,1,0]
+    write_to_arduino(initial_sequence)
+    stockfish[0].set_position()
+    stockfish[1].set_position()
     
     # Main loop
     while True:
