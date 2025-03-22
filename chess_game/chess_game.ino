@@ -545,21 +545,31 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
 const int8_t PUL_PIN[] = {9, 7}; // x, y
 const int8_t DIR_PIN[] = {8, 6}; // x, y
 const int8_t LIMIT_PIN[] = {11, 12, 13, 14}; // x-, x+, y-, y+
-const int STEPS_PER_MM = 40; // measured value from testing, 3.95cm per rotation (1600 steps)
-const int MM_PER_SQUARE = 50; // width of chessboard squares in mm
+const int STEPS_PER_MM = 80; // measured value from testing, 3.95cm per rotation (1600 steps)
+const int MM_PER_SQUARE = 66; // width of chessboard squares in mm
 const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
 const int SLOW_STEP_DELAY = 100; // half the period of square wave pulse for stepper motor
-const int ORIGIN_RESET_TIMEOUT = 50000; // how many steps motor will attempt to recenter to origin before giving up
+const long ORIGIN_RESET_TIMEOUT = 50000; // how many steps motor will attempt to recenter to origin before giving up
 
 int motor_error = 0; // 0: normal operation, 1: misaligned origin, 2: cannot reach origin (stuck)
 int motor_coordinates[2] = {0, 0};  // x, y coordinates of the motor in millimeters
 
-void stepper_square_wave(int axis, int stepDelay) {
+void stepper_square_wave(int mode, int stepDelay) {
+  // Modes: 0 -> x-axis, 1 -> y-axis, 2 -> x and y-axis
   // Generates a square wave of period (stepDelay*2)
-  digitalWrite(PUL_PIN[axis], HIGH);
-  delayMicroseconds(stepDelay);
-  digitalWrite(PUL_PIN[axis], LOW);
-  delayMicroseconds(stepDelay);
+  if (mode == 2) {
+    digitalWrite(PUL_PIN[0], HIGH);
+    digitalWrite(PUL_PIN[1], HIGH);
+    delayMicroseconds(stepDelay);
+    digitalWrite(PUL_PIN[0], LOW);
+    digitalWrite(PUL_PIN[1], LOW);
+    delayMicroseconds(stepDelay);
+  } else {
+    digitalWrite(PUL_PIN[mode], HIGH);
+    delayMicroseconds(stepDelay);
+    digitalWrite(PUL_PIN[mode], LOW);
+    delayMicroseconds(stepDelay);
+  }
 }
 
 int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
@@ -571,8 +581,8 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
 
   // TODO
   Serial.println("Move motor code running");
-  int dx = x-motor_coordinates[0];
-  int dy = y-motor_coordinates[1];
+  long dx = x-motor_coordinates[0];
+  long dy = y-motor_coordinates[1];
 
   // Setting direction
   digitalWrite(DIR_PIN[0], dx > 0);
@@ -584,46 +594,39 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
   // Check if movement should be axis-aligned or diagonal
   if (axisAligned || dx == 0 || dy == 0) {
     // Move x axis
-    for (int i = 0; i < dx*STEPS_PER_MM; i++) {
-      if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+    for (long i = 0; i < dx*STEPS_PER_MM; i++) {
+      //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
       stepper_square_wave(0, stepDelay);
     }
-
     // Move y axis
-    for (int i = 0; i < dy*STEPS_PER_MM; i++) {
-      if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+    for (long i = 0; i < dy*STEPS_PER_MM; i++) {
+      //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
       stepper_square_wave(1, stepDelay);
     }
-  } else {
-    float error = 0.0; // Track error between expected slope and actual slope
-    // Check if x or y has greater change
-    if (dx >= dy) {
-      // Moves the x axis normally, while occasionally incrementing the y axis
-      for (int i = 0; i < dx*STEPS_PER_MM; i++) {
-        if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+  } else if (dx == dy) {
+    // Move diagonal axis
+    for (long i = 0; i < dx*STEPS_PER_MM; i++) {
+      //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+      stepper_square_wave(2, stepDelay);
+    }
+  } else if (dx > dy){
+    for (long i = 0; i < dx*STEPS_PER_MM; i++) {
+      if (i < dy*STEPS_PER_MM) {
+        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+        stepper_square_wave(2, stepDelay);
+      } else {
+        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
         stepper_square_wave(0, stepDelay);
-        error += (float)dy/dx; // accumulates the error
-
-        // if error is bigger than what can be adjusted in one step, fix the error
-        if (error >= 1.0) { 
-          if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
-          stepper_square_wave(1, stepDelay);
-          error -= 1.0;
-        }
       }
-    } else {
-      // Moves the y axis normally, while occasionally incrementing the x axis
-      for (int i = 0; i < dy*STEPS_PER_MM; i++) {
-        if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+    }
+  } else {
+    for (long i = 0; i < dy*STEPS_PER_MM; i++) {
+      if (i < dx*STEPS_PER_MM) {
+        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+        stepper_square_wave(2, stepDelay);
+      } else {
+        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
         stepper_square_wave(1, stepDelay);
-        error += (float)dx/dy; // accumulates the error
-
-        // if error is bigger than what can be adjusted in one step, fix the error
-        if (error >= 1.0) { 
-          if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
-          stepper_square_wave(0, stepDelay);
-          error -= 1.0;
-        }
       }
     }
   }
