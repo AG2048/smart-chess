@@ -194,115 +194,345 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 // The pair consists of Board indices, calculated using (y*8) + x
 std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
 {
+  /*
+  This function will return a vector of motor moves that will result in the board being reset to the starting position.
+  1. The function moves all temp pieces on the board back to their starting squares.
+  2. Function moves all pieces currently on board to their starting squares.
+  3. Function moves all pieces in the graveyard to their starting squares.
+  */
+
   // temporary -- check to be sure
   int8_t temp_x = -1, temp_y = 0;
   bool loop_detected;
-  std::vector<int8_t> current_chain; // Chain to hold the current chain of indices we're moving
-  std::vector<std::pair<int8_t, int8_t>> reset_moves;
+  std::vector<int8_t> current_chain; // Chain to hold the current chain of indices we're moving (acts like a stack)
+  std::vector<std::pair<int8_t, int8_t>> reset_moves; // The vector to be returned
+
+  // An array to keep track of where each piece wants to move to (for 2nd step)
+  int8_t destination_arr[64] = {-1}; // Initialize every element to -1
+  bool square_is_already_destination[64] = {false}; // Initialize every element to false
 
   // ### Moving all temp pieces off of the board ###
-
-  // An array where each element is the array index that the
-  // piece at that coordinate wishes to move to
-
-  // -1 indicates that the index is free, or that no piece would ever want to move here
-  // Spots "occupied" by temp pieces are considered -1, since they will be moved off first
-  // No two pieces will have the same destination square.
-  int8_t destination_arr[64] = {-1}; // Initialize every element to -1
-
-  // ### Setting piece destination squares and moving temp pieces off of the board ###
-
-  // Looping through all of the pieces in the board
+  // Looping through all of the pieces in the board to find temp pieces
   for (int8_t i = 0; i < 8; i++) {
     for (int8_t j = 0; j < 8; j++) {
-      
-      if (p_board->pieces[j][i].type == EMPTY) {
+      // i is x, j is y
+      if (p_board->pieces[i][j].type == EMPTY || p_board->pieces[i][j].type == PAWN) {
+        // Ignore pawn or empty squares
         continue;
       } else {
-        // check if this piece is currently using a placeholder
-        for (int8_t a = 0; a < promoted_pawns_using_temp_pieces.size(); a++) { 
-          if (std::make_pair<i, j> == promoted_pawns_using_temp_pieces[a]) {
-            // add this to the move list: curr_piece to graveyard[temp_pce_idx]
-            // destination square is already -1
+        // check if this piece is currently using a temp piece
+        for (int8_t temp_piece_index = 0; temp_piece_index < promoted_pawns_using_temp_pieces.size(); temp_piece_index++) { 
+          if (promoted_pawns_using_temp_pieces[temp_piece_index].first == j && promoted_pawns_using_temp_pieces[temp_piece_index].second == i) {
+            // This piece is using a temp piece
+            // Find first empty square in graveyard, send it back (graveyard (6 == temp piece))
+            std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate(6, p_board->pieces[i][j]->get_color());
+            // Add the move to the reset_moves vector
+            reset_moves.push_back(std::make_pair((j * 8) + i, (graveyard_coordinate.second * 8) + graveyard_coordinate.first));
+            // Update the graveyard memory
+            graveyard[10 + p_board->pieces[i][j]->get_color()]++;
+            // Update the board object, make it think this square is empty
+            p_board->pieces[i][j].type = EMPTY;
             break;
           }
         }
       }
-      // if current coordinate piece type is empty, move on
-      // else, see if this coordinate is in the temp piece array.
-          // if 
+    }
+  }
 
+  // ### Find out where each piece that's currently on the board wants to move to ###
+  // If the piece is currently on their destination, destination_arr = -1, square_is_already_destination = true
+  for (int8_t j = 0; j < 8; j++) {
+    for (int8_t i = 0; i < 8; i++) {
+      // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
+      if (p_board->pieces[i][j].type == EMPTY) {
+      // Ignore empty squares
+      continue;
+      } else {
+        // Find out where this piece originally belongs to
+        if (p_board->pieces[i][j].type == KING){
+          // White king:
+          if (p_board->pieces[i][j].color == 0) {
+          destination_arr[(i * 8) + j] = (0 * 8) + 4;
+          square_is_already_destination[(0 * 8) + 4] = true;
+          // Black king:
+          } else {
+          destination_arr[(i * 8) + j] = (7 * 8) + 4;
+          square_is_already_destination[(7 * 8) + 4] = true;
+          }
+        } else if (p_board->pieces[i][j].type == QUEEN){
+          // White queen:
+          if (p_board->pieces[i][j].color == 0) {
+          destination_arr[(i * 8) + j] = (0 * 8) + 3;
+          square_is_already_destination[(0 * 8) + 3] = true;
+          // Black queen:
+          } else {
+          destination_arr[(i * 8) + j] = (7 * 8) + 3;
+          square_is_already_destination[(7 * 8) + 3] = true;
+          }
+        } else if (p_board->pieces[i][j].type == ROOK){
+          // For rooks, we have to check if the "leftmore" square is already occupied
+          // White rook:
+          if (p_board->pieces[i][j].color == 0) {
+          if (square_is_already_destination[(0 * 8) + 0] == false) {
+            destination_arr[(i * 8) + j] = (0 * 8) + 0;
+            square_is_already_destination[(0 * 8) + 0] = true;
+          } else {
+            destination_arr[(i * 8) + j] = (0 * 8) + 7;
+            square_is_already_destination[(0 * 8) + 7] = true;
+          }
+          // Black rook:
+          } else {
+          if (square_is_already_destination[(7 * 8) + 0] == false) {
+            destination_arr[(i * 8) + j] = (7 * 8) + 0;
+            square_is_already_destination[(7 * 8) + 0] = true;
+          } else {
+            destination_arr[(i * 8) + j] = (7 * 8) + 7;
+            square_is_already_destination[(7 * 8) + 7] = true;
+          }
+          }
+        } else if (p_board->pieces[i][j].type == BISHOP){
+          // For bishops, we have to check if the "leftmore" square is already occupied
+          // White bishop:
+          if (p_board->pieces[i][j].color == 0) {
+          if (square_is_already_destination[(0 * 8) + 2] == false) {
+            destination_arr[(i * 8) + j] = (0 * 8) + 2;
+            square_is_already_destination[(0 * 8) + 2] = true;
+          } else {
+            destination_arr[(i * 8) + j] = (0 * 8) + 5;
+            square_is_already_destination[(0 * 8) + 5] = true;
+          }
+          // Black bishop:
+          } else {
+          if (square_is_already_destination[(7 * 8) + 2] == false) {
+            destination_arr[(i * 8) + j] = (7 * 8) + 2;
+            square_is_already_destination[(7 * 8) + 2] = true;
+          } else {
+            destination_arr[(i * 8) + j] = (7 * 8) + 5;
+            square_is_already_destination[(7 * 8) + 5] = true;
+          }
+          }
+        } else if (p_board->pieces[i][j].type == KNIGHT){
+          // For knights, we have to check if the "leftmore" square is already occupied
+          // White knight:
+          if (p_board->pieces[i][j].color == 0) {
+          if (square_is_already_destination[(0 * 8) + 1] == false) {
+            destination_arr[(i * 8) + j] = (0 * 8) + 1;
+            square_is_already_destination[(0 * 8) + 1] = true;
+          } else {
+            destination_arr[(i * 8) + j] = (0 * 8) + 6;
+            square_is_already_destination[(0 * 8) + 6] = true;
+          }
+          // Black knight:
+          } else {
+          if (square_is_already_destination[(7 * 8) + 1] == false) {
+            destination_arr[(i * 8) + j] = (7 * 8) + 1;
+            square_is_already_destination[(7 * 8) + 1] = true;
+          } else {
+            destination_arr[(i * 8) + j] = (7 * 8) + 6;
+            square_is_already_destination[(7 * 8) + 6] = true;
+          }
+          }
+        } else if (p_board->pieces[i][j].type == PAWN){
+          // For pawn, we have a small for loop to check if the "leftmore" square is already occupied
+          // White pawn:
+          if (p_board->pieces[i][j].color == 0) {
+          for (int8_t k = 0; k < 8; k++) {
+            if (square_is_already_destination[(1 * 8) + k] == false) {
+            destination_arr[(i * 8) + j] = (1 * 8) + k;
+            square_is_already_destination[(1 * 8) + k] = true;
+            break;
+            }
+          }
+          // Black pawn:
+          } else {
+          for (int8_t k = 0; k < 8; k++) {
+            if (square_is_already_destination[(6 * 8) + k] == false) {
+            destination_arr[(i * 8) + j] = (6 * 8) + k;
+            square_is_already_destination[(6 * 8) + k] = true;
+            break;
+            }
+          }
+          }
+        }
+        // Check if the piece is already on its destination. If so, set destination_arr to -1
+        if ((i * 8) + j == destination_arr[(i * 8) + j]) {
+          destination_arr[(i * 8) + j] = -1;
+        }
+      }
     }
   }
 
   // ### Handling destination square chains and loops ###
+  // We loop across the board, find a square that wants to move to another square. Loop thru the chain until it reaches a -1 or a loop
+  // If -1, add chain to reset_moves in reverse order
+  // If loop, add a move to temp, then add the chain to reset_moves in reverse order
 
   for (int8_t i = 0; i < 8; i++)
   {
     for (int8_t j = 0; j < 8; j++)
     {
-      int8_t curr_idx = (j * 8) + 1;
+      int8_t curr_idx = (i * 8) + j;
       // If we've come across an index that is -1, continue
       // This accounts for free squares as well as pieces moved in previous chains
       if (destination_arr[curr_idx] < 0)
         continue;
 
+      // First reset the loop chain and the loop_detected flag
+      current_chain.clear();
+      loop_detected = 0;
+
+      // Remember the first index in the chain
+      temp_x = curr_idx % 8;
+      temp_y = curr_idx / 8;
+
       // Handle the chain of indices
       while (1)
       {
-        loop_detected = 0;
-        current_chain.push_back(curr_idx);
+        current_chain.push_back(curr_idx); // push_back adds an element to the end of the vector
         curr_idx = destination_arr[curr_idx]; // Go to the index that curr_idx wants to move to
 
         if (destination_arr[curr_idx] == -1)
-        { // chain ends in a -1
-          current_chain.push_back(curr_idx); // Now last index in chain is free to be moved into
+        { // chain ends in a -1, means no loop.
           break; // Exit while loop
         } // else, chain continues and we go to the next index
 
-        // Check if curr_idx wants to move to an index already in the current chain
-        for (int8_t a = 0;, a < current_chain.size(); a++)
+        // Check if curr_idx wants to move to the first index in the chain
+        if (curr_idx == (temp_y * 8) + temp_x)
         {
-          if (destination_arr[curr_idx] == current_chain[a])
-          { // Loop detected in our chain. Will ALWAYS point back to the first index in the chain.
-            reset_moves.push_back(std::make_pair(current_chain[0], ((temp_y * 8) + temp_x)));
-            loop_detected = 1;
-            break; // Exit the for loop
-          }
+          loop_detected = 1; // Loop detected
+          break;            // Exit while loop
         }
-
-        if (loop_detected)
-          break; // If we spot a loop, exit while loop
       }
-      // Add the sequence of motor moves, excluding <first --> temp> as that's handled already
-      // last idx --> first, ONLY if loop is detected
-      if (loop_detected) reset_moves.push_back(std::make_pair(current_chain[current_chain.size() - 1], current_chain[0] ));
-      for (int8_t a = 0; a < current_chain.size(); a++) {
-        // 2nd last idx --> last idx
-        // 3rd last idx --> 2nd last idx
-        if (a == current_chain.size() - 1) {
-          if (loop_detected) {// temp --> 2nd dx
-            reset_moves.push_back(std::make_pair(current_chain[((temp_y * 8) + temp_x)], current_chain[1]));
-            break; // exits for loop
-          } //else, loop will do 1st idx --> 2nd idx as normal
-          
+
+      // If loop detected, move first square to temp. Add the chain in reverse order, then add temp to first square destination.
+      if (loop_detected)
+      {
+        // The temp square is at: 8,0 or -1,8. Move it to closer square
+        if (j < 4){
+          temp_x = -1;
+          temp_y = 8;
+        } else {
+          temp_x = 8;
+          temp_y = 0;
         }
-        reset_moves.push_back(std::make_pair(current_chain[current_chain.size() - a - 2], current_chain[current_chain.size() - a - 1]));
-
+        reset_moves.push_back(std::make_pair(current_chain[0], (temp_y * 8) + temp_x)); // Move the first square to temp
+        // Remove first square from chain
+        current_chain.erase(current_chain.begin());
       }
-      
-      // Set all involved piece indices to -1, as they've already been handled and are no longer occupying
-      // their spots. This way, we skip them on future loops
 
-      for (int8_t a = 0; a < current_chain.size(); a++) 
-        destination_arr[current_chain[a]] = -1;
-      
+      // While the chain is not empty, add the moves in reverse order. And set the destination_arr to -1
+      while (!current_chain.empty())
+      {
+        reset_moves.push_back(std::make_pair(current_chain.back(), destination_arr[current_chain.back()]));
+        // Now, update the destination_arr to -1
+        destination_arr[current_chain.back()] = -1;
+        current_chain.pop_back();
+      }
+
+      // If loop detected, add the temp square to the first square destination
+      if (loop_detected)
+      {
+        reset_moves.push_back(std::make_pair((temp_y * 8) + temp_x, destination_arr[i * 8 + j]));
+        destination_arr[i * 8 + j] = -1;
+      }
       // Flush the stack
       current_chain.clear();
     }
   }
 
   // ### Moving pieces in graveyard to their starting squares
+  // For each graveyard types, as long as the graveyard[index] is not 0, move the piece to its starting square. Ignore index 10 and 11 as they are temp pieces
+  for (int8_t i = 0; i < 10; i++)
+  {
+    while (graveyard[i] > 0)
+    {
+      // Find the first empty square in graveyard (the function takes 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for pawn)
+      std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i%5)+1, i < 5);
+      // Update the graveyard memory
+      graveyard[i]--;
+      // Find the first available square on the board
+      if (i==0) {
+        // White queen
+        reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, 0*8 + 3));
+      } else if (i==1) {
+        // White Rook
+        if (!square_is_already_destination[(0 * 8) + 7]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 7));
+          square_is_already_destination[(0 * 8) + 7] = true;
+        } else {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 0));
+          square_is_already_destination[(0 * 8) + 0] = true;
+        }
+      } else if (i==2) {
+        // White Bishop
+        if (!square_is_already_destination[(0 * 8) + 5]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 5));
+          square_is_already_destination[(0 * 8) + 5] = true;
+        } else {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 2));
+          square_is_already_destination[(0 * 8) + 2] = true;
+        }
+      } else if (i==3) {
+        // White Knight
+        if (!square_is_already_destination[(0 * 8) + 6]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 6));
+          square_is_already_destination[(0 * 8) + 6] = true;
+        } else {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 1));
+          square_is_already_destination[(0 * 8) + 1] = true;
+        }
+      } else if (i==4) {
+        // White Pawn
+        for (int8_t k = 7; k >= 0; k--) {
+          if (!square_is_already_destination[(1 * 8) + k]) {
+            reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (1 * 8) + k));
+            square_is_already_destination[(1 * 8) + k] = true;
+            break;
+          }
+        }
+      } else if (i==5) {
+        // Black Queen
+        reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 3));
+      } else if (i==6) {
+        // Black Rook
+        if (!square_is_already_destination[(7 * 8) + 0]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 0));
+          square_is_already_destination[(7 * 8) + 0] = true;
+        } else {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 7));
+          square_is_already_destination[(7 * 8) + 7] = true;
+        }
+      } else if (i==7) {
+        // Black Bishop
+        if (!square_is_already_destination[(7 * 8) + 2]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 2));
+          square_is_already_destination[(7 * 8) + 2] = true;
+        } else {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 5));
+          square_is_already_destination[(7 * 8) + 5] = true;
+        }
+      } else if (i==8) {
+        // Black Knight
+        if (!square_is_already_destination[(7 * 8) + 1]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 1));
+          square_is_already_destination[(7 * 8) + 1] = true;
+        } else {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 6));
+          square_is_already_destination[(7 * 8) + 6] = true;
+        }
+      } else if (i==9) {
+        // Black Pawn
+        for (int8_t k = 0; k < 8; k++) {
+          if (!square_is_already_destination[(6 * 8) + k]) {
+            reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (6 * 8) + k));
+            square_is_already_destination[(6 * 8) + k] = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return reset_moves;
 }
 
 // ############################################################
@@ -2285,8 +2515,12 @@ void loop() {
     delay(10000);
     // Reset the game (move pieces back to initial position, clear memory (mainly focusing on vectors))
 
+    // Free unnecessary memory
+    // TODO
+    // 3-fold repetition vectors is no longer needed
+
     // First, move the pieces back to the initial position
-    // TODO: motor job
+    // TODO: motor
 
     // Free memory
     delete p_board;
