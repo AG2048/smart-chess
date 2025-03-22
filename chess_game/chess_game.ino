@@ -199,6 +199,8 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
   1. The function moves all temp pieces on the board back to their starting squares.
   2. Function moves all pieces currently on board to their starting squares.
   3. Function moves all pieces in the graveyard to their starting squares.
+
+  RETURN VALUE: vector of integers. From and to squares in the form of (y*8) + x
   */
 
   // temporary -- check to be sure
