@@ -67,6 +67,8 @@ def read_from_arduino():
 
         # Check if 16 bits have been received
         if i >= 16:
+            GPIO.output(RREADY_PIN, GPIO.LOW)
+            GPIO.output(WVALID_PIN, GPIO.LOW)
             return databank
 
         # Update last clock state
@@ -106,6 +108,8 @@ def write_to_arduino(data_bits):
             
             # Update the last clock state
             last_clk_state = current_clk
+    GPIO.output(RREADY_PIN, GPIO.LOW)
+    GPIO.output(WVALID_PIN, GPIO.LOW)
 
 def process_received_bits(bits):
     global turn
