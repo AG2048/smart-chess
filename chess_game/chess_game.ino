@@ -193,7 +193,8 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 
 // The pair consists of Board indices, calculated using (y*8) + x
 std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
-{
+{ // instead of _ * 8 + col, --> _ * 14 + col
+
   /*
   This function will return a vector of motor moves that will result in the board being reset to the starting position.
   1. The function moves all temp pieces on the board back to their starting squares.
@@ -2521,15 +2522,23 @@ void loop() {
     delay(10000);
     // Reset the game (move pieces back to initial position, clear memory (mainly focusing on vectors))
 
-    // Free unnecessary memory
-    // TODO
-    // 3-fold repetition vectors is no longer needed
+    std::vector<std::pair<int8_t, int8_t>> reset_moves = reset_board(p_board);
 
-    // First, move the pieces back to the initial position
-    // TODO: motor
+    for (int reset_idx = 0; reset_idx < reset_moves.size(); reset_idx++) {
+      Serial.printf("move %d: [%d][%d] to [%d][%d]\n", reset_idx, reset_moves[reset_idx].first % 14, reset_moves[reset_idx].first / 14,
+                    reset_moves[reset_idx].second % 14, reset_moves[reset_idx].second / 14);
+    } // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
-    // Free memory
-    delete p_board;
+
+      // Free unnecessary memory
+      // TODO
+      // 3-fold repetition vectors is no longer needed
+
+      // First, move the pieces back to the initial position
+      // TODO: motor
+
+      // Free memory
+      delete p_board;
 
     // Clear vectors (find ones that aren't cleared by game_initialize)
     // TODO
