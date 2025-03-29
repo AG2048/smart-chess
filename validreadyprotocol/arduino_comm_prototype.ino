@@ -27,15 +27,15 @@ assuming) Repeat the read/write part again and again...
 
 // Pin definitions
 //! FIX PIN NUMBERS
-const int clk = 13;    
-const int RValid = 12;  
-const int RReady = 11; 
-const int RData = 10;   
-const int WValid = 12; 
-const int WReady = 11;  
-const int WData = 10;   
-const int OVERWRITE = 0;
-const int clock_half_period = 10; //ASK ABOUT THIS
+const int clk = 2;    
+const int RValid = 3;  
+const int RReady = 4; 
+const int RData = 7;   
+const int WValid = 22; 
+const int WReady = 10;  
+const int WData = 11;   
+const int OVERWRITE = 9;
+const int clock_half_period = 10; //!ASK ABOUT THIS
 
 int received_data = 0;
 
@@ -207,7 +207,7 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
   int datas[16] = {0};  // Example data, all zeros
   if (!writing_all_zeros) {
     if (is_programming) {
-      datas[0] = 1; //! Check this
+      datas[0] = 1; 
       datas[1] = programming_colour;
       for (i = 2; i < 16; i++) {
         datas[i] = temp_difficulty & 1 | is_human;

@@ -3,14 +3,14 @@ import time
 from stockfish import Stockfish
 
 # Pin Definitions (Global Constants)
-CLK_PIN = 17
-RVALID_PIN = 27
-RREADY_PIN = 22
-RDATA_PIN = 10
-WVALID_PIN = 9
-WREADY_PIN = 11
-WDATA_PIN = 5
-OVERWRITE_PIN = 6
+CLK_PIN = 4
+RVALID_PIN = 17
+RREADY_PIN = 27
+RDATA_PIN = 9
+WVALID_PIN = 22
+WREADY_PIN = 10
+WDATA_PIN = 11
+OVERWRITE_PIN = 0
 
 # Global Game State
 stockfish = [None, None]
