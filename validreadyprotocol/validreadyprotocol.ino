@@ -28,12 +28,12 @@ assuming) Repeat the read/write part again and again...
 // Pin definitions
 //! FIX PIN NUMBERS
 const int clk = 2;    
-const int RValid = 3;  
-const int RReady = 4; 
-const int RData = 7;   
-const int WValid = 22; 
-const int WReady = 10;  
-const int WData = 11;   
+const int WValid = 3;  
+const int WReady = 4; 
+const int WData = 7;   
+const int RValid = 5; 
+const int RReady = 6;  
+const int RData = 8;   
 const int OVERWRITE = 9;
 const int clock_half_period = 10; //!ASK ABOUT THIS
 
