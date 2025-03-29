@@ -98,6 +98,14 @@ void setup() {
 
 void loop() {
   received_data = read();  // this is white's first move.
+  char from_x = pi_return_to_from_square(received_data) % 8 + 'a';
+  char from_y = pi_return_to_from_square(received_data) / 8 + '1';
+  char to_x = pi_return_to_to_square(received_data) % 8 + 'a';
+  char to_y = pi_return_to_to_square(received_data) / 8 + '1';
+  Serial.print(from_x);
+  Serial.print(from_y);
+  Serial.print(to_x);
+  Serial.println(to_y);
   // process the received_data
   /*
   get a "from square", "to square", "promotion"
@@ -171,7 +179,7 @@ int read() {
   Serial.println(num_received);
   num_received = 0;
   for (int j = 0; j < 14; j++) {
-      num_received |= (receivedData[j] << j);
+      num_received |= (receivedData[j] << (14-j-1));
   }
   digitalWrite(RReady, LOW);
   digitalWrite(WValid, LOW);
@@ -180,7 +188,7 @@ int read() {
 
 int pi_return_to_from_square(int value) {
   // return the from square value
-  return value >> 8;
+  return (value >> 8) & 0b111111;;
 }
 int pi_return_to_to_square(int value) {
   // return the to square value
@@ -218,11 +226,11 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
     } else {
       datas[0] = 0;
       datas[1] = is_promotion;
-      for (i = 2; i < 8; i++) {
+      for (i = 7; i >= 2; i--) {
         datas[i] = temp_from & 1;
         temp_from = temp_from >> 1;
       }
-      for (i = 8; i < 14; i++) {
+      for (i = 13; i >= 8; i--) {
         datas[i] = temp_to & 1;
         temp_to = temp_to >> 1;
       }
@@ -233,6 +241,7 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
 
   digitalWrite(clk, LOW);
   digitalWrite(WValid, LOW);
+  digitalWrite(WData, datas[0]);
 
   delay(clock_half_period);
   digitalWrite(clk, HIGH);
@@ -240,19 +249,25 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
   digitalWrite(clk, LOW);
 
   digitalWrite(WValid, HIGH);  // Indicate data is valid
-  digitalWrite(WData, datas[i]);
   delay(clock_half_period);
+
+  i = 0;
 
   while (true) {
     if (!transmitting) {
       transmitting = digitalRead(WReady);
     }  // Set valid back to zero
-    Serial.print("WREADY: ");
-    Serial.println(digitalRead(WReady));
+    // Serial.print("WREADY: ");
+    // Serial.println(digitalRead(WReady));
     digitalWrite(clk, HIGH);
     delay(clock_half_period);
     digitalWrite(clk, LOW);
     if (transmitting) {
+      // Serial.print("WRITING BIT: ");
+      // Serial.print(i);
+      // Serial.print(" ");
+      // Serial.println(datas[i]);
+
       digitalWrite(WValid, LOW);
       i++;
       if (i >= 16) {
@@ -262,13 +277,14 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
     }
     delay(clock_half_period);
   }
-  Serial.println("Data sent to Raspberry Pi.");
-  for (int j = 0; j < 14; j++) {
-    Serial.print(datas[j]);
-    Serial.print(" ");
-  }
+  // Serial.println("Data sent to Raspberry Pi.");
+  // for (int j = 0; j < 16; j++) {
+  //   Serial.print(datas[j]);
+  //   Serial.print(" ");
+  // }
   digitalWrite(RReady, LOW);
   digitalWrite(WValid, LOW);
-  Serial.println("");
+  // Serial.println("");
+  // delay(5000);
   return 0;
 }

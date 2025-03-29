@@ -20,22 +20,64 @@ turn = 0
 first_write = 1
 
 def move_to_bits(move_str):
-    if len(move_str) != 4:
-        raise ValueError("Move string must be 4 characters (e.g., 'e1e3')")
+    if len(move_str) != 4 and len(move_str) != 5:
+        raise ValueError("Move string must be 4 characters (e.g., 'e1e3') or 5 characters (e.g., 'e1e3q')")
+    #convert string to lowercase
+    move_str = move_str.lower()
+
+    start_x = ord(move_str[0]) - ord('a')
+    start_y = int(move_str[1]) - 1
+    end_x = ord(move_str[2]) - ord('a')
+    end_y = int(move_str[3]) - 1
+    if len(move_str) == 5:
+        promotion = move_str[4].lower()
+        if promotion == 'q':
+            promotion = 0
+        elif promotion == 'r':
+            promotion = 1
+        elif promotion == 'b':
+            promotion = 2
+        elif promotion == 'n':
+            promotion = 3
+        else:
+            raise ValueError("Invalid promotion piece. Use 'q', 'r', 'b', or 'n'.")
+    else:
+        promotion = 0
     
-    start_file = ord(move_str[0].lower()) - ord('a')
-    start_rank = int(move_str[1]) - 1
-    end_file = ord(move_str[2].lower()) - ord('a')
-    end_rank = int(move_str[3]) - 1
+    # Convert to bits: in format of start_y, start_x, end_y, end_x, promotion (start_y has most significant bit)
+    binary_representation = (
+        (start_y & 0b111) << 11 |  # Start rank
+        (start_x & 0b111) << 8 |   # Start file
+        (end_y & 0b111) << 5 |     # End rank
+        (end_x & 0b111) << 2 |     # End file
+        (promotion & 0b111)        # Promotion
+    )
+    return binary_representation
 
-    return (start_file << 11) | (start_rank << 8) | (end_file << 5) | (end_rank << 2)
-
-def bits_to_move(bits):
-    start_file = (bits >> 11) & 0b111
-    start_rank = (bits >> 8) & 0b111
-    end_file = (bits >> 5) & 0b111
-    end_rank = (bits >> 2) & 0b111
-    return f"{chr(start_file + ord('a'))}{start_rank + 1}{chr(end_file + ord('a'))}{end_rank + 1}"
+def bits_to_move(bits, is_promotion=False):
+    start_y = (bits >> 11) & 0b111
+    start_x = (bits >> 8) & 0b111
+    end_y = (bits >> 5) & 0b111
+    end_x = (bits >> 2) & 0b111
+    promotion = bits & 0b11
+    start_x = chr(start_x + ord('a'))
+    start_y = str(start_y + 1)
+    end_x = chr(end_x + ord('a'))
+    end_y = str(end_y + 1)
+    if is_promotion:
+        if promotion == 0:
+            promotion = 'q'
+        elif promotion == 1:        
+            promotion = 'r'
+        elif promotion == 2:
+            promotion = 'b'
+        elif promotion == 3:
+            promotion = 'n'
+        else:
+            raise ValueError("Invalid promotion piece. Use 'q', 'r', 'b', or 'n'.")
+        return start_x + start_y + end_x + end_y + promotion
+    else:
+        return start_x + start_y + end_x + end_y
 
 def read_from_arduino():
   # Variables
@@ -60,11 +102,14 @@ def read_from_arduino():
         if last_clk == GPIO.LOW and current_clk == GPIO.HIGH:
             if valid == GPIO.HIGH:
                 # Start receiving data
+                #print("VALID IS HIGH")
                 receiving = True
                 GPIO.output(RREADY_PIN, GPIO.LOW)  # Not ready for new data
             if receiving:
+                #print("Receiving Bit", i, current_data)
                 databank.append(current_data)  # Store data in databank
                 i += 1
+                #print(current_data)
 
         # Check if 16 bits have been received
         if i >= 16:
@@ -99,6 +144,7 @@ def write_to_arduino(data_bits):
                     first_data_bit = not first_data_bit
             last_clk_state = current_clk
     else:
+        in_writing = False
         while True:
             # Read the current clock state
             current_clk = GPIO.input(CLK_PIN)
@@ -107,6 +153,8 @@ def write_to_arduino(data_bits):
             if last_clk_state == GPIO.LOW and current_clk == GPIO.HIGH:
                 # Check if the Arduino is ready to receive the next bit
                 if GPIO.input(WREADY_PIN) == GPIO.HIGH:
+                    in_writing = True
+                if in_writing:
                     i += 1  # Move to the next bit
                     if i >= len(data_bits):  # Stop if all bits are sent
                         break
@@ -117,13 +165,14 @@ def write_to_arduino(data_bits):
             last_clk_state = current_clk
     GPIO.output(RREADY_PIN, GPIO.LOW)
     GPIO.output(WVALID_PIN, GPIO.LOW)
+    print("Wrote:", data_bits)
 
 def process_received_bits(bits):
     global turn
     if not bits:
         return None
 
-    is_move = bits[0]
+    is_move = bits[0] == 0
     color = bits[1]
     payload = bits[2:]
     
@@ -134,8 +183,10 @@ def process_received_bits(bits):
             turn = 1
             return move_to_bits(best_move)
         
-        move_bits = int(''.join(map(str, payload[:14])), 2)
-        move_str = bits_to_move(move_bits)
+        move_bits = int(''.join(map(str, payload)), 2)
+        print("Payload:", payload)
+        move_str = bits_to_move(move_bits, is_promotion=bits[1])
+        print("Move string:", move_str)
         stockfish[0].make_moves_from_current_position([move_str])
         stockfish[1].make_moves_from_current_position([move_str])
         
@@ -195,9 +246,11 @@ def main():
     # Main loop
     while True:
         received_bits = read_from_arduino()
+        print("Received bits:", received_bits)
         response_bits = process_received_bits(received_bits)
         
         if response_bits is not None:
+            print("writing to arduino", [int(b) for b in format(response_bits, '014b')])
             write_to_arduino([int(b) for b in format(response_bits, '014b')])
 
 if __name__ == "__main__":
