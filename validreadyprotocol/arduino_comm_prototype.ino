@@ -173,6 +173,8 @@ int read() {
   for (int j = 0; j < 14; j++) {
       num_received |= (receivedData[j] << j);
   }
+  digitalWrite(RReady, LOW);
+  digitalWrite(WValid, LOW);
   return num_received; 
 }
 
@@ -265,6 +267,8 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
     Serial.print(datas[j]);
     Serial.print(" ");
   }
+  digitalWrite(RReady, LOW);
+  digitalWrite(WValid, LOW);
   Serial.println("");
   return 0;
 }
