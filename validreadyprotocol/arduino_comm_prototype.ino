@@ -26,15 +26,16 @@ assuming) Repeat the read/write part again and again...
 */
 
 // Pin definitions
-const int clk = 13;     // Clock signal (output)
-const int RValid = 12;  // Valid signal (input)
-const int RReady = 11;  // Ready signal (output)
-const int RData = 10;   // Data signal (input)
-const int WValid = 12;  // Valid signal (output)
-const int WReady = 11;  // Ready signal (input)
-const int WData = 10;   // Data signal (output)
+//! FIX PIN NUMBERS
+const int clk = 13;    
+const int RValid = 12;  
+const int RReady = 11; 
+const int RData = 10;   
+const int WValid = 12; 
+const int WReady = 11;  
+const int WData = 10;   
 const int OVERWRITE = 0;
-const int clock_half_period = 10;
+const int clock_half_period = 10; //ASK ABOUT THIS
 
 int received_data = 0;
 
@@ -58,10 +59,11 @@ void setup() {
 
   while (!initialized) {
     received_data = read();
-    if (received_data != 0b1010101010101010 ||
-        received_data != 0b01010101010101)
+    if (received_data == 0b10101010101010 ||
+        received_data == 0b01010101010101) {
       initialized = true;
-    digitalWrite(OVERWRITE, HIGH);
+      digitalWrite(OVERWRITE, HIGH);
+        }
   }
   write(0,   // writing_all_zeros
         1,   // is programming
@@ -102,6 +104,9 @@ void loop() {
   */
   // print the move
   // send the same move back to pi.
+  uint8_t from_square = pi_return_to_from_square(received_data);
+  uint8_t to_square = pi_return_to_to_square(received_data);
+  uint8_t promotion_piece = pi_return_to_promotion(received_data);
   write(0,                 // writing_all_zeros
         0,                 // is programming
         0,                 // programming colour
@@ -164,11 +169,11 @@ int read() {
   }
   Serial.print("\t");
   Serial.println(num_received);
-  int result = 0;
-  for (int i = 0; i < 14; i++) {
-    result = result + (2 * receivedData[i]);
+  num_received = 0;
+  for (int j = 0; j < 14; j++) {
+      num_received |= (receivedData[j] << j);
   }
-  return result;
+  return num_received; 
 }
 
 int pi_return_to_from_square(int value) {
@@ -177,11 +182,11 @@ int pi_return_to_from_square(int value) {
 }
 int pi_return_to_to_square(int value) {
   // return the to square value
-  return (value >> 2) && 0b111111;
+  return (value >> 2) & 0b111111;
 }
 int pi_return_to_promotion(int value) {
   // return the promotion value
-  return value && 0b11;
+  return value & 0b11;
 }
 
 int write(bool writing_all_zeros, int is_programming, int programming_colour,
@@ -194,15 +199,15 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
   // 010000000000000 // a promotion is happening and we are promoting to queen.
   // 000000000... // No promotion hapening
   // 0100000000000011 // a promotion is happening, and we promoting to a knight.
-  int transmitting = 0;
+  uint8_t transmitting = 0;
   int i = 0;
-  int temp_difficulty = programming_difficulty;
-  int temp_from = from_square;
-  int temp_to = to_square;
+  uint8_t temp_difficulty = programming_difficulty;
+  uint8_t temp_from = from_square;
+  uint8_t temp_to = to_square;
   int datas[16] = {0};  // Example data, all zeros
   if (!writing_all_zeros) {
     if (is_programming) {
-      datas[0] = 1;
+      datas[0] = 1; //! Check this
       datas[1] = programming_colour;
       for (i = 2; i < 16; i++) {
         datas[i] = temp_difficulty & 1 | is_human;
@@ -248,7 +253,7 @@ int write(bool writing_all_zeros, int is_programming, int programming_colour,
     if (transmitting) {
       digitalWrite(WValid, LOW);
       i++;
-      if (i >= 14) {
+      if (i >= 16) {
         break;
       }
       digitalWrite(WData, datas[i]);

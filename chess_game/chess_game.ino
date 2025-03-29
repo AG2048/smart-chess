@@ -2371,6 +2371,7 @@ void loop() {
     coordinates in the vector: promoted_pawns_using_temp_pieces)
     5. add reset motor to origin logic from previous game_state again
     */
+>>>>>>> 9929fe779cffef8757305c9b690ba95479b1f56f
 
     // LED: keep the "promotion light" on, but with a different color (maybe
     // purple?)
