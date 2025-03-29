@@ -183,7 +183,7 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
     } else if (piece_type == 5) {
       return std::make_pair(-2, graveyard[graveyard_index]);
     } else if (piece_type == 6) {
-      return std::make_pair(11, graveyard[graveyard_index]);
+      return std::make_pair(-3, graveyard[graveyard_index]); // small bug that was ignored before, used 11 instead of -3. 
     }
   }
 }
@@ -191,16 +191,16 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 // Function to return a vector of motor moves that would
 // result in the board being reset to starting position.
 
-// The pair consists of Board indices, calculated using (y*8) + x
-std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
-{
+// The pair consists of Board indices, calculated using (y * 14 + 3) + x (this 14+3 is to handle negative x coordinate from -3 all the way to 10)
+std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead of _ * 14 + 3 + col, --> _ * 14 + col
+
   /*
   This function will return a vector of motor moves that will result in the board being reset to the starting position.
   1. The function moves all temp pieces on the board back to their starting squares.
   2. Function moves all pieces currently on board to their starting squares.
   3. Function moves all pieces in the graveyard to their starting squares.
 
-  RETURN VALUE: vector of integers. From and to squares in the form of (y*8) + x
+  RETURN VALUE: vector of integers. From and to squares in the form of (y * 14 + 3) + x
   */
 
   // temporary -- check to be sure
@@ -229,7 +229,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
             // Find first empty square in graveyard, send it back (graveyard (6 == temp piece))
             std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate(6, p_board->pieces[i][j]->get_color());
             // Add the move to the reset_moves vector
-            reset_moves.push_back(std::make_pair((j * 8) + i, (graveyard_coordinate.second * 8) + graveyard_coordinate.first));
+            reset_moves.push_back(std::make_pair((j * 14 + 3) + i, (graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first));
             // Update the graveyard memory
             graveyard[10 + p_board->pieces[i][j]->get_color()]++;
             // Update the board object, make it think this square is empty
@@ -254,84 +254,84 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
         if (p_board->pieces[i][j].type == KING){
           // White king:
           if (p_board->pieces[i][j].color == 0) {
-          destination_arr[(i * 8) + j] = (0 * 8) + 4;
-          square_is_already_destination[(0 * 8) + 4] = true;
+          destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 4;
+          square_is_already_destination[(0 * 14 + 3) + 4] = true;
           // Black king:
           } else {
-          destination_arr[(i * 8) + j] = (7 * 8) + 4;
-          square_is_already_destination[(7 * 8) + 4] = true;
+          destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 4;
+          square_is_already_destination[(7 * 14 + 3) + 4] = true;
           }
         } else if (p_board->pieces[i][j].type == QUEEN){
           // White queen:
           if (p_board->pieces[i][j].color == 0) {
-          destination_arr[(i * 8) + j] = (0 * 8) + 3;
-          square_is_already_destination[(0 * 8) + 3] = true;
+          destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 3;
+          square_is_already_destination[(0 * 14 + 3) + 3] = true;
           // Black queen:
           } else {
-          destination_arr[(i * 8) + j] = (7 * 8) + 3;
-          square_is_already_destination[(7 * 8) + 3] = true;
+          destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 3;
+          square_is_already_destination[(7 * 14 + 3) + 3] = true;
           }
         } else if (p_board->pieces[i][j].type == ROOK){
           // For rooks, we have to check if the "leftmore" square is already occupied
           // White rook:
           if (p_board->pieces[i][j].color == 0) {
-          if (square_is_already_destination[(0 * 8) + 0] == false) {
-            destination_arr[(i * 8) + j] = (0 * 8) + 0;
-            square_is_already_destination[(0 * 8) + 0] = true;
+          if (square_is_already_destination[(0 * 14 + 3) + 0] == false) {
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 0;
+            square_is_already_destination[(0 * 14 + 3) + 0] = true;
           } else {
-            destination_arr[(i * 8) + j] = (0 * 8) + 7;
-            square_is_already_destination[(0 * 8) + 7] = true;
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 7;
+            square_is_already_destination[(0 * 14 + 3) + 7] = true;
           }
           // Black rook:
           } else {
-          if (square_is_already_destination[(7 * 8) + 0] == false) {
-            destination_arr[(i * 8) + j] = (7 * 8) + 0;
-            square_is_already_destination[(7 * 8) + 0] = true;
+          if (square_is_already_destination[(7 * 14 + 3) + 0] == false) {
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 0;
+            square_is_already_destination[(7 * 14 + 3) + 0] = true;
           } else {
-            destination_arr[(i * 8) + j] = (7 * 8) + 7;
-            square_is_already_destination[(7 * 8) + 7] = true;
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 7;
+            square_is_already_destination[(7 * 14 + 3) + 7] = true;
           }
           }
         } else if (p_board->pieces[i][j].type == BISHOP){
           // For bishops, we have to check if the "leftmore" square is already occupied
           // White bishop:
           if (p_board->pieces[i][j].color == 0) {
-          if (square_is_already_destination[(0 * 8) + 2] == false) {
-            destination_arr[(i * 8) + j] = (0 * 8) + 2;
-            square_is_already_destination[(0 * 8) + 2] = true;
+          if (square_is_already_destination[(0 * 14 + 3) + 2] == false) {
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 2;
+            square_is_already_destination[(0 * 14 + 3) + 2] = true;
           } else {
-            destination_arr[(i * 8) + j] = (0 * 8) + 5;
-            square_is_already_destination[(0 * 8) + 5] = true;
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 5;
+            square_is_already_destination[(0 * 14 + 3) + 5] = true;
           }
           // Black bishop:
           } else {
-          if (square_is_already_destination[(7 * 8) + 2] == false) {
-            destination_arr[(i * 8) + j] = (7 * 8) + 2;
-            square_is_already_destination[(7 * 8) + 2] = true;
+          if (square_is_already_destination[(7 * 14 + 3) + 2] == false) {
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 2;
+            square_is_already_destination[(7 * 14 + 3) + 2] = true;
           } else {
-            destination_arr[(i * 8) + j] = (7 * 8) + 5;
-            square_is_already_destination[(7 * 8) + 5] = true;
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 5;
+            square_is_already_destination[(7 * 14 + 3) + 5] = true;
           }
           }
         } else if (p_board->pieces[i][j].type == KNIGHT){
           // For knights, we have to check if the "leftmore" square is already occupied
           // White knight:
           if (p_board->pieces[i][j].color == 0) {
-          if (square_is_already_destination[(0 * 8) + 1] == false) {
-            destination_arr[(i * 8) + j] = (0 * 8) + 1;
-            square_is_already_destination[(0 * 8) + 1] = true;
+          if (square_is_already_destination[(0 * 14 + 3) + 1] == false) {
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 1;
+            square_is_already_destination[(0 * 14 + 3) + 1] = true;
           } else {
-            destination_arr[(i * 8) + j] = (0 * 8) + 6;
-            square_is_already_destination[(0 * 8) + 6] = true;
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 6;
+            square_is_already_destination[(0 * 14 + 3) + 6] = true;
           }
           // Black knight:
           } else {
-          if (square_is_already_destination[(7 * 8) + 1] == false) {
-            destination_arr[(i * 8) + j] = (7 * 8) + 1;
-            square_is_already_destination[(7 * 8) + 1] = true;
+          if (square_is_already_destination[(7 * 14 + 3) + 1] == false) {
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 1;
+            square_is_already_destination[(7 * 14 + 3) + 1] = true;
           } else {
-            destination_arr[(i * 8) + j] = (7 * 8) + 6;
-            square_is_already_destination[(7 * 8) + 6] = true;
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 6;
+            square_is_already_destination[(7 * 14 + 3) + 6] = true;
           }
           }
         } else if (p_board->pieces[i][j].type == PAWN){
@@ -339,26 +339,26 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
           // White pawn:
           if (p_board->pieces[i][j].color == 0) {
           for (int8_t k = 0; k < 8; k++) {
-            if (square_is_already_destination[(1 * 8) + k] == false) {
-            destination_arr[(i * 8) + j] = (1 * 8) + k;
-            square_is_already_destination[(1 * 8) + k] = true;
+            if (square_is_already_destination[(1 * 14 + 3) + k] == false) {
+            destination_arr[(i * 14 + 3) + j] = (1 * 14 + 3) + k;
+            square_is_already_destination[(1 * 14 + 3) + k] = true;
             break;
             }
           }
           // Black pawn:
           } else {
           for (int8_t k = 0; k < 8; k++) {
-            if (square_is_already_destination[(6 * 8) + k] == false) {
-            destination_arr[(i * 8) + j] = (6 * 8) + k;
-            square_is_already_destination[(6 * 8) + k] = true;
+            if (square_is_already_destination[(6 * 14 + 3) + k] == false) {
+            destination_arr[(i * 14 + 3) + j] = (6 * 14 + 3) + k;
+            square_is_already_destination[(6 * 14 + 3) + k] = true;
             break;
             }
           }
           }
         }
         // Check if the piece is already on its destination. If so, set destination_arr to -1
-        if ((i * 8) + j == destination_arr[(i * 8) + j]) {
-          destination_arr[(i * 8) + j] = -1;
+        if ((i * 14 + 3) + j == destination_arr[(i * 14 + 3) + j]) {
+          destination_arr[(i * 14 + 3) + j] = -1;
         }
       }
     }
@@ -373,7 +373,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
   {
     for (int8_t j = 0; j < 8; j++)
     {
-      int8_t curr_idx = (i * 8) + j;
+      int8_t curr_idx = (i * 14 + 3) + j;
       // If we've come across an index that is -1, continue
       // This accounts for free squares as well as pieces moved in previous chains
       if (destination_arr[curr_idx] < 0)
@@ -399,7 +399,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
         } // else, chain continues and we go to the next index
 
         // Check if curr_idx wants to move to the first index in the chain
-        if (curr_idx == (temp_y * 8) + temp_x)
+        if (curr_idx == (temp_y * 14 + 3) + temp_x)
         {
           loop_detected = 1; // Loop detected
           break;            // Exit while loop
@@ -417,7 +417,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
           temp_x = 8;
           temp_y = 0;
         }
-        reset_moves.push_back(std::make_pair(current_chain[0], (temp_y * 8) + temp_x)); // Move the first square to temp
+        reset_moves.push_back(std::make_pair(current_chain[0], (temp_y * 14 + 3) + temp_x)); // Move the first square to temp
         // Remove first square from chain
         current_chain.erase(current_chain.begin());
       }
@@ -434,8 +434,8 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
       // If loop detected, add the temp square to the first square destination
       if (loop_detected)
       {
-        reset_moves.push_back(std::make_pair((temp_y * 8) + temp_x, destination_arr[i * 8 + j]));
-        destination_arr[i * 8 + j] = -1;
+        reset_moves.push_back(std::make_pair((temp_y * 14 + 3) + temp_x, destination_arr[i * 14 + 3 + j]));
+        destination_arr[i * 14 + 3 + j] = -1;
       }
       // Flush the stack
       current_chain.clear();
@@ -455,79 +455,79 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board)
       // Find the first available square on the board
       if (i==0) {
         // White queen
-        reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, 0*8 + 3));
+        reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 3));
       } else if (i==1) {
         // White Rook
-        if (!square_is_already_destination[(0 * 8) + 7]) {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 7));
-          square_is_already_destination[(0 * 8) + 7] = true;
+        if (!square_is_already_destination[(0 * 14 + 3) + 7]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 7));
+          square_is_already_destination[(0 * 14 + 3) + 7] = true;
         } else {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 0));
-          square_is_already_destination[(0 * 8) + 0] = true;
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 0));
+          square_is_already_destination[(0 * 14 + 3) + 0] = true;
         }
       } else if (i==2) {
         // White Bishop
-        if (!square_is_already_destination[(0 * 8) + 5]) {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 5));
-          square_is_already_destination[(0 * 8) + 5] = true;
+        if (!square_is_already_destination[(0 * 14 + 3) + 5]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 5));
+          square_is_already_destination[(0 * 14 + 3) + 5] = true;
         } else {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 2));
-          square_is_already_destination[(0 * 8) + 2] = true;
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 2));
+          square_is_already_destination[(0 * 14 + 3) + 2] = true;
         }
       } else if (i==3) {
         // White Knight
-        if (!square_is_already_destination[(0 * 8) + 6]) {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 6));
-          square_is_already_destination[(0 * 8) + 6] = true;
+        if (!square_is_already_destination[(0 * 14 + 3) + 6]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 6));
+          square_is_already_destination[(0 * 14 + 3) + 6] = true;
         } else {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (0 * 8) + 1));
-          square_is_already_destination[(0 * 8) + 1] = true;
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 1));
+          square_is_already_destination[(0 * 14 + 3) + 1] = true;
         }
       } else if (i==4) {
         // White Pawn
         for (int8_t k = 7; k >= 0; k--) {
-          if (!square_is_already_destination[(1 * 8) + k]) {
-            reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (1 * 8) + k));
-            square_is_already_destination[(1 * 8) + k] = true;
+          if (!square_is_already_destination[(1 * 14 + 3) + k]) {
+            reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (1 * 14 + 3) + k));
+            square_is_already_destination[(1 * 14 + 3) + k] = true;
             break;
           }
         }
       } else if (i==5) {
         // Black Queen
-        reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 3));
+        reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 3));
       } else if (i==6) {
         // Black Rook
-        if (!square_is_already_destination[(7 * 8) + 0]) {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 0));
-          square_is_already_destination[(7 * 8) + 0] = true;
+        if (!square_is_already_destination[(7 * 14 + 3) + 0]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 0));
+          square_is_already_destination[(7 * 14 + 3) + 0] = true;
         } else {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 7));
-          square_is_already_destination[(7 * 8) + 7] = true;
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 7));
+          square_is_already_destination[(7 * 14 + 3) + 7] = true;
         }
       } else if (i==7) {
         // Black Bishop
-        if (!square_is_already_destination[(7 * 8) + 2]) {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 2));
-          square_is_already_destination[(7 * 8) + 2] = true;
+        if (!square_is_already_destination[(7 * 14 + 3) + 2]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 2));
+          square_is_already_destination[(7 * 14 + 3) + 2] = true;
         } else {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 5));
-          square_is_already_destination[(7 * 8) + 5] = true;
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 5));
+          square_is_already_destination[(7 * 14 + 3) + 5] = true;
         }
       } else if (i==8) {
         // Black Knight
-        if (!square_is_already_destination[(7 * 8) + 1]) {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 1));
-          square_is_already_destination[(7 * 8) + 1] = true;
+        if (!square_is_already_destination[(7 * 14 + 3) + 1]) {
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 1));
+          square_is_already_destination[(7 * 14 + 3) + 1] = true;
         } else {
-          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (7 * 8) + 6));
-          square_is_already_destination[(7 * 8) + 6] = true;
+          reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 6));
+          square_is_already_destination[(7 * 14 + 3) + 6] = true;
         }
       } else if (i==9) {
         // Black Pawn
         for (int8_t k = 0; k < 8; k++) {
-          if (!square_is_already_destination[(6 * 8) + k]) {
-            reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 8) + graveyard_coordinate.first, (6 * 8) + k));
-            square_is_already_destination[(6 * 8) + k] = true;
+          if (!square_is_already_destination[(6 * 14 + 3) + k]) {
+            reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (6 * 14 + 3) + k));
+            square_is_already_destination[(6 * 14 + 3) + k] = true;
             break;
           }
         }
@@ -2527,15 +2527,23 @@ void loop() {
     delay(10000);
     // Reset the game (move pieces back to initial position, clear memory (mainly focusing on vectors))
 
-    // Free unnecessary memory
-    // TODO
-    // 3-fold repetition vectors is no longer needed
+    std::vector<std::pair<int8_t, int8_t>> reset_moves = reset_board(p_board);
 
-    // First, move the pieces back to the initial position
-    // TODO: motor
+    for (int reset_idx = 0; reset_idx < reset_moves.size(); reset_idx++) {
+      Serial.printf("move %d: [%d][%d] to [%d][%d]\n", reset_idx, reset_moves[reset_idx].first % 14, reset_moves[reset_idx].first / 14,
+                    reset_moves[reset_idx].second % 14, reset_moves[reset_idx].second / 14);
+    } // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
-    // Free memory
-    delete p_board;
+
+      // Free unnecessary memory
+      // TODO
+      // 3-fold repetition vectors is no longer needed
+
+      // First, move the pieces back to the initial position
+      // TODO: motor
+
+      // Free memory
+      delete p_board;
 
     // Clear vectors (find ones that aren't cleared by game_initialize)
     // TODO

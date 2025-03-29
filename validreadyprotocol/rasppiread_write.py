@@ -3,20 +3,21 @@ import time
 from stockfish import Stockfish
 
 # Pin Definitions (Global Constants)
-CLK_PIN = 17
-RVALID_PIN = 27
-RREADY_PIN = 22
-RDATA_PIN = 10
-WVALID_PIN = 9
-WREADY_PIN = 11
-WDATA_PIN = 5
-OVERWRITE_PIN = 6
+CLK_PIN = 2
+RVALID_PIN = 17
+RREADY_PIN = 27
+RDATA_PIN = 9
+WVALID_PIN = 22
+WREADY_PIN = 10
+WDATA_PIN = 11
+OVERWRITE_PIN = 0
 
 # Global Game State
 stockfish = [None, None]
 is_computer = [False, False]
 difficulty = [0, 0]
 turn = 0
+first_write = 1
 
 def move_to_bits(move_str):
     if len(move_str) != 4:
@@ -75,21 +76,27 @@ def read_from_arduino():
         last_clk = current_clk
 
 def write_to_arduino(data_bits):
+    global first_write
     i = 0  # Bit index
     last_clk_state = GPIO.input(CLK_PIN)  # Store the last clock state
     
+    GPIO.output(WVALID_PIN, GPIO.HIGH)
     # Send the first bit
-    GPIO.output(RDATA_PIN, data_bits[i])
+    GPIO.output(WDATA_PIN, data_bits[i])
     if first_write:
         first_write = 0
-        while OVERWRITE_PIN == GPIO.LOW:
+        first_data_bit = False
+        in_writing = False
+        while GPIO.input(OVERWRITE_PIN) == GPIO.LOW:
+            #print("OVERWRITE LOW")
             current_clk = GPIO.input(CLK_PIN)
             if last_clk_state == GPIO.LOW and current_clk == GPIO.HIGH:
+                print("OVERWRITE LOW CLOCK FLASH", first_data_bit)
+                GPIO.output(WDATA_PIN, first_data_bit)
                 if GPIO.input(WREADY_PIN) == GPIO.HIGH:
-                    i += 1 
-                    if i >= len(data_bits): 
-                        break
-                GPIO.output(WDATA_PIN, data_bits[i])
+                    in_writing = True
+                if in_writing:
+                    first_data_bit = not first_data_bit
             last_clk_state = current_clk
     else:
         while True:
@@ -104,7 +111,7 @@ def write_to_arduino(data_bits):
                     if i >= len(data_bits):  # Stop if all bits are sent
                         break
                     # Send the next bit
-                    GPIO.output(RDATA_PIN, data_bits[i])
+                    GPIO.output(WDATA_PIN, data_bits[i])
             
             # Update the last clock state
             last_clk_state = current_clk
@@ -148,31 +155,33 @@ def process_received_bits(bits):
 
 def main():
     global stockfish, turn, first_write
+    global first_write
     first_write = 1
     # Initialize GPIO
     GPIO.setmode(GPIO.BCM)
     
     # Input Pins
     GPIO.setup(CLK_PIN, GPIO.IN)
-    GPIO.setup(RREADY_PIN, GPIO.IN)
-    GPIO.setup(WDATA_PIN, GPIO.IN)
+    GPIO.setup(RREADY_PIN, GPIO.OUT)
+    GPIO.setup(WDATA_PIN, GPIO.OUT)
     GPIO.setup(OVERWRITE_PIN, GPIO.IN)
     
     # Output Pins (Initialized to LOW)
-    GPIO.setup(RVALID_PIN, GPIO.OUT)
-    GPIO.setup(RDATA_PIN, GPIO.OUT)
-    GPIO.setup(WREADY_PIN, GPIO.OUT)
-    GPIO.output(RVALID_PIN, GPIO.LOW)
-    GPIO.output(RDATA_PIN, GPIO.LOW)
-    GPIO.output(WREADY_PIN, GPIO.LOW)
+    GPIO.setup(RVALID_PIN, GPIO.IN)
+    GPIO.setup(RDATA_PIN, GPIO.IN)
+    GPIO.setup(WREADY_PIN, GPIO.IN)
+    GPIO.setup(WVALID_PIN, GPIO.OUT)
+    GPIO.output(RREADY_PIN, GPIO.LOW)
+    GPIO.output(WDATA_PIN, GPIO.LOW)
+    GPIO.output(WVALID_PIN, GPIO.LOW)
     
     # Initialize Stockfish
     stockfish = [Stockfish(
-        path="/Users/gawtham3/Downloads/Stockfish-master/src/stockfish",
+        path="/home/spark/Stockfish/src/stockfish",
         depth=18,
         parameters={"Threads": 2, "Minimum Thinking Time": 30}
     ), Stockfish(
-        path="/Users/gawtham3/Downloads/Stockfish-master/src/stockfish",
+        path="/home/spark/Stockfish/src/stockfish",
         depth=18,
         parameters={"Threads": 2, "Minimum Thinking Time": 30}
     )]
