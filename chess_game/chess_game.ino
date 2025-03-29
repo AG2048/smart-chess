@@ -584,12 +584,6 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
   long dx = x-motor_coordinates[0];
   long dy = y-motor_coordinates[1];
 
-  if (x < 0) {
-    dx -= 10;
-  } else if (x > 8) {
-    dx += 10;
-  }
-
   // Setting direction
   digitalWrite(DIR_PIN[0], dx > 0);
   digitalWrite(DIR_PIN[1], dy > 0);
@@ -664,10 +658,25 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
   // TODO: don't write the motor moving code here, just write the logic to move the motor and call motor_move_to_coordinate function
   
   // Convert square coordinates to mm coordinates
-  from_x = from_x * MM_PER_SQUARE;
+  if (from_x < 0) {
+    from_x = from_x * MM_PER_SQUARE - 10;
+  } else if (from_x > 7) {
+    from_x = from_x * MM_PER_SQUARE + 10;
+  } else {
+    from_x = from_x * MM_PER_SQUARE;
+  }
+
+  if (to_x < 0) {
+    to_x = to_x * MM_PER_SQUARE - 10;
+  } else if (to_x > 7) {
+    to_x = to_x * MM_PER_SQUARE + 10;
+  } else {
+    to_x = to_x * MM_PER_SQUARE;
+  }
+
   from_y = from_y * MM_PER_SQUARE;
-  to_x = to_x * MM_PER_SQUARE;
   to_y = to_y * MM_PER_SQUARE;
+
   int ret;
   int corner_x, corner_y;
 
