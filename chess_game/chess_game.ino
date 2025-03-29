@@ -584,6 +584,12 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
   long dx = x-motor_coordinates[0];
   long dy = y-motor_coordinates[1];
 
+  if (x < 0) {
+    dx -= 10;
+  } else if (x > 8) {
+    dx += 10;
+  }
+
   // Setting direction
   digitalWrite(DIR_PIN[0], dx > 0);
   digitalWrite(DIR_PIN[1], dy > 0);
