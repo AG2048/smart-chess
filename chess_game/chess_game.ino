@@ -243,7 +243,78 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   
   // TODO: loop thru the board, and find ALL R,B,N,pawns that are at ONE of their valid destination squares. 
   // The idea of this code is to prevent the case where a piece is at its destination square, and then we move it to another square.
-
+ for (int8_t j = 0; j < 8; j++) {
+    for (int8_t i = 0; i < 8; i++) {
+      // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
+      if (p_board->pieces[i][j].type == EMPTY || p_board->pieces[i][j].type == KING || p_board->pieces[i][j].type == QUEEN) {
+        // Ignore empty squares
+        continue;
+      } else {
+        // Find out where this piece originally belongs to
+        if (p_board->pieces[i][j].type == ROOK){
+          // For rooks, we have to check if the "leftmore" square is already occupied
+          // White rook:
+          if (p_board->pieces[i][j].color == 0) {
+            if ((i == 0) && (j == 0 || j ==7)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          // Black rook:
+          } else {
+            if ((i == 7) && (j == 0 || j ==7)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          }
+        } else if (p_board->pieces[i][j].type == BISHOP){
+          // For bishops, we have to check if the "leftmore" square is already occupied
+          // White bishop:
+          if (p_board->pieces[i][j].color == 0) {
+          if ((i == 0) && (j == 2 || j == 5)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          // Black bishop:
+          } else {
+          if ((i == 7) && (j == 2 || j == 5)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          }
+        } else if (p_board->pieces[i][j].type == KNIGHT){
+          // For knights, we have to check if the "leftmore" square is already occupied
+          // White knight:
+          if (p_board->pieces[i][j].color == 0) {
+          if ((i == 0) && (j == 1 || j == 6)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          // Black knight:
+          } else {
+          if ((i == 7) && (j == 1 || j == 6)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          }
+        } else if (p_board->pieces[i][j].type == PAWN){
+          // For pawn, we have a small for loop to check if the "leftmore" square is already occupied
+          // White pawn:
+          if (p_board->pieces[i][j].color == 0) {
+          if ((i == 1)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          // Black pawn:
+          } else {
+          if (i == 6) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          }
+        }
+      }
+    }
+  }
 
   // ### Find out where each piece that's currently on the board wants to move to ###
   // If the piece is currently on their destination, destination_arr = -1, square_is_already_destination = true
