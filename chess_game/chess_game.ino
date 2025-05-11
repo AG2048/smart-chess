@@ -2613,6 +2613,11 @@ void loop() {
 
     std::vector<std::pair<int8_t, int8_t>> reset_moves = reset_board(p_board);
 
+    // The reset_moves vector contains the (from, to) coordinate pairs. Each int8_t is a coordinate.
+    // Each coordinate is i*14+j. With the coordinate (0,0) being coordinate 3...
+    // 3 extra cols are added on left, 3 extra cols are added on right. 
+    // Regular chess board (x,y) coordinate is now converted to (y*14+3+x), so for x<0 it means graveyard on left, x>7 means graveyard on right
+
     for (int reset_idx = 0; reset_idx < reset_moves.size(); reset_idx++) {
       Serial.printf("move %d: [%d][%d] to [%d][%d]\n", reset_idx, reset_moves[reset_idx].first % 14, reset_moves[reset_idx].first / 14,
                     reset_moves[reset_idx].second % 14, reset_moves[reset_idx].second / 14);
