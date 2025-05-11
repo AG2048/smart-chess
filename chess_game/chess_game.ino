@@ -63,6 +63,7 @@ Timer game_timer;
 
 // 0 for white to move, 1 for black to move
 bool player_turn;
+int8_t player_is_computer[2];  // 0 for human, 1 for computer
 
 // 0 for player is not under check, 1 for player is under check
 bool current_player_under_check;
@@ -86,6 +87,8 @@ int8_t previous_destination_y = 0;
 int8_t previous_selected_x = 0;
 int8_t previous_selected_y = 0;
 int number_of_turns = 0;
+bool promotion_happened = false;  // If true, a pawn has been promoted
+bool is_first_move = true;  // If true, this is the first move of the game
 
 bool draw_three_fold_repetition;  // If true, the game is a draw due to three fold repetition
 bool draw_fifty_move_rule;        // If true, the game is a draw due to fifty move rule
@@ -611,6 +614,187 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
     }
   }
   return reset_moves;
+}
+
+// ############################################################
+// #                          STOCKFISH                       #
+// ############################################################
+
+// Pin definitions
+const int clk = 2;    
+const int WValid = 3;  
+const int WReady = 4; 
+const int WData = 7;   
+const int RValid = 5; 
+const int RReady = 6;  
+const int RData = 8;   
+const int OVERWRITE = 9;
+const int clock_half_period = 10; // how long a clock half period is in ms
+
+int stockfish_received_data = 0; // an int storing whatever stockfish sends us
+
+int stockfish_read() {
+  //
+  // State variables
+  int receiving = 0;
+  int i = 0;
+
+  // Begin with not ready
+  digitalWrite(clk, LOW);
+  digitalWrite(RReady, LOW);
+
+  // Rising clock - do one cycle for fun
+  delay(clock_half_period);
+  digitalWrite(clk, HIGH);
+  delay(clock_half_period);
+  digitalWrite(clk, LOW);
+
+  // Set ready
+  digitalWrite(RReady, HIGH);  // Indicate ready to receive
+  delay(clock_half_period);
+  int receivedData[14];
+  int current_data;
+
+  // Loop:
+  while (1) {
+    // Read data and valid status before edge
+    current_data = digitalRead(RData);
+    if (!receiving) receiving = digitalRead(RValid);
+
+    // Rising edge and falling edge
+    digitalWrite(clk, HIGH);
+    delay(clock_half_period);
+    digitalWrite(clk, LOW);
+
+    // load in data
+    if (receiving) {
+      digitalWrite(RReady, LOW);
+      receivedData[i++] = current_data;
+    }
+    if (i >= 14) {
+      break;
+    }
+  }
+
+  Serial.println("Data read from Raspberry Pi.");
+  int num_received = 0;
+  for (int j = 0; j < 14; j++) {
+    Serial.print(receivedData[j]);
+    Serial.print(" ");
+    num_received += receivedData[j] << j;
+  }
+  Serial.print("\t");
+  Serial.println(num_received);
+  num_received = 0;
+  for (int j = 0; j < 14; j++) {
+      num_received |= (receivedData[j] << (14-j-1));
+  }
+  digitalWrite(RReady, LOW);
+  digitalWrite(WValid, LOW);
+  return num_received; 
+}
+
+int pi_return_to_from_square(int value) {
+  // return the from square value
+  return (value >> 8) & 0b111111;;
+}
+int pi_return_to_to_square(int value) {
+  // return the to square value
+  return (value >> 2) & 0b111111;
+}
+int pi_return_to_promotion(int value) {
+  // return the promotion value
+  return value & 0b11;
+}
+
+int stockfish_write(bool writing_all_zeros, int is_programming, int programming_colour,
+          bool is_human, int programming_difficulty, int from_square,
+          int to_square, bool is_promotion,
+          int promotion_piece) {  // could change argument to: "Is programming"
+                                  // "programming_colour"
+                                  // "programming_difficulty" "from square" "to
+                                  // square" "if promotion" "promotion piece"
+  // 010000000000000 // a promotion is happening and we are promoting to queen.
+  // 000000000... // No promotion hapening
+  // 0100000000000011 // a promotion is happening, and we promoting to a knight.
+  uint8_t transmitting = 0;
+  int i = 0;
+  uint8_t temp_difficulty = programming_difficulty;
+  uint8_t temp_from = from_square;
+  uint8_t temp_to = to_square;
+  int datas[16] = {0};  // Example data, all zeros
+  if (!writing_all_zeros) {
+    if (is_programming) {
+      datas[0] = 1; 
+      datas[1] = programming_colour;
+      for (i = 2; i < 16; i++) {
+        datas[i] = temp_difficulty & 1 | is_human;
+        temp_difficulty = temp_difficulty >> 1;
+      }
+    } else {
+      datas[0] = 0;
+      datas[1] = is_promotion;
+      for (i = 7; i >= 2; i--) {
+        datas[i] = temp_from & 1;
+        temp_from = temp_from >> 1;
+      }
+      for (i = 13; i >= 8; i--) {
+        datas[i] = temp_to & 1;
+        temp_to = temp_to >> 1;
+      }
+      datas[14] = promotion_piece & 1;
+      datas[15] = promotion_piece >> 1;
+    }
+  }
+
+  digitalWrite(clk, LOW);
+  digitalWrite(WValid, LOW);
+  digitalWrite(WData, datas[0]);
+
+  delay(clock_half_period);
+  digitalWrite(clk, HIGH);
+  delay(clock_half_period);
+  digitalWrite(clk, LOW);
+
+  digitalWrite(WValid, HIGH);  // Indicate data is valid
+  delay(clock_half_period);
+
+  i = 0;
+
+  while (true) {
+    if (!transmitting) {
+      transmitting = digitalRead(WReady);
+    }  // Set valid back to zero
+    // Serial.print("WREADY: ");
+    // Serial.println(digitalRead(WReady));
+    digitalWrite(clk, HIGH);
+    delay(clock_half_period);
+    digitalWrite(clk, LOW);
+    if (transmitting) {
+      // Serial.print("WRITING BIT: ");
+      // Serial.print(i);
+      // Serial.print(" ");
+      // Serial.println(datas[i]);
+
+      digitalWrite(WValid, LOW);
+      i++;
+      if (i >= 16) {
+        break;
+      }
+      digitalWrite(WData, datas[i]);
+    }
+    delay(clock_half_period);
+  }
+  // Serial.println("Data sent to Raspberry Pi.");
+  // for (int j = 0; j < 16; j++) {
+  //   Serial.print(datas[j]);
+  //   Serial.print(" ");
+  // }
+  digitalWrite(RReady, LOW);
+  digitalWrite(WValid, LOW);
+  // Serial.println("");
+  // delay(5000);
+  return 0;
 }
 
 // ############################################################
@@ -1756,6 +1940,33 @@ void loop() {
     display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[0], idle_joystick_y[0], display_one, 0);
 
     // STOCKFISHTODO: Read from stockfish data pins until we get 10101010101010.... or 01010101010101... Then set OVERWRITE pin to true.
+    pinMode(clk, OUTPUT);
+    pinMode(RValid, INPUT);
+    pinMode(RReady, OUTPUT);
+    pinMode(RData, INPUT);
+    pinMode(WValid, OUTPUT);
+    pinMode(WReady, INPUT);
+    pinMode(WData, OUTPUT);
+    pinMode(OVERWRITE, OUTPUT);
+
+    // Set initial state of pins
+    digitalWrite(clk, LOW);
+    digitalWrite(RReady, LOW);
+    digitalWrite(WValid, LOW);
+    digitalWrite(WData, LOW);
+    digitalWrite(OVERWRITE, LOW);
+    bool initialized = false;
+
+    // Wait for the stockfish to initialize
+    while (!initialized) {
+      stockfish_received_data = read();
+      if (stockfish_received_data == 0b10101010101010 ||
+          stockfish_received_data == 0b01010101010101) {
+        initialized = true;
+        digitalWrite(OVERWRITE, HIGH);
+      }
+    }
+    Serial.println("Stockfish initialized");
 
     // TODO
     game_state = GAME_IDLE;
@@ -1833,6 +2044,35 @@ void loop() {
     // If both players are ready, start the game
     if (player_ready[0] && player_ready[1]) {
       game_state = GAME_INITIALIZE;
+      is_first_move = true;  // Set to true so we can send the first move to stockfish
+
+      // Remember if players are human or computer
+      // 0 = human, 1 = computer
+      player_is_computer[0] = idle_joystick_x[0];
+      player_is_computer[1] = idle_joystick_x[1];
+
+      // STOCKFISHTODO: Send player types and game difficulty of BOTH players to Stockfish
+      // STOCKFISHTODO: If white is a computer, also write all zeros to indicate a beginning move
+      write(0,   // writing_all_zeros
+        1,   // is programming
+        0,   // programming colour
+        !idle_joystick_x[0],   // is human
+        idle_joystick_y[0],  // difficulty
+        0,   // from square (doesn't matter)
+        0,   // to square (doesn't matter)
+        0,   // is promotion (doesn't matter)
+        0);  // promotion square (doesn't matter)
+
+      write(0,   // writing_all_zeros
+        1,   // is programming
+        1,   // programming colour
+        !idle_joystick_x[1],   // is human
+        idle_joystick_y[1],  // difficulty
+        0,   // from square (doesn't matter)
+        0,   // to square (doesn't matter)
+        0,   // is promotion (doesn't matter)
+        0);  // promotion square (doesn't matter)
+
       // reset confirm button pressed
       confirm_button_pressed[0] = false;
       confirm_button_pressed[1] = false;
@@ -1844,9 +2084,6 @@ void loop() {
       idle_joystick_y[0] = 0;
       idle_joystick_x[1] = 0;
       idle_joystick_y[1] = 0;
-
-      // STOCKFISHTODO: Send player types and game difficulty of BOTH players to Stockfish
-      // STOCKFISHTODO: If white is a computer, also write all zeros to indicate a beginning move
     }
 
     // game_state = GAME_INITIALIZE;
@@ -1980,6 +2217,37 @@ void loop() {
       return;
     }
 
+    // WE HAVE FINISHED ALL "GAME_OVER" CHECKS, tell stockfish what move just happened (this happened before the move variables are reset)
+    // STOCKFISHTODO: Send the move that was made (selected_x, selected_y, destination_x, destination_y) to stockfish
+    // STOCKFISHTODO: Also include promotion if there was any (see if promotion_type is -1 or not)
+    if (is_first_move){
+      // In the case of first move, only send something to stockfish if white is a computer
+      is_first_move = false;
+      if (player_is_computer[0]) {
+        // If white is a computer, send all zeros to stockfish for the first move
+        write(1,   // writing_all_zeros
+          0,   // is programming
+          0,   // programming colour
+          0,   // is human
+          0,  // difficulty
+          0,   // from square
+          0,   // to square
+          0,   // is promotion (doesn't matter)
+          0);  // promotion square (doesn't matter)
+      }
+    } else {
+      // If not first move, send the move to stockfish
+      stockfish_write(0,                 // writing_all_zeros
+        0,                 // is programming
+        0,                 // programming colour
+        0,                 // is human
+        20,                // difficulty
+        selected_y * 8 + selected_x ,       // from square
+        destination_y * 8 + destination_x,         // to square
+        promotion_happened,                 // is promotion
+        promotion_joystick_selection);  // promotion square
+    }
+
     // TEMP DISPLAY CODE:
     serial_display_board_and_selection();
 
@@ -2031,6 +2299,57 @@ void loop() {
     // STOCKFISHTODO: If any error occurs here, just make the FIRST move in the list of possible moves.
     // STOCKFISHTODO: Stockfish may also return promotion piece. If so, set promotion_joystick_selection to the correct value.
     // STOCKFISHTODO: Then we directly move to GAME_MOVE_MOTOR
+    
+    if (player_is_computer[player_turn]) {
+      // Receive from stockfish, convert to x,y coordinates
+      // Assuming stockfish doesn't return any errors. // TODO: if there happens to be error here we might need to check...
+      stockfish_received_data = stockfish_read();
+      int8_t stockfish_from_x = pi_return_to_from_square(received_data) % 8;
+      int8_t stockfish_from_y = pi_return_to_from_square(received_data) / 8;
+      int8_t stockfish_to_x = pi_return_to_to_square(received_data) % 8;
+      int8_t stockfish_to_y = pi_return_to_to_square(received_data) / 8;
+      int8_t stockfish_promotion = pi_return_to_promotion(received_data);
+      selected_x = stockfish_from_x;
+      selected_y = stockfish_from_y;
+      destination_x = stockfish_to_x;
+      destination_y = stockfish_to_y;
+      promotion_joystick_selection = stockfish_promotion;
+      bool valid_move = false;
+      for (int8_t i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
+        if (all_moves[selected_y][selected_x][i].first%8 == destination_x &&
+            all_moves[selected_y][selected_x][i].first/8 == destination_y) {
+          valid_move = true;
+          capture_x = all_moves[selected_y][selected_x][i].second%8;
+          capture_y = all_moves[selected_y][selected_x][i].second/8;
+          break;
+        }
+      }
+      if (!valid_move) {
+        // Invalid move, just take the first move.
+        for(int i = 0; i < 8; i++){
+          bool found = false;
+          for(int j = 0; j < 8; j++){
+            if(all_moves[i][j].size() > 0){
+              selected_x = j;
+              selected_y = i;
+              destination_x = all_moves[i][j][0].first % 8;
+              destination_y = all_moves[i][j][0].first / 8;
+              capture_x = all_moves[i][j][0].second % 8;
+              capture_y = all_moves[i][j][0].second / 8;
+              found = true;
+              break;
+            }
+          }
+          if(found){
+            break;
+          }
+        }
+      }
+      
+      // Computer move, straight to motor
+      game_state = GAME_MOVE_MOTOR;
+    }
+
 
     setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
     
@@ -2368,14 +2687,16 @@ void loop() {
                         capture_x, capture_y);
     // Check if a pawn can promote
     if (p_board->can_pawn_promote(destination_x, destination_y)) {
+      promotion_happened = true;
       game_state = GAME_WAIT_FOR_SELECT_PAWN_PROMOTION;
       // STOCKFISHTODO: If this player is a computer, then the promotion_joystick_selection should already be set by stockfish
       // STOCKFISHTODO: Then we do not modify promotion_joystick_selection here (since it's already set in get_move part)
-      promotion_joystick_selection = 0; // default to queen
+      if (!player_is_computer[player_turn]) promotion_joystick_selection = 0; // default to queen
       // display_init();
       display_promotion(player_turn, 0, display_one, display_two);
       // free_displays();
     } else {
+      promotion_happened = false;
       game_state = GAME_END_TURN;
     }
   } else if (game_state == GAME_WAIT_FOR_SELECT_PAWN_PROMOTION) {
@@ -2409,16 +2730,19 @@ void loop() {
     // Get button input, update joystick location (Special for pawn promotion,
     // use promotion_joystick_selection) (there's only 4 possible values, 0, 1, 2, 3)
     // display_init();
-    move_user_joystick_promotion(player_turn);
-    // free_displays();
+    if (!player_is_computer[player_turn]) {
+      // Only check for joystick if the player is not a computer
+      move_user_joystick_promotion(player_turn);
 
-    // Don't move until the confirm button is pressed
-    // STOCKFISHTODO: If this player is a computer, then just proceed... Do not wait for confirm button
-    if (confirm_button_pressed[player_turn]) {
-      confirm_button_pressed[player_turn] = false;
-    } else {
-      return;
+      // Don't move until the confirm button is pressed
+      // STOCKFISHTODO: If this player is a computer, then just proceed... Do not wait for confirm button
+      if (confirm_button_pressed[player_turn]) {
+        confirm_button_pressed[player_turn] = false;
+      } else {
+        return;
+      }
     }
+    // free_displays();
 
     // 0, 1, 2, 3 are the possible promotion pieces that promotion_joystick_selection can take, updated by move_user_joystick_promotion
     promotion_type = promotion_joystick_selection;
@@ -2553,9 +2877,6 @@ void loop() {
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
-
-    // STOCKFISHTODO: Send the move that was made (selected_x, selected_y, destination_x, destination_y) to stockfish
-    // STOCKFISHTODO: Also include promotion if there was any (see if promotion_type is -1 or not)
 
     game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_OVER_WHITE_WIN) {
