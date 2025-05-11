@@ -243,7 +243,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   
   // TODO: loop thru the board, and find ALL R,B,N,pawns that are at ONE of their valid destination squares. 
   // The idea of this code is to prevent the case where a piece is at its destination square, and then we move it to another square.
-  
+
 
   // ### Find out where each piece that's currently on the board wants to move to ###
   // If the piece is currently on their destination, destination_arr = -1, square_is_already_destination = true
@@ -388,8 +388,8 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       loop_detected = 0;
 
       // Remember the first index in the chain
-      temp_x = curr_idx % 8;
-      temp_y = curr_idx / 8;
+      int8_t starting_x = j;
+      int8_t starting_y = i;
 
       // Handle the chain of indices
       while (1)
@@ -403,7 +403,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
         } // else, chain continues and we go to the next index
 
         // Check if curr_idx wants to move to the first index in the chain
-        if (curr_idx == (temp_y * 14 + 3) + temp_x)
+        if (curr_idx == (starting_y * 14 + 3) + starting_x)
         {
           loop_detected = 1; // Loop detected
           break;            // Exit while loop
@@ -414,7 +414,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       if (loop_detected)
       {
         // The temp square is at: 8,0 or -1,8. Move it to closer square
-        if (j < 4){
+        if (starting_x < starting_y){
           temp_x = -1;
           temp_y = 8;
         } else {
@@ -438,8 +438,9 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       // If loop detected, add the temp square to the first square destination
       if (loop_detected)
       {
-        reset_moves.push_back(std::make_pair((temp_y * 14 + 3) + temp_x, destination_arr[i * 14 + 3 + j]));
-        destination_arr[i * 14 + 3 + j] = -1;
+        // cuz the one moved to temp location is always the starting square
+        reset_moves.push_back(std::make_pair((temp_y * 14 + 3) + temp_x, destination_arr[starting_y * 14 + 3 + starting_x]));
+        destination_arr[starting_y * 14 + 3 + starting_x] = -1;
       }
       // Flush the stack
       current_chain.clear();
@@ -452,10 +453,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   {
     while (graveyard[i] > 0)
     {
+      // Update the graveyard memory
+      graveyard[i]--; // we decrease first cuz we want the piece square, not the empty square. 
       // Find the first empty square in graveyard (the function takes 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for pawn)
       std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i%5)+1, i < 5);
-      // Update the graveyard memory
-      graveyard[i]--;
       // Find the first available square on the board
       if (i==0) {
         // White queen
