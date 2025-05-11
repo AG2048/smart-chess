@@ -210,8 +210,8 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   std::vector<std::pair<int8_t, int8_t>> reset_moves; // The vector to be returned
 
   // An array to keep track of where each piece wants to move to (for 2nd step)
-  int8_t destination_arr[64] = {-1}; // Initialize every element to -1
-  bool square_is_already_destination[64] = {false}; // Initialize every element to false
+  int8_t destination_arr[14*8] = {-1}; // Initialize every element to -1
+  bool square_is_already_destination[14*8] = {false}; // Initialize every element to false, this array is to keep track if a square has been designated a destination already (so 2 pieces of same kind don't move to same square)
 
   // ### Moving all temp pieces off of the board ###
   // Looping through all of the pieces in the board to find temp pieces
@@ -229,7 +229,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
             // Find first empty square in graveyard, send it back (graveyard (6 == temp piece))
             std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate(6, p_board->pieces[i][j]->get_color());
             // Add the move to the reset_moves vector
-            reset_moves.push_back(std::make_pair((j * 14 + 3) + i, (graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first));
+            reset_moves.push_back(std::make_pair((i * 14 + 3) + j, (graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first));
             // Update the graveyard memory
             graveyard[10 + p_board->pieces[i][j]->get_color()]++;
             // Update the board object, make it think this square is empty
@@ -240,6 +240,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       }
     }
   }
+  
+  // TODO: loop thru the board, and find ALL R,B,N,pawns that are at ONE of their valid destination squares. 
+  // The idea of this code is to prevent the case where a piece is at its destination square, and then we move it to another square.
+  
 
   // ### Find out where each piece that's currently on the board wants to move to ###
   // If the piece is currently on their destination, destination_arr = -1, square_is_already_destination = true
@@ -247,8 +251,8 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
     for (int8_t i = 0; i < 8; i++) {
       // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
       if (p_board->pieces[i][j].type == EMPTY) {
-      // Ignore empty squares
-      continue;
+        // Ignore empty squares
+        continue;
       } else {
         // Find out where this piece originally belongs to
         if (p_board->pieces[i][j].type == KING){
