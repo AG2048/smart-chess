@@ -1290,15 +1290,17 @@ const uint8_t LED_BOARD_PIN[5] = {12, 13, 14, 15, 16};
 const uint8_t LED_PROMOTION_PIN = 17; 
 const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
-struct CRGB led_display[5][STRIP_LEN]; // Array 0-2 is for first 3 blocks of LEDs, 3 and 4 combine to make the last block of LEDs
 struct CRGB led_promotion[PROMOTION_STRIP_LEN];
+struct CRGB led_display[5][STRIP_LEN]; 
+// Due to hardware limitations, the 4th block of 256 leds (8 rows) has to be addressed separately as a 5 row and 3 row block
+// Thus led_display[3] and led_display[4] are both for the 4th block of 256 LEDs
 
 
 // If we wish to add cosmetic things, add another array of "previous states", or "pre-set patterns" or other stuff
 // Also we may need a separate LED strip timer variable to keep track "how long ago was the last LED update"
 // A function to update LED strip in each situation
 
-
+// Takes in a chess square coordinate and a local LED coordinate. Returns index and data line of the selected LED
 void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line){
   if (v % 2 == 0){
     index = u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * y);
@@ -1315,6 +1317,7 @@ void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line)
   }
 }
 
+// Sets specific LED to a specific colour
 void setLED(int x, int y, int u, int v, struct CRGB colour) {
   int index, data_line;
 
@@ -1326,6 +1329,9 @@ void setLED(int x, int y, int u, int v, struct CRGB colour) {
 // This function will NOT reset LEDs of squares that are not being used
 void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour){
   int *index, *data_line;
+
+  // Pattern Types
+  // 0-Solid, 1-Cursor, 2-Capture
 
   if(patternType == SOLID){
     for(int i = 0; i < LEDSPERSQUAREROW; i++){
@@ -1347,7 +1353,10 @@ void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour){
   }
 }
 
+// Assumes a fill_solid is called before this function
+// Sets a 4x4 square of LEDs to a specific colour
 void setSquareLED(int x, int y, int colourNumber, int patternType){
+  struct CRGB colour;
 
   // Colour Coding
   // 0-Cyan, 1-Green, 2-Yellow, 3-Orange, 4-Red, 5-Purple
@@ -1357,25 +1366,27 @@ void setSquareLED(int x, int y, int colourNumber, int patternType){
     for(int j = 0; j < 4; j++){
 
       if(colourNumber == CYAN){
-        set_LED_Pattern(x,y,patternType, CRGB(0, 255, 255));
+        colour = CRGB(0, 255, 255);
       }else if(colourNumber == GREEN){
-        set_LED_Pattern(x,y,patternType, CRGB(0, 255, 15));
+        colour = CRGB(0, 255, 15);
       }else if(colourNumber == YELLOW){
-        set_LED_Pattern(x,y,patternType, CRGB(255, 247, 18));
+        colour = CRGB(255, 247, 18);
       }else if(colourNumber == ORANGE){
-        set_LED_Pattern(x,y,patternType, CRGB(255, 153, 0));
+        colour = CRGB(255, 153, 0);
       }else if(colourNumber == RED){
-        set_LED_Pattern(x,y,patternType, CRGB(255, 0, 0));
+        colour = CRGB(255, 0, 0);
       }else if(colourNumber == PURPLE){
-        set_LED_Pattern(x,y,patternType, CRGB(209, 22, 219));
+        colour = CRGB(209, 22, 219);
       }
 
+      set_LED_Pattern(x, y, patternType, colour);
     }
 
   }
   
 }
 
+// Sets all the LEDs of the main board to off
 // Does not clear the promotion LEDs
 void clearLEDs() {
   int led_len;
@@ -1391,6 +1402,11 @@ void clearLEDs() {
 
     fill_solid(led_display[i], led_len, CRGB(0, 0, 0));
   }
+}
+
+// Idle animation for LEDs
+void idleAnimationLEDs() {
+  clearLEDs(); // for now just clears the LEDs
 }
 
 // ############################################################
@@ -1944,7 +1960,7 @@ void loop() {
     pinMode(PUL_PIN[1], OUTPUT);
     pinMode(DIR_PIN[1], OUTPUT);
     // Set LED to blank initially
-    clearLEDs()
+    clearLEDs();
 
     joystick_x[0] = 4;
     joystick_y[0] = 0;
@@ -2068,7 +2084,7 @@ void loop() {
     }
     
     // Board LED IDLE animation
-    clearLEDs()
+    idleAnimationLEDs();
 
     // OLED display: show the current selection
     // TODO:
@@ -2319,7 +2335,7 @@ void loop() {
     // orange) Also display sources of check, if any (red) (will be overwritten
     // by green if the cursor is on the same square) red on king square if under
     // check
-    clearLEDs()
+    clearLEDs();
     
     if(number_of_turns != 0){
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
@@ -2448,7 +2464,7 @@ void loop() {
     // Also highlight the "selected piece" with a different color (selected_x, selected_y) (blue) overwrites green 
     // Also display sources of check, if any (red) (will be overwritten by green if the cursor is on the same square) red on king square if under check, unless selected piece is on the king square
     // ALSO, display the possible moves of the selected piece (yellow) (overwrites orange)
-    clearLEDs()
+    clearLEDs();
     
     if(number_of_turns != 0){
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
@@ -2566,7 +2582,7 @@ void loop() {
     // need to display this, but ok if you want to)
     // Make sure to update the LED display to show the new move - WHILE THE MOTORS ARE MOVING
 
-    clearLEDs()
+    clearLEDs();
 
     setSquareLED(selected_x, selected_y, GREEN, SOLID);
     setSquareLED(destination_x, destination_y, RED, SOLID);
