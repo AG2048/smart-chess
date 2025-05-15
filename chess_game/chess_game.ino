@@ -1284,36 +1284,65 @@ const uint8_t PURPLE = 5;
 const uint8_t SOLID = 0;
 const uint8_t CURSOR = 1;
 const uint8_t CAPTURE = 2;
-const uint16_t STRIP_LEN = 1024;
+const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
-const uint8_t LED_BOARD_PIN = 12;
+const uint8_t LED_BOARD_PIN[5] = {12, 13, 14, 15, 16};
+const uint8_t LED_PROMOTION_PIN = 17; 
 const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
-struct CRGB led_display[STRIP_LEN+PROMOTION_STRIP_LEN];
+struct CRGB led_display[5][STRIP_LEN]; // Array 0-2 is for first 3 blocks of LEDs, 3 and 4 combine to make the last block of LEDs
+struct CRGB led_promotion[PROMOTION_STRIP_LEN];
+
+
 // If we wish to add cosmetic things, add another array of "previous states", or "pre-set patterns" or other stuff
 // Also we may need a separate LED strip timer variable to keep track "how long ago was the last LED update"
 // A function to update LED strip in each situation
 
+
+void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line){
+  if (v % 2 == 0){
+    index = u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * y);
+  } else {
+    index = -u + (COLUMNS * (v + 1)) - (LEDSPERSQUAREROW * x) + (LEDSPERROW * y) - 1;
+  }
+
+  if (index < 928) { // 928 is the first index of the 2nd type of LED
+    data_line = index / 256;
+    index -= data_line * 256;
+  } else {
+    data_line = 4;
+    index -= 928;
+  }
+}
+
+void setLED(int x, int y, int u, int v, struct CRGB colour) {
+  int index, data_line;
+
+  coordinate_to_index(x, y, u, v, index, data_line);
+  led_display[data_line][index] = colour;
+}
+
 // Assumes a fill_solid is called before this function
 // This function will NOT reset LEDs of squares that are not being used
-void set_LED_Pattern(int x, int y, int patternType, int R, int G, int B){
+void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour){
+  int *index, *data_line;
 
   if(patternType == SOLID){
     for(int i = 0; i < LEDSPERSQUAREROW; i++){
       for(int j = 0; j < LEDSPERSQUAREROW; j++){
-        led_display[coordinate_to_index(x,y,i,j)] = CRGB(R, G, B);
+        setLED(x, y, i, j, colour);
       }
     }
   }else if(patternType == CURSOR){
     for(int i = 1; i < LEDSPERSQUAREROW - 1; i++){
        for(int j = 1; j < LEDSPERSQUAREROW - 1; j++){
-        led_display[coordinate_to_index(x,y,i,j)] = CRGB(R, G, B);
+        setLED(x, y, i, j, colour);
       }
     }
   }else if(patternType == CAPTURE){
     for(int i = 0; i < LEDSPERSQUAREROW; i++){
-      led_display[coordinate_to_index(x,y,i,i)] = CRGB(R, G, B);
-      led_display[coordinate_to_index(x,y,i,LEDSPERSQUAREROW - 1 - i)] = CRGB(R, G, B);
+      setLED(x, y, i, i, colour);
+      setLED(x, y, i, LEDSPERSQUAREROW - 1 - i, colour);
     }
   }
 }
@@ -1328,23 +1357,17 @@ void setSquareLED(int x, int y, int colourNumber, int patternType){
     for(int j = 0; j < 4; j++){
 
       if(colourNumber == CYAN){
-        set_LED_Pattern(x,y,patternType, 0, 255, 255);
-        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(0, 255, 255);
+        set_LED_Pattern(x,y,patternType, CRGB(0, 255, 255));
       }else if(colourNumber == GREEN){
-        set_LED_Pattern(x,y,patternType, 0, 255, 15);
-        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(3, 255, 15);
+        set_LED_Pattern(x,y,patternType, CRGB(0, 255, 15));
       }else if(colourNumber == YELLOW){
-        set_LED_Pattern(x,y,patternType, 255, 247, 18);
-        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 247, 18);
+        set_LED_Pattern(x,y,patternType, CRGB(255, 247, 18));
       }else if(colourNumber == ORANGE){
-        set_LED_Pattern(x,y,patternType, 255, 153, 0);
-        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 255, 255);
+        set_LED_Pattern(x,y,patternType, CRGB(255, 153, 0));
       }else if(colourNumber == RED){
-        set_LED_Pattern(x,y,patternType, 255, 0, 0);
-        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(255, 0, 0);
+        set_LED_Pattern(x,y,patternType, CRGB(255, 0, 0));
       }else if(colourNumber == PURPLE){
-        set_LED_Pattern(x,y,patternType, 209, 22, 219);
-        // led_display[coordinate_to_index(x,y,i,j)] = CRGB(209, 22, 219);
+        set_LED_Pattern(x,y,patternType, CRGB(209, 22, 219));
       }
 
     }
@@ -1353,6 +1376,22 @@ void setSquareLED(int x, int y, int colourNumber, int patternType){
   
 }
 
+// Does not clear the promotion LEDs
+void clearLEDs() {
+  int led_len;
+
+  for (int i = 0; i < 5; i++) {
+    if (i < 3) {
+      led_len = STRIP_LEN;
+    } else if (i == 3) {
+      led_len = 5 * (STRIP_LEN / 8);
+    } else if (i == 4) {
+      led_len = 3 * (STRIP_LEN / 8);
+    } 
+
+    fill_solid(led_display[i], led_len, CRGB(0, 0, 0));
+  }
+}
 
 // ############################################################
 // #                       OLED DISPLAY                       #
@@ -1849,16 +1888,6 @@ void serial_display_board_and_selection() {
   }
 }
 
-int coordinate_to_index(int x, int y, int u, int v){
-
-  if(v % 2 == 0){
-    return u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * y);
-  }else{
-    return -u + COLUMNS * (v + 1) - (LEDSPERSQUAREROW * x) + (LEDSPERROW * y) - 1;
-  }
-
-}
-
 // ############################################################
 // #                           MAIN                           #
 // ############################################################
@@ -1868,7 +1897,12 @@ void setup() {
   Serial.println(freeMemory());
 
   // LED pin initialize:
-  LEDS.addLeds<WS2812B, LED_BOARD_PIN, GRB>(led_display, STRIP_LEN);
+  LEDS.addLeds<WS2812B, LED_BOARD_PIN[0], GRB>(led_display[0], STRIP_LEN);
+  LEDS.addLeds<WS2812B, LED_BOARD_PIN[1], GRB>(led_display[1], STRIP_LEN);
+  LEDS.addLeds<WS2812B, LED_BOARD_PIN[2], GRB>(led_display[2], STRIP_LEN);
+  LEDS.addLeds<WS2812B, LED_BOARD_PIN[3], GRB>(led_display[3], 5 * (STRIP_LEN / 8));
+  LEDS.addLeds<WS2812B, LED_BOARD_PIN[4], GRB>(led_display[4], 3 * (STRIP_LEN / 8));
+  LEDS.addLeds<WS2812B, LED_PROMOTION_PIN, GRB>(led_display[5], PROMOTION_STRIP_LEN);
   FastLED.setBrightness(LED_BRIGHTNESS);
 
   // Initial game state
@@ -1910,7 +1944,7 @@ void loop() {
     pinMode(PUL_PIN[1], OUTPUT);
     pinMode(DIR_PIN[1], OUTPUT);
     // Set LED to blank initially
-    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
+    clearLEDs()
 
     joystick_x[0] = 4;
     joystick_y[0] = 0;
@@ -2034,7 +2068,7 @@ void loop() {
     }
     
     // Board LED IDLE animation
-    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
+    clearLEDs()
 
     // OLED display: show the current selection
     // TODO:
@@ -2285,7 +2319,7 @@ void loop() {
     // orange) Also display sources of check, if any (red) (will be overwritten
     // by green if the cursor is on the same square) red on king square if under
     // check
-    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
+    clearLEDs()
     
     if(number_of_turns != 0){
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
@@ -2414,7 +2448,7 @@ void loop() {
     // Also highlight the "selected piece" with a different color (selected_x, selected_y) (blue) overwrites green 
     // Also display sources of check, if any (red) (will be overwritten by green if the cursor is on the same square) red on king square if under check, unless selected piece is on the king square
     // ALSO, display the possible moves of the selected piece (yellow) (overwrites orange)
-    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
+    clearLEDs()
     
     if(number_of_turns != 0){
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
@@ -2532,7 +2566,7 @@ void loop() {
     // need to display this, but ok if you want to)
     // Make sure to update the LED display to show the new move - WHILE THE MOTORS ARE MOVING
 
-    fill_solid(led_display, STRIP_LEN, CRGB(0, 0, 0));
+    clearLEDs()
 
     setSquareLED(selected_x, selected_y, GREEN, SOLID);
     setSquareLED(destination_x, destination_y, RED, SOLID);
@@ -2715,11 +2749,11 @@ void loop() {
     // goes thru) Also display the "move" that just happened by highlight
     // pieces... (orange colour)
 
-    for (int i = STRIP_LEN; i < STRIP_LEN+PROMOTION_STRIP_LEN; i++) {
-      if (i == STRIP_LEN+promotion_joystick_selection) {
-        led_display[i] = CRGB(255, 255, 255);
+    for (int i = 0; i < PROMOTION_STRIP_LEN; i++) {
+      if (i == promotion_joystick_selection) {
+        led_promotion[i] = CRGB(255, 255, 255);
       } else {
-        led_display[i] = CRGB(0, 0, 0);
+        led_promotion[i] = CRGB(0, 0, 0);
       }
     }
 
