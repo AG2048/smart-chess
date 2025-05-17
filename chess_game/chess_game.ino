@@ -225,7 +225,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   for (int8_t i = 0; i < 8; i++) {
     for (int8_t j = 0; j < 8; j++) {
       // i is x, j is y
-      if (p_board->pieces[i][j].type == EMPTY || p_board->pieces[i][j].type == PAWN) {
+      if (p_board->pieces[i][j]->type == EMPTY || p_board->pieces[i][j]->type == PAWN) {
         // Ignore pawn or empty squares
         continue;
       } else {
@@ -240,7 +240,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
             // Update the graveyard memory
             graveyard[10 + p_board->pieces[i][j]->get_color()]++;
             // Update the board object, make it think this square is empty
-            p_board->pieces[i][j].type = EMPTY;
+            p_board->pieces[i][j]->type = EMPTY;
             break;
           }
         }
@@ -253,15 +253,15 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
  for (int8_t j = 0; j < 8; j++) {
     for (int8_t i = 0; i < 8; i++) {
       // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
-      if (p_board->pieces[i][j].type == EMPTY || p_board->pieces[i][j].type == KING || p_board->pieces[i][j].type == QUEEN) {
+      if (p_board->pieces[i][j]->type == EMPTY || p_board->pieces[i][j]->type == KING || p_board->pieces[i][j]->type == QUEEN) {
         // Ignore empty squares
         continue;
       } else {
         // Find out where this piece originally belongs to
-        if (p_board->pieces[i][j].type == ROOK){
+        if (p_board->pieces[i][j]->type == ROOK){
           // For rooks, we have to check if the "leftmore" square is already occupied
           // White rook:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
             if ((i == 0) && (j == 0 || j ==7)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
@@ -273,10 +273,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j].type == BISHOP){
+        } else if (p_board->pieces[i][j]->type == BISHOP){
           // For bishops, we have to check if the "leftmore" square is already occupied
           // White bishop:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           if ((i == 0) && (j == 2 || j == 5)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
@@ -288,10 +288,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j].type == KNIGHT){
+        } else if (p_board->pieces[i][j]->type == KNIGHT){
           // For knights, we have to check if the "leftmore" square is already occupied
           // White knight:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           if ((i == 0) && (j == 1 || j == 6)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
@@ -303,10 +303,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j].type == PAWN){
+        } else if (p_board->pieces[i][j]->type == PAWN){
           // For pawn, we have a small for loop to check if the "leftmore" square is already occupied
           // White pawn:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           if ((i == 1)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
@@ -328,14 +328,14 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   for (int8_t j = 0; j < 8; j++) {
     for (int8_t i = 0; i < 8; i++) {
       // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
-      if (p_board->pieces[i][j].type == EMPTY) {
+      if (p_board->pieces[i][j]->type == EMPTY) {
         // Ignore empty squares
         continue;
       } else {
         // Find out where this piece originally belongs to
-        if (p_board->pieces[i][j].type == KING){
+        if (p_board->pieces[i][j]->type == KING){
           // White king:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 4;
           square_is_already_destination[(0 * 14 + 3) + 4] = true;
           // Black king:
@@ -343,9 +343,9 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 4;
           square_is_already_destination[(7 * 14 + 3) + 4] = true;
           }
-        } else if (p_board->pieces[i][j].type == QUEEN){
+        } else if (p_board->pieces[i][j]->type == QUEEN){
           // White queen:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 3;
           square_is_already_destination[(0 * 14 + 3) + 3] = true;
           // Black queen:
@@ -353,10 +353,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 3;
           square_is_already_destination[(7 * 14 + 3) + 3] = true;
           }
-        } else if (p_board->pieces[i][j].type == ROOK){
+        } else if (p_board->pieces[i][j]->type == ROOK){
           // For rooks, we have to check if the "leftmore" square is already occupied
           // White rook:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           if (square_is_already_destination[(0 * 14 + 3) + 0] == false) {
             destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 0;
             square_is_already_destination[(0 * 14 + 3) + 0] = true;
@@ -374,10 +374,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
             square_is_already_destination[(7 * 14 + 3) + 7] = true;
           }
           }
-        } else if (p_board->pieces[i][j].type == BISHOP){
+        } else if (p_board->pieces[i][j]->type == BISHOP){
           // For bishops, we have to check if the "leftmore" square is already occupied
           // White bishop:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           if (square_is_already_destination[(0 * 14 + 3) + 2] == false) {
             destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 2;
             square_is_already_destination[(0 * 14 + 3) + 2] = true;
@@ -395,10 +395,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
             square_is_already_destination[(7 * 14 + 3) + 5] = true;
           }
           }
-        } else if (p_board->pieces[i][j].type == KNIGHT){
+        } else if (p_board->pieces[i][j]->type == KNIGHT){
           // For knights, we have to check if the "leftmore" square is already occupied
           // White knight:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           if (square_is_already_destination[(0 * 14 + 3) + 1] == false) {
             destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 1;
             square_is_already_destination[(0 * 14 + 3) + 1] = true;
@@ -416,10 +416,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
             square_is_already_destination[(7 * 14 + 3) + 6] = true;
           }
           }
-        } else if (p_board->pieces[i][j].type == PAWN){
+        } else if (p_board->pieces[i][j]->type == PAWN){
           // For pawn, we have a small for loop to check if the "leftmore" square is already occupied
           // White pawn:
-          if (p_board->pieces[i][j].color == 0) {
+          if (p_board->pieces[i][j]->color == 0) {
           for (int8_t k = 0; k < 8; k++) {
             if (square_is_already_destination[(1 * 14 + 3) + k] == false) {
             destination_arr[(i * 14 + 3) + j] = (1 * 14 + 3) + k;
@@ -806,9 +806,9 @@ int stockfish_write(bool writing_all_zeros, int is_programming, int programming_
 // ############################################################
 
 // MOTOR CONTROL VARIABLES
-const int8_t PUL_PIN[] = {9, 7}; // x, y
-const int8_t DIR_PIN[] = {8, 6}; // x, y
-const int8_t LIMIT_PIN[] = {11, 12, 13, 14}; // x-, x+, y-, y+
+const int8_t PUL_PIN[] = {11, 9}; // x, y
+const int8_t DIR_PIN[] = {10, 8}; // x, y
+const int8_t LIMIT_PIN[] = {12, 13, 14, 15}; // x-, x+, y-, y+
 const int STEPS_PER_MM = 80; // measured value from testing, 3.95cm per rotation (1600 steps)
 const int MM_PER_SQUARE = 66; // width of chessboard squares in mm
 const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
@@ -1017,11 +1017,11 @@ int move_motor_to_origin(int offset) {
 
 // JOYSTICK CONTROL (each corresponds to the pin number) (first index is for white's joystick, second index is for black's joystick)
 // Joystick is active LOW, so connect the other pin to GND
-const int8_t JOYSTICK_POS_X_PIN[] = {2, 2};
-const int8_t JOYSTICK_POS_Y_PIN[] = {3, 3};
-const int8_t JOYSTICK_NEG_X_PIN[] = {4, 4};
-const int8_t JOYSTICK_NEG_Y_PIN[] = {5, 5};
-const int8_t JOYSTICK_BUTTON_PIN[] = {6, 45};
+const int8_t JOYSTICK_POS_X_PIN[] = {37, 37};
+const int8_t JOYSTICK_POS_Y_PIN[] = {39, 39};
+const int8_t JOYSTICK_NEG_X_PIN[] = {41, 41};
+const int8_t JOYSTICK_NEG_Y_PIN[] = {43, 43};
+const int8_t JOYSTICK_BUTTON_PIN[] = {47, 45};
 // User Joystick Location - keeping track of white x, black x, white y, black y
 int8_t joystick_x[2];
 int8_t joystick_y[2];
@@ -1375,7 +1375,7 @@ void setSquareLED(int x, int y, int colourNumber, int patternType){
         colour = CRGB(0, 255, 15);
       }else if(colourNumber == YELLOW){
         colour = CRGB(255, 247, 18);
-      }else if(colourNumber == ORANGE){
+      }else if(colourNumber == WHITE){
         colour = CRGB(255, 153, 0);
       }else if(colourNumber == RED){
         colour = CRGB(255, 0, 0);
@@ -2531,7 +2531,7 @@ void loop() {
       if(isCapture != -1){
         setSquareLED(x_move, y_move, RED, CAPTURE);
       } else {
-        setSquareLED(x_move, y_move, ORANGE, SOLID);
+        setSquareLED(x_move, y_move, WHITE, SOLID);
       }
 
       if (p_board->under_check(player_turn % 2)) {
@@ -3040,7 +3040,7 @@ void loop() {
     // Regular chess board (x,y) coordinate is now converted to (y*14+3+x), so for x<0 it means graveyard on left, x>7 means graveyard on right
 
     for (int reset_idx = 0; reset_idx < reset_moves.size(); reset_idx++) {
-      Serial.printf("move %d: [%d][%d] to [%d][%d]\n", reset_idx, reset_moves[reset_idx].first % 14, reset_moves[reset_idx].first / 14,
+      Serial.println("move %d: [%d][%d] to [%d][%d]\n", reset_idx, reset_moves[reset_idx].first % 14, reset_moves[reset_idx].first / 14,
                     reset_moves[reset_idx].second % 14, reset_moves[reset_idx].second / 14);
     } // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
