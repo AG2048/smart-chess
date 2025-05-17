@@ -1291,11 +1291,11 @@ const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
 // The pin define doesn't do anything, change the values manually later
-#define LED_BOARD_PIN_0 = 12
-#define LED_BOARD_PIN_1 = 13
-#define LED_BOARD_PIN_2 = 14
-#define LED_BOARD_PIN_3 = 15
-#define LED_BOARD_PIN_4 = 16
+// #define LED_BOARD_PIN_0 = 12
+// #define LED_BOARD_PIN_1 = 13
+// #define LED_BOARD_PIN_2 = 14
+// #define LED_BOARD_PIN_3 = 15
+// #define LED_BOARD_PIN_4 = 16
 const uint8_t LED_PROMOTION_PIN = 17; 
 const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
@@ -1453,6 +1453,8 @@ void free_displays() {
 
 void display_init() {
   if (!USING_OLED) {
+    display_one = nullptr;
+    display_two = nullptr;
     return; // Don't initialize displays if not using OLED
   }
 
@@ -1960,30 +1962,37 @@ void serial_display_board_and_selection() {
 
 void setup() {
   Serial.begin(9600);
+  delay(1000);  // Wait for serial monitor to open
+  Serial.println("Starting up...");
+  Serial.println("Free memory: ");
   Serial.println(freeMemory());
+  // return;
+  // Serial.println(freeMemory());
 
   // LED pin initialize:
-  LEDS.addLeds<WS2812B, 12, GRB>(led_display[0], STRIP_LEN);
-  LEDS.addLeds<WS2812B, 13, GRB>(led_display[1], STRIP_LEN);
-  LEDS.addLeds<WS2812B, 14, GRB>(led_display[2], STRIP_LEN);
-  LEDS.addLeds<WS2812B, 15, GRB>(led_display[3], 5 * (STRIP_LEN / 8));
-  LEDS.addLeds<WS2812B, 16, GRB>(led_display[4], 3 * (STRIP_LEN / 8));
-  LEDS.addLeds<WS2812B, LED_PROMOTION_PIN, GRB>(led_display[5], PROMOTION_STRIP_LEN);
-  FastLED.setBrightness(LED_BRIGHTNESS);
+  // LEDS.addLeds<WS2812B, 12, GRB>(led_display[0], STRIP_LEN);
+  // LEDS.addLeds<WS2812B, 13, GRB>(led_display[1], STRIP_LEN);
+  // LEDS.addLeds<WS2812B, 14, GRB>(led_display[2], STRIP_LEN);
+  // LEDS.addLeds<WS2812B, 15, GRB>(led_display[3], 5 * (STRIP_LEN / 8));
+  // LEDS.addLeds<WS2812B, 16, GRB>(led_display[4], 3 * (STRIP_LEN / 8));
+  // LEDS.addLeds<WS2812B, LED_PROMOTION_PIN, GRB>(led_display[5], PROMOTION_STRIP_LEN);
+  // FastLED.setBrightness(LED_BRIGHTNESS);
 
   // Initial game state
   game_state = GAME_POWER_ON;
 }
 
 void loop() {
-  // Serial.print("Current State: ");
-  // Serial.println(game_state);
-  // Serial.print("Free memory: ");
-  // Serial.println(freeMemory());
+  // Serial.println("Starting up...");
+  // return;
+  Serial.print("Current State: ");
+  Serial.println(game_state);
+  Serial.print("Free memory: ");
+  Serial.println(freeMemory());
 
-  FastLED.show();  // Display board via LEDs
+  // FastLED.show();  // Display board via LEDs
 
-  delay(50);  // Delay for 50ms - just a standard delay (although not necessary)
+  delay(500);  // Delay for 50ms - just a standard delay (although not necessary)
 
   // State machine, during each loop, we are in a certain state, each state handles the transition to the next state
   // Chained if block below does not have an else case
@@ -2257,6 +2266,10 @@ void loop() {
     // This is a software state, one cycle happens here
 
     // TODO: this is temporary, just to see the board state
+    // Print free memory
+    Serial.print("Free memory: ");
+    Serial.println(freeMemory());
+    // Print the board state
     serial_display_board_and_selection();
     // Check if 50 move rule is reached
     if (p_board->draw_move_counter >= 50) {
@@ -2321,6 +2334,7 @@ void loop() {
       }
       return;
     }
+    Serial.println("No checkmate or stalemate");
 
     // WE HAVE FINISHED ALL "GAME_OVER" CHECKS, tell stockfish what move just happened (this happened before the move variables are reset)
     // STOCKFISHTODO: Send the move that was made (selected_x, selected_y, destination_x, destination_y) to stockfish
@@ -2481,6 +2495,10 @@ void loop() {
     // When confirm button is pressed, update the selected piece location using the global variables joystick_x, joystick_y
     selected_x = joystick_x[player_turn];
     selected_y = joystick_y[player_turn];
+    Serial.println("Selected piece: ");
+    Serial.print(selected_x);
+    Serial.print(", ");
+    Serial.println(selected_y);
 
     display_turn_select(player_turn, joystick_x[player_turn], joystick_y[player_turn], selected_x, selected_y, destination_x, destination_y, display_one, display_two);
 
@@ -2496,6 +2514,7 @@ void loop() {
     }
 
     // TEMP DISPLAY TO SERIAL:
+    Serial.print("done this phase");
     serial_display_board_and_selection();
 
     // PROCEED TO NEXT STATE
@@ -2525,13 +2544,11 @@ void loop() {
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
       setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
-
-    std::vector<std::pair<int8_t, int8_t>> pairs_of_possible_moves;
-    pairs_of_possible_moves = p_board->pieces[selected_x][selected_y]->get_possible_moves(p_board);
-    for(int i = 0; i < pairs_of_possible_moves.size(); i++){
-      int x_move = pairs_of_possible_moves[i].first % 8;
-      int isCapture = pairs_of_possible_moves[i].second;
-      int y_move = pairs_of_possible_moves[i].first / 8;
+    
+    for(int i = 0; i < all_moves[selected_y][selected_x].size(); i++){
+      int x_move = all_moves[selected_y][selected_x][i].first % 8;
+      int isCapture = all_moves[selected_y][selected_x][i].second;
+      int y_move = all_moves[selected_y][selected_x][i].first / 8;
 
       if(isCapture != -1){
         setSquareLED(x_move, y_move, RED, CAPTURE);
