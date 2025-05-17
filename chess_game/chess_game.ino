@@ -1282,7 +1282,7 @@ const uint8_t LEDSPERSQUAREROW = 4;
 const uint8_t CYAN = 0;
 const uint8_t GREEN = 1;
 const uint8_t YELLOW = 2;
-const uint8_t WHITE = 3;
+const uint8_t W_WHITE = 3;
 const uint8_t RED = 4;
 const uint8_t PURPLE = 5;
 const uint8_t SOLID = 0;
@@ -1290,7 +1290,12 @@ const uint8_t CURSOR = 1;
 const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
-const uint8_t LED_BOARD_PIN[5] = {12, 13, 14, 15, 16};
+// The pin define doesn't do anything, change the values manually later
+#define LED_BOARD_PIN_0 = 12
+#define LED_BOARD_PIN_1 = 13
+#define LED_BOARD_PIN_2 = 14
+#define LED_BOARD_PIN_3 = 15
+#define LED_BOARD_PIN_4 = 16
 const uint8_t LED_PROMOTION_PIN = 17; 
 const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
@@ -1375,7 +1380,7 @@ void setSquareLED(int x, int y, int colourNumber, int patternType){
         colour = CRGB(0, 255, 15);
       }else if(colourNumber == YELLOW){
         colour = CRGB(255, 247, 18);
-      }else if(colourNumber == WHITE){
+      }else if(colourNumber == W_WHITE){
         colour = CRGB(255, 153, 0);
       }else if(colourNumber == RED){
         colour = CRGB(255, 0, 0);
@@ -1958,11 +1963,11 @@ void setup() {
   Serial.println(freeMemory());
 
   // LED pin initialize:
-  LEDS.addLeds<WS2812B, LED_BOARD_PIN[0], GRB>(led_display[0], STRIP_LEN);
-  LEDS.addLeds<WS2812B, LED_BOARD_PIN[1], GRB>(led_display[1], STRIP_LEN);
-  LEDS.addLeds<WS2812B, LED_BOARD_PIN[2], GRB>(led_display[2], STRIP_LEN);
-  LEDS.addLeds<WS2812B, LED_BOARD_PIN[3], GRB>(led_display[3], 5 * (STRIP_LEN / 8));
-  LEDS.addLeds<WS2812B, LED_BOARD_PIN[4], GRB>(led_display[4], 3 * (STRIP_LEN / 8));
+  LEDS.addLeds<WS2812B, 12, GRB>(led_display[0], STRIP_LEN);
+  LEDS.addLeds<WS2812B, 13, GRB>(led_display[1], STRIP_LEN);
+  LEDS.addLeds<WS2812B, 14, GRB>(led_display[2], STRIP_LEN);
+  LEDS.addLeds<WS2812B, 15, GRB>(led_display[3], 5 * (STRIP_LEN / 8));
+  LEDS.addLeds<WS2812B, 16, GRB>(led_display[4], 3 * (STRIP_LEN / 8));
   LEDS.addLeds<WS2812B, LED_PROMOTION_PIN, GRB>(led_display[5], PROMOTION_STRIP_LEN);
   FastLED.setBrightness(LED_BRIGHTNESS);
 
@@ -2054,7 +2059,7 @@ void loop() {
 
     // Wait for the stockfish to initialize
     while (!initialized && USING_STOCKFISH) { // skip if not using stockfish
-      stockfish_received_data = read();
+      stockfish_received_data = stockfish_read();
       if (stockfish_received_data == 0b10101010101010 ||
           stockfish_received_data == 0b01010101010101) {
         initialized = true;
@@ -2148,7 +2153,7 @@ void loop() {
         // 0 = human, 1 = computer
         player_is_computer[0] = idle_joystick_x[0];
         player_is_computer[1] = idle_joystick_x[1];
-        write(0,   // writing_all_zeros
+        stockfish_write(0,   // writing_all_zeros
           1,   // is programming
           0,   // programming colour
           !idle_joystick_x[0],   // is human
@@ -2158,7 +2163,7 @@ void loop() {
           0,   // is promotion (doesn't matter)
           0);  // promotion square (doesn't matter)
 
-        write(0,   // writing_all_zeros
+        stockfish_write(0,   // writing_all_zeros
           1,   // is programming
           1,   // programming colour
           !idle_joystick_x[1],   // is human
@@ -2325,7 +2330,7 @@ void loop() {
       is_first_move = false;
       if (player_is_computer[0]) {
         // If white is a computer, send all zeros to stockfish for the first move
-        write(1,   // writing_all_zeros
+        stockfish_write(1,   // writing_all_zeros
           0,   // is programming
           0,   // programming colour
           0,   // is human
@@ -2404,11 +2409,11 @@ void loop() {
       // Receive from stockfish, convert to x,y coordinates
       // Assuming stockfish doesn't return any errors. // TODO: if there happens to be error here we might need to check...
       stockfish_received_data = stockfish_read();
-      int8_t stockfish_from_x = pi_return_to_from_square(received_data) % 8;
-      int8_t stockfish_from_y = pi_return_to_from_square(received_data) / 8;
-      int8_t stockfish_to_x = pi_return_to_to_square(received_data) % 8;
-      int8_t stockfish_to_y = pi_return_to_to_square(received_data) / 8;
-      int8_t stockfish_promotion = pi_return_to_promotion(received_data);
+      int8_t stockfish_from_x = pi_return_to_from_square(stockfish_received_data) % 8;
+      int8_t stockfish_from_y = pi_return_to_from_square(stockfish_received_data) / 8;
+      int8_t stockfish_to_x = pi_return_to_to_square(stockfish_received_data) % 8;
+      int8_t stockfish_to_y = pi_return_to_to_square(stockfish_received_data) / 8;
+      int8_t stockfish_promotion = pi_return_to_promotion(stockfish_received_data);
       selected_x = stockfish_from_x;
       selected_y = stockfish_from_y;
       destination_x = stockfish_to_x;
@@ -2454,7 +2459,7 @@ void loop() {
     setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
     
     if (p_board->under_check(player_turn % 2)) {
-      setSquareLED((player_turn % 2) ? black_king_x : white_king_x, (player_turn % 2) ? black_king_y : white_king_y, RED, SOLID);
+      setSquareLED((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
     }
 
     // OLED display: show the current selection
@@ -2522,7 +2527,7 @@ void loop() {
     }
 
     std::vector<std::pair<int8_t, int8_t>> pairs_of_possible_moves;
-    pairs_of_possible_moves = pieces[selected_x][selected_y]->get_possible_moves(p_board);
+    pairs_of_possible_moves = p_board->pieces[selected_x][selected_y]->get_possible_moves(p_board);
     for(int i = 0; i < pairs_of_possible_moves.size(); i++){
       int x_move = pairs_of_possible_moves[i].first % 8;
       int isCapture = pairs_of_possible_moves[i].second;
@@ -2531,11 +2536,11 @@ void loop() {
       if(isCapture != -1){
         setSquareLED(x_move, y_move, RED, CAPTURE);
       } else {
-        setSquareLED(x_move, y_move, WHITE, SOLID);
+        setSquareLED(x_move, y_move, W_WHITE, SOLID);
       }
 
       if (p_board->under_check(player_turn % 2)) {
-        setSquareLED((player_turn % 2) ? black_king_x : white_king_x, (player_turn % 2) ? black_king_y : white_king_y, RED, SOLID);
+        setSquareLED((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
       }
     }
 
@@ -3040,8 +3045,17 @@ void loop() {
     // Regular chess board (x,y) coordinate is now converted to (y*14+3+x), so for x<0 it means graveyard on left, x>7 means graveyard on right
 
     for (int reset_idx = 0; reset_idx < reset_moves.size(); reset_idx++) {
-      Serial.println("move %d: [%d][%d] to [%d][%d]\n", reset_idx, reset_moves[reset_idx].first % 14, reset_moves[reset_idx].first / 14,
-                    reset_moves[reset_idx].second % 14, reset_moves[reset_idx].second / 14);
+      Serial.print("move ");
+      Serial.print(reset_idx);
+      Serial.print(": [");
+      Serial.print(reset_moves[reset_idx].first % 14);
+      Serial.print("][");
+      Serial.print(reset_moves[reset_idx].first / 14);
+      Serial.print("] to [");
+      Serial.print(reset_moves[reset_idx].second % 14);
+      Serial.print("][");
+      Serial.print(reset_moves[reset_idx].second / 14);
+      Serial.println("]");
     } // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
 
