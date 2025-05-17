@@ -11,6 +11,10 @@
 #include "PieceType.h"
 #include "Timer.h"
 
+// SOME DEBUG DEFINES...
+#define USING_STOCKFISH 0 // 1 for using stockfish, 0 for not using stockfish
+#define USING_OLED 0 // 1 for using OLED, 0 for not using OLED
+
 // OLED DEFINES
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -1419,6 +1423,9 @@ uint32_t last_interacted_time, last_idle_change;
 bool idle_one, idle_two;
 
 void free_displays() {
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
   // Serial.println("Freeing displays");
   // Serial.println(freeMemory());
   delete display_one;
@@ -1440,6 +1447,9 @@ void free_displays() {
 }
 
 void display_init() {
+  if (!USING_OLED) {
+    return; // Don't initialize displays if not using OLED
+  }
 
   // Initializing flags
   last_interacted_time = 0;
@@ -1497,6 +1507,10 @@ void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, ui
   display to display to a specific display
   */
 
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
+
   if (!is_idle) {
     // Stop the scrolling that may be happening
     display->stopscroll();
@@ -1528,6 +1542,10 @@ void display_turn_select(int8_t player_id, int8_t joystick_x, int8_t joystick_y,
     destination_x, destination_y ; the second move coordinate that player selects
       both assumed to be -1 if not set
   */
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
+
   char msg[100];
   // Convert joystick_x and joystick_y into correct ASCII values
   // joystick_x + 'a'
@@ -1602,6 +1620,9 @@ void display_while_motor_moving(int8_t player_id, int8_t selected_x, int8_t sele
     destination_x, destination_y ; the second move coordinate that player selects
       both assumed to be -1 if not set
   */
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
   char msg[100];
 
   // Clear the display
@@ -1643,6 +1664,9 @@ void display_promotion(int8_t player_promoting, int8_t piece, Adafruit_SSD1306 *
     piece to know which piece the promoting player is currently hovering, so we can print it on their display->
 
   */
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
   display_one->clearDisplay();
   display_one->setTextSize(1);
   display_one->setCursor(0, 0);
@@ -1718,6 +1742,9 @@ void display_game_over(int8_t winner, int8_t draw, Adafruit_SSD1306 *display_one
     depending on winner value, the corresponding helper functions will be called to display information to each display
 
   */
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
   if (draw == 0){
     // display winner
     if (winner == 0) {
@@ -1737,6 +1764,9 @@ void display_game_over(int8_t winner, int8_t draw, Adafruit_SSD1306 *display_one
 
 
 void display_select_player(Adafruit_SSD1306 *display) {
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
   display->clearDisplay();
   display->setTextSize(1);
   // Draw bitmap
@@ -1748,6 +1778,9 @@ void display_select_player(Adafruit_SSD1306 *display) {
 }
 
 void display_select_computer(Adafruit_SSD1306 *display, uint8_t comp_diff) {
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
   display->clearDisplay();
   display->setTextSize(1);
   display->setCursor(0, 0);
@@ -1759,6 +1792,9 @@ void display_select_computer(Adafruit_SSD1306 *display, uint8_t comp_diff) {
 }
 
 void display_idle_scroll(Adafruit_SSD1306 *display) {
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
   display->clearDisplay();
   display->setTextSize(2);
   display->setCursor(0, 0);
@@ -1773,6 +1809,9 @@ void display_idle_scroll(Adafruit_SSD1306 *display) {
 }
 
 void display_draw(int8_t draw, Adafruit_SSD1306 *display) {
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
 
   /*
     0 for no draw
@@ -1811,6 +1850,9 @@ void display_draw(int8_t draw, Adafruit_SSD1306 *display) {
 }
 
 void display_winner(int8_t winner, Adafruit_SSD1306 *display) {
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
 
   display->clearDisplay();
   display->setTextSize(1);
@@ -1825,6 +1867,9 @@ void display_winner(int8_t winner, Adafruit_SSD1306 *display) {
 }
 
 void display_loser(int8_t loser, Adafruit_SSD1306 *display) {
+  if (!USING_OLED) {
+    return; // Don't do anything about displays if not using OLED
+  }
 
   display->clearDisplay();
   display->setTextSize(1);
@@ -2008,7 +2053,7 @@ void loop() {
     bool initialized = false;
 
     // Wait for the stockfish to initialize
-    while (!initialized) {
+    while (!initialized && USING_STOCKFISH) { // skip if not using stockfish
       stockfish_received_data = read();
       if (stockfish_received_data == 0b10101010101010 ||
           stockfish_received_data == 0b01010101010101) {
@@ -2096,32 +2141,37 @@ void loop() {
       game_state = GAME_INITIALIZE;
       is_first_move = true;  // Set to true so we can send the first move to stockfish
 
-      // Remember if players are human or computer
-      // 0 = human, 1 = computer
-      player_is_computer[0] = idle_joystick_x[0];
-      player_is_computer[1] = idle_joystick_x[1];
-
       // STOCKFISHTODO: Send player types and game difficulty of BOTH players to Stockfish
       // STOCKFISHTODO: If white is a computer, also write all zeros to indicate a beginning move
-      write(0,   // writing_all_zeros
-        1,   // is programming
-        0,   // programming colour
-        !idle_joystick_x[0],   // is human
-        idle_joystick_y[0],  // difficulty
-        0,   // from square (doesn't matter)
-        0,   // to square (doesn't matter)
-        0,   // is promotion (doesn't matter)
-        0);  // promotion square (doesn't matter)
+      if (USING_STOCKFISH){
+        // Remember if players are human or computer
+        // 0 = human, 1 = computer
+        player_is_computer[0] = idle_joystick_x[0];
+        player_is_computer[1] = idle_joystick_x[1];
+        write(0,   // writing_all_zeros
+          1,   // is programming
+          0,   // programming colour
+          !idle_joystick_x[0],   // is human
+          idle_joystick_y[0],  // difficulty
+          0,   // from square (doesn't matter)
+          0,   // to square (doesn't matter)
+          0,   // is promotion (doesn't matter)
+          0);  // promotion square (doesn't matter)
 
-      write(0,   // writing_all_zeros
-        1,   // is programming
-        1,   // programming colour
-        !idle_joystick_x[1],   // is human
-        idle_joystick_y[1],  // difficulty
-        0,   // from square (doesn't matter)
-        0,   // to square (doesn't matter)
-        0,   // is promotion (doesn't matter)
-        0);  // promotion square (doesn't matter)
+        write(0,   // writing_all_zeros
+          1,   // is programming
+          1,   // programming colour
+          !idle_joystick_x[1],   // is human
+          idle_joystick_y[1],  // difficulty
+          0,   // from square (doesn't matter)
+          0,   // to square (doesn't matter)
+          0,   // is promotion (doesn't matter)
+          0);  // promotion square (doesn't matter)
+      } else {
+        // Set both to players if not using stockfish
+        player_is_computer[0] = 0;
+        player_is_computer[1] = 0;
+      }
 
       // reset confirm button pressed
       confirm_button_pressed[0] = false;
@@ -2285,7 +2335,7 @@ void loop() {
           0,   // is promotion (doesn't matter)
           0);  // promotion square (doesn't matter)
       }
-    } else {
+    } else if (USING_STOCKFISH) {
       // If not first move, send the move to stockfish
       stockfish_write(0,                 // writing_all_zeros
         0,                 // is programming
