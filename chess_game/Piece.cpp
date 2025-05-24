@@ -1,5 +1,10 @@
 #include "Piece.h"
 #include "Board.h"
+#include <stdint.h>
+#include <vector>
+#include <utility>
+#include <string.h>
+#include <Arduino.h>
 
 // The Piece Class
 

@@ -1,5 +1,10 @@
 #include "Board.h"
 #include "Piece.h"
+#include <stdint.h>
+#include <vector>
+#include <utility>
+#include <string.h>
+#include <Arduino.h>
 // #include "MemoryFree.h"
 
 void Board::update_three_fold_repetition_vector() {

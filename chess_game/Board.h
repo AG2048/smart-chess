@@ -3,8 +3,13 @@
 #ifndef BOARD_H
 #define BOARD_H
 #include "Piece.h"
-#include "ArduinoSTL.h"
+// #include "ArduinoSTL.h"
 #include "PieceType.h"
+#include <stdint.h>
+#include <vector>
+#include <utility>
+#include <string.h>
+#include <Arduino.h>
 
 class Piece;
 // The Board Class

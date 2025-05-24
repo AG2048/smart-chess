@@ -1,9 +1,14 @@
 // Piece.h
 #ifndef PIECE_H
 #define PIECE_H
-#include "ArduinoSTL.h"
+// #include "ArduinoSTL.h"
 #include "Board.h"
 #include "PieceType.h"
+#include <stdint.h>
+#include <vector>
+#include <utility>
+#include <string.h>
+#include <Arduino.h>
 
 class Board;
 
@@ -36,7 +41,7 @@ class Piece {
 
     // Function that returns x,y coordinates of all possible moves
 
-    std::vector<std::pair<int8_t, int8_t>> Piece::get_possible_moves(Board* board) const;
+    std::vector<std::pair<int8_t, int8_t>> get_possible_moves(Board* board) const;
 
     // Constructor
 

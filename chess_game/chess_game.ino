@@ -3,10 +3,15 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <stdint.h>
+#include <vector>
+#include <utility>
+#include <string.h>
+#include <Arduino.h>
 #include "FastLED.h"
-#include "ArduinoSTL.h"
+// #include "ArduinoSTL.h"
 #include "Board.h"
-#include "MemoryFree.h"
+// #include "MemoryFree.h"
 #include "Piece.h"
 #include "PieceType.h"
 #include "Timer.h"
@@ -1811,8 +1816,8 @@ void display_idle_scroll(Adafruit_SSD1306 *display) {
   // display->startscrollleft(0, 1); // (row 1, row 2). Scrolls just the first row of text.
   display->startscrollright(2, 3); // SSD1306 can't handle two concurrent scroll directions.
 
-  Serial.print("Free memory: ");
-  Serial.println(freeMemory());
+  // Serial.print("Free memory: ");
+  // Serial.println(freeMemory());
 }
 
 void display_draw(int8_t draw, Adafruit_SSD1306 *display) {
@@ -1964,8 +1969,8 @@ void setup() {
   Serial.begin(9600);
   delay(1000);  // Wait for serial monitor to open
   Serial.println("Starting up...");
-  Serial.println("Free memory: ");
-  Serial.println(freeMemory());
+  // Serial.println("Free memory: ");
+  // Serial.println(freeMemory());
   // return;
   // Serial.println(freeMemory());
 
@@ -1987,8 +1992,8 @@ void loop() {
   // return;
   Serial.print("Current State: ");
   Serial.println(game_state);
-  Serial.print("Free memory: ");
-  Serial.println(freeMemory());
+  // Serial.print("Free memory: ");
+  // Serial.println(freeMemory());
 
   // FastLED.show();  // Display board via LEDs
 
@@ -2267,8 +2272,8 @@ void loop() {
 
     // TODO: this is temporary, just to see the board state
     // Print free memory
-    Serial.print("Free memory: ");
-    Serial.println(freeMemory());
+    // Serial.print("Free memory: ");
+    // Serial.println(freeMemory());
     // Print the board state
     serial_display_board_and_selection();
     // Check if 50 move rule is reached
@@ -2668,7 +2673,7 @@ void loop() {
     display_while_motor_moving(player_turn, selected_x, selected_y, destination_x, destination_y, display_one, display_two);
     // free_displays();
     Serial.println("Moving piece by motor");
-    Serial.println(freeMemory());
+    // Serial.println(freeMemory());
 
     // Check if capture:
     if (capture_x != -1) {
