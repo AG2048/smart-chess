@@ -630,14 +630,14 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
 // ############################################################
 
 // Pin definitions
-const int clk = 2;    
-const int WValid = 3;  
-const int WReady = 4; 
-const int WData = 7;   
-const int RValid = 5; 
-const int RReady = 6;  
-const int RData = 8;   
-const int OVERWRITE = 9;
+const int clk = 0;    
+const int WValid = 15;  
+const int WReady = 2; 
+const int WData = 4;   
+const int RValid = 16; 
+const int RReady = 17;  
+const int RData = 5;   
+const int OVERWRITE = 18;
 const int clock_half_period = 10; // how long a clock half period is in ms
 
 int stockfish_received_data = 0; // an int storing whatever stockfish sends us
@@ -811,9 +811,9 @@ int stockfish_write(bool writing_all_zeros, int is_programming, int programming_
 // ############################################################
 
 // MOTOR CONTROL VARIABLES
-const int8_t PUL_PIN[] = {11, 9}; // x, y
-const int8_t DIR_PIN[] = {10, 8}; // x, y
-const int8_t LIMIT_PIN[] = {12, 13, 14, 15}; // x-, x+, y-, y+
+const int8_t PUL_PIN[] = {27, 12}; // x, y
+const int8_t DIR_PIN[] = {14, 13}; // x, y
+const int8_t LIMIT_PIN[] = {19, 3, 1, 23}; // x-, x+, y-, y+
 const int STEPS_PER_MM = 80; // measured value from testing, 3.95cm per rotation (1600 steps)
 const int MM_PER_SQUARE = 66; // width of chessboard squares in mm
 const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
@@ -1022,11 +1022,11 @@ int move_motor_to_origin(int offset) {
 
 // JOYSTICK CONTROL (each corresponds to the pin number) (first index is for white's joystick, second index is for black's joystick)
 // Joystick is active LOW, so connect the other pin to GND
-const int8_t JOYSTICK_POS_X_PIN[] = {37, 37};
-const int8_t JOYSTICK_POS_Y_PIN[] = {39, 39};
-const int8_t JOYSTICK_NEG_X_PIN[] = {41, 41};
-const int8_t JOYSTICK_NEG_Y_PIN[] = {43, 43};
-const int8_t JOYSTICK_BUTTON_PIN[] = {47, 45};
+const int8_t JOYSTICK_POS_X_PIN[] = {25, 25};
+const int8_t JOYSTICK_POS_Y_PIN[] = {35, 35};
+const int8_t JOYSTICK_NEG_X_PIN[] = {32, 32};
+const int8_t JOYSTICK_NEG_Y_PIN[] = {33, 33};
+const int8_t JOYSTICK_BUTTON_PIN[] = {26, 26};
 // User Joystick Location - keeping track of white x, black x, white y, black y
 int8_t joystick_x[2];
 int8_t joystick_y[2];
@@ -1967,7 +1967,7 @@ void serial_display_board_and_selection() {
 
 void setup() {
   Serial.begin(9600);
-  delay(1000);  // Wait for serial monitor to open
+  // delay(1000);  // Wait for serial monitor to open
   Serial.println("Starting up...");
   // Serial.println("Free memory: ");
   // Serial.println(freeMemory());
@@ -1997,15 +1997,16 @@ void loop() {
 
   // FastLED.show();  // Display board via LEDs
 
-  delay(500);  // Delay for 50ms - just a standard delay (although not necessary)
+  // delay(500);  // Delay for 50ms - just a standard delay (although not necessary)
 
   // State machine, during each loop, we are in a certain state, each state handles the transition to the next state
   // Chained if block below does not have an else case
   if (game_state == GAME_POWER_ON) {
     // Power on the board, motors calibrate, initialize pins, set LED to blank / off
+    Serial.print("Game Power ON");
 
     game_timer.start();  // Start the game timer
-
+    Serial.print("Game Power ON2");
     // Pins initialization
     // JOYSTICK are active low, so set them as INPUT_PULLUP (default HIGH)
     pinMode(JOYSTICK_POS_X_PIN[0], INPUT_PULLUP);
@@ -2018,13 +2019,16 @@ void loop() {
     pinMode(JOYSTICK_NEG_X_PIN[1], INPUT_PULLUP);
     pinMode(JOYSTICK_NEG_Y_PIN[1], INPUT_PULLUP);
     pinMode(JOYSTICK_BUTTON_PIN[1], INPUT_PULLUP);
+    Serial.print("Game Power ON3");
     // MOTOR pins
     pinMode(PUL_PIN[0], OUTPUT);
     pinMode(DIR_PIN[0], OUTPUT);
     pinMode(PUL_PIN[1], OUTPUT);
     pinMode(DIR_PIN[1], OUTPUT);
+    Serial.print("Game Power ON4");
     // Set LED to blank initially
     clearLEDs();
+    Serial.print("Game Power ON5");
 
     joystick_x[0] = 4;
     joystick_y[0] = 0;
@@ -2047,12 +2051,14 @@ void loop() {
 
     in_idle_screen = false;
     last_idle_change_time = game_timer.read();
+    Serial.print("Game Power ON6");
 
     // Initialize the OLED display
     display_init();
     display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[1], idle_joystick_y[1], display_two, 1);
     display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[0], idle_joystick_y[0], display_one, 0);
 
+    Serial.print("Game Power ON7");
     // STOCKFISHTODO: Read from stockfish data pins until we get 10101010101010.... or 01010101010101... Then set OVERWRITE pin to true.
     pinMode(clk, OUTPUT);
     pinMode(RValid, INPUT);
@@ -2063,12 +2069,15 @@ void loop() {
     pinMode(WData, OUTPUT);
     pinMode(OVERWRITE, OUTPUT);
 
+    Serial.print("Game Power ON8");
+
     // Set initial state of pins
     digitalWrite(clk, LOW);
     digitalWrite(RReady, LOW);
     digitalWrite(WValid, LOW);
     digitalWrite(WData, LOW);
     digitalWrite(OVERWRITE, LOW);
+    Serial.print("Game Power ON9");
     bool initialized = false;
 
     // Wait for the stockfish to initialize
