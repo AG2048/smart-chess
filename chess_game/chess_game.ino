@@ -35,6 +35,9 @@
 Adafruit_SSD1306 * display_one;
 Adafruit_SSD1306 * display_two;
 
+// Arduino MEGA as I2C subordinate
+#define SUBORDINATE_ADDRESS 8 // Address of the subordinate device
+
 // ############################################################
 // #                    GAME STATE CONTROL                    #
 // ############################################################
@@ -1022,11 +1025,86 @@ int move_motor_to_origin(int offset) {
 
 // JOYSTICK CONTROL (each corresponds to the pin number) (first index is for white's joystick, second index is for black's joystick)
 // Joystick is active LOW, so connect the other pin to GND
-const int8_t JOYSTICK_POS_X_PIN[] = {25, 25};
-const int8_t JOYSTICK_POS_Y_PIN[] = {35, 35};
-const int8_t JOYSTICK_NEG_X_PIN[] = {32, 32};
-const int8_t JOYSTICK_NEG_Y_PIN[] = {33, 33};
-const int8_t JOYSTICK_BUTTON_PIN[] = {26, 26};
+// Changes made: Now this just stores the value read by digital pin on Arduino Mega
+// The arduino mega will periodically send values back via I2C
+// Active LOW, so initialize to 1
+int8_t JOYSTICK_POS_X_VALUE[] = {1, 1};
+int8_t JOYSTICK_POS_Y_VALUE[] = {1, 1};
+int8_t JOYSTICK_NEG_X_VALUE[] = {1, 1};
+int8_t JOYSTICK_NEG_Y_VALUE[] = {1, 1};
+int8_t JOYSTICK_BUTTON_VALUE[] = {1, 1};
+
+enum {
+  JOYSTICK_0_POS_X_INDEX,
+  JOYSTICK_1_POS_X_INDEX,
+  JOYSTICK_0_POS_Y_INDEX,
+  JOYSTICK_1_POS_Y_INDEX,
+  JOYSTICK_0_NEG_X_INDEX,
+  JOYSTICK_1_NEG_X_INDEX,
+  JOYSTICK_0_NEG_Y_INDEX,
+  JOYSTICK_1_NEG_Y_INDEX,
+  JOYSTICK_0_BUTTON_INDEX,
+  JOYSTICK_1_BUTTON_INDEX,
+  JOYSTICK_PINS_COUNT
+};
+
+bool update_joystick_values() {
+  // Read joystick values from I2C
+  // Return true if successful, false otherwise
+  Wire.requestFrom(SUBORDINATE_ADDRESS, 2); // Request 2 bytes from slave
+  if (Wire.available() < 2) {
+    Serial.println("NO DATA");
+    return false; // Not enough data received
+  }
+  uint8_t data1 = Wire.read(); // Read first byte
+  uint8_t data2 = Wire.read(); // Read second byte
+  // Combine the two bytes into a single 16-bit value
+  // Note, data1 is lower byte and data2 is higher byte
+  // So LSB of data2 is the 8th bit of the combined value
+  uint16_t combinedData = data1 | (data2 << 8); // Combine the two bytes
+  // Print the received data for debugging
+  Serial.print("Received data: ");
+  Serial.print(combinedData, BIN); // Print in binary format
+  Serial.print(" (0x");
+  Serial.print(combinedData, HEX); // Print in hexadecimal format
+  Serial.println(")");
+  // Update joystick values based on the received data
+  JOYSTICK_POS_X_VALUE[0] = (combinedData >> JOYSTICK_0_POS_X_INDEX) & 1;
+  JOYSTICK_POS_X_VALUE[1] = (combinedData >> JOYSTICK_1_POS_X_INDEX) & 1;
+  JOYSTICK_POS_Y_VALUE[0] = (combinedData >> JOYSTICK_0_POS_Y_INDEX) & 1;
+  JOYSTICK_POS_Y_VALUE[1] = (combinedData >> JOYSTICK_1_POS_Y_INDEX) & 1;
+  JOYSTICK_NEG_X_VALUE[0] = (combinedData >> JOYSTICK_0_NEG_X_INDEX) & 1;
+  JOYSTICK_NEG_X_VALUE[1] = (combinedData >> JOYSTICK_1_NEG_X_INDEX) & 1;
+  JOYSTICK_NEG_Y_VALUE[0] = (combinedData >> JOYSTICK_0_NEG_Y_INDEX) & 1;
+  JOYSTICK_NEG_Y_VALUE[1] = (combinedData >> JOYSTICK_1_NEG_Y_INDEX) & 1;
+  JOYSTICK_BUTTON_VALUE[0] = (combinedData >> JOYSTICK_0_BUTTON_INDEX) & 1;
+  JOYSTICK_BUTTON_VALUE[1] = (combinedData >> JOYSTICK_1_BUTTON_INDEX) & 1;
+  // Print the joystick values for debugging
+  Serial.print("Joystick Values: ");
+  Serial.print("White X: ");
+  Serial.print(JOYSTICK_POS_X_VALUE[0]);
+  Serial.print(", White Y: ");
+  Serial.print(JOYSTICK_POS_Y_VALUE[0]);
+  Serial.print(", Black X: ");
+  Serial.print(JOYSTICK_POS_X_VALUE[1]);
+  Serial.print(", Black Y: ");
+  Serial.print(JOYSTICK_POS_Y_VALUE[1]);
+  Serial.print(", White Neg X: ");
+  Serial.print(JOYSTICK_NEG_X_VALUE[0]);
+  Serial.print(", White Neg Y: ");
+  Serial.print(JOYSTICK_NEG_Y_VALUE[0]);
+  Serial.print(", Black Neg X: ");
+  Serial.print(JOYSTICK_NEG_X_VALUE[1]);
+  Serial.print(", Black Neg Y: ");
+  Serial.print(JOYSTICK_NEG_Y_VALUE[1]);
+  Serial.print(", White Button: ");
+  Serial.print(JOYSTICK_BUTTON_VALUE[0]);
+  Serial.print(", Black Button: ");
+  Serial.println(JOYSTICK_BUTTON_VALUE[1]);
+  // Decode the pin value from the combined data
+  return true;
+}
+
 // User Joystick Location - keeping track of white x, black x, white y, black y
 int8_t joystick_x[2];
 int8_t joystick_y[2];
@@ -1057,11 +1135,12 @@ void move_user_joystick_x_y(bool color) {
   // Also display the OLED if a joystick movement is detected
 
   // Read the joystick values -- low is pressed, high is not pressed
-  int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
-  int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
-  int8_t neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
-  int8_t neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
-  int8_t button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+  update_joystick_values(); // Read joystick values from I2C
+  int8_t x_val = JOYSTICK_POS_X_VALUE[color];
+  int8_t y_val = JOYSTICK_POS_Y_VALUE[color];
+  int8_t neg_x_val = JOYSTICK_NEG_X_VALUE[color];
+  int8_t neg_y_val = JOYSTICK_NEG_Y_VALUE[color];
+  int8_t button_val = JOYSTICK_BUTTON_VALUE[color];
 
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
@@ -1130,11 +1209,13 @@ void move_user_joystick_promotion(bool color) {
   // Also show the OLED screen for joystick promotion selection
 
   // Read the joystick values -- low is pressed, high is not pressed
-  int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
-  int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
-  int8_t neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
-  int8_t neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
-  int8_t button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+  update_joystick_values(); // Read joystick values from I2C
+
+  int8_t x_val = JOYSTICK_POS_X_VALUE[color];
+  int8_t y_val = JOYSTICK_POS_Y_VALUE[color];
+  int8_t neg_x_val = JOYSTICK_NEG_X_VALUE[color];
+  int8_t neg_y_val = JOYSTICK_NEG_Y_VALUE[color];
+  int8_t button_val = JOYSTICK_BUTTON_VALUE[color];
 
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
@@ -1196,11 +1277,12 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
   // Handle displaying the IDLE screen. Only run if a change happened (joystick moved or button pressed)
 
   // Read the joystick values -- low is pressed, high is not pressed
-  int8_t x_val = digitalRead(JOYSTICK_POS_X_PIN[color]);
-  int8_t y_val = digitalRead(JOYSTICK_POS_Y_PIN[color]);
-  int8_t neg_x_val = digitalRead(JOYSTICK_NEG_X_PIN[color]);
-  int8_t neg_y_val = digitalRead(JOYSTICK_NEG_Y_PIN[color]);
-  int8_t button_val = digitalRead(JOYSTICK_BUTTON_PIN[color]);
+  update_joystick_values(); // Read joystick values from I2C
+  int8_t x_val = JOYSTICK_POS_X_VALUE[color];
+  int8_t y_val = JOYSTICK_POS_Y_VALUE[color];
+  int8_t neg_x_val = JOYSTICK_NEG_X_VALUE[color];
+  int8_t neg_y_val = JOYSTICK_NEG_Y_VALUE[color];
+  int8_t button_val = JOYSTICK_BUTTON_VALUE[color];
 
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
@@ -1967,6 +2049,7 @@ void serial_display_board_and_selection() {
 
 void setup() {
   Serial.begin(9600);
+  Wire.begin();
   // delay(1000);  // Wait for serial monitor to open
   Serial.println("Starting up...");
   // Serial.println("Free memory: ");
