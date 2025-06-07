@@ -2092,16 +2092,16 @@ void loop() {
     Serial.print("Game Power ON2");
     // Pins initialization
     // JOYSTICK are active low, so set them as INPUT_PULLUP (default HIGH)
-    pinMode(JOYSTICK_POS_X_PIN[0], INPUT_PULLUP);
-    pinMode(JOYSTICK_POS_Y_PIN[0], INPUT_PULLUP);
-    pinMode(JOYSTICK_NEG_X_PIN[0], INPUT_PULLUP);
-    pinMode(JOYSTICK_NEG_Y_PIN[0], INPUT_PULLUP);
-    pinMode(JOYSTICK_BUTTON_PIN[0], INPUT_PULLUP);
-    pinMode(JOYSTICK_POS_X_PIN[1], INPUT_PULLUP);
-    pinMode(JOYSTICK_POS_Y_PIN[1], INPUT_PULLUP);
-    pinMode(JOYSTICK_NEG_X_PIN[1], INPUT_PULLUP);
-    pinMode(JOYSTICK_NEG_Y_PIN[1], INPUT_PULLUP);
-    pinMode(JOYSTICK_BUTTON_PIN[1], INPUT_PULLUP);
+    // pinMode(JOYSTICK_POS_X_PIN[0], INPUT_PULLUP);
+    // pinMode(JOYSTICK_POS_Y_PIN[0], INPUT_PULLUP);
+    // pinMode(JOYSTICK_NEG_X_PIN[0], INPUT_PULLUP);
+    // pinMode(JOYSTICK_NEG_Y_PIN[0], INPUT_PULLUP);
+    // pinMode(JOYSTICK_BUTTON_PIN[0], INPUT_PULLUP);
+    // pinMode(JOYSTICK_POS_X_PIN[1], INPUT_PULLUP);
+    // pinMode(JOYSTICK_POS_Y_PIN[1], INPUT_PULLUP);
+    // pinMode(JOYSTICK_NEG_X_PIN[1], INPUT_PULLUP);
+    // pinMode(JOYSTICK_NEG_Y_PIN[1], INPUT_PULLUP);
+    // pinMode(JOYSTICK_BUTTON_PIN[1], INPUT_PULLUP);
     Serial.print("Game Power ON3");
     // MOTOR pins
     pinMode(PUL_PIN[0], OUTPUT);
