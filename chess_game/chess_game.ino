@@ -366,6 +366,8 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
       if (p_board->pieces[i][j]->type == EMPTY) {
         // Ignore empty squares
+        // However we should set its destination to -1, so that it doesn't get moved
+        destination_arr[(i * 14 + 3) + j] = -1;
         continue;
       } else if (destination_arr[(i * 14 + 3) + j] == -1) {
         // If this square is already designated a destination, continue, don't do anything
@@ -2104,8 +2106,8 @@ void setup() {
 void loop() {
   // Serial.println("Starting up...");
   // return;
-  Serial.print("Current State: ");
-  Serial.println(game_state);
+  // Serial.print("Current State: ");
+  // Serial.println(game_state);
   // Serial.print("Free memory: ");
   // Serial.println(freeMemory());
 
