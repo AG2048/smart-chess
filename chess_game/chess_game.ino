@@ -852,12 +852,14 @@ const int8_t DIR_PIN[] = {14, 13}; // x, y
 const int8_t LIMIT_PIN[] = {19, 3, 1, 23}; // x-, x+, y-, y+
 const int STEPS_PER_MM = 80; // measured value from testing, 3.95cm per rotation (1600 steps)
 const int MM_PER_SQUARE = 66; // width of chessboard squares in mm
+const int GRAVEYARD_GAP = 10; // gap between graveyard and chessboard in mm
+const int ORIGIN_GAP = 10; // gap between real origin and where gantry rests at default (prevents holding down limit switches)
 const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
 const int SLOW_STEP_DELAY = 100; // half the period of square wave pulse for stepper motor
 const long ORIGIN_RESET_TIMEOUT = 50000; // how many steps motor will attempt to recenter to origin before giving up
 
 int motor_error = 0; // 0: normal operation, 1: misaligned origin, 2: cannot reach origin (stuck)
-int motor_coordinates[2] = {0, 0};  // x, y coordinates of the motor in millimeters
+int motor_coordinates[2] = {-3, 0};  // x, y coordinates of the motor in millimeters
 
 void stepper_square_wave(int mode, int stepDelay) {
   // Modes: 0 -> x-axis, 1 -> y-axis, 2 -> x and y-axis
@@ -900,12 +902,26 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
   if (axisAligned || dx == 0 || dy == 0) {
     // Move x axis
     for (long i = 0; i < dx*STEPS_PER_MM; i++) {
-      //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+      // if (digitalRead(LIMIT_PIN[0])) {
+      //   motor_coordinates[0] = -3;
+      //   break;
+      // }
+      // if (digitalRead(LIMIT_PIN[1])) {
+      //   motor_coordinates[0] = 10;
+      //   break;
+      // }
       stepper_square_wave(0, stepDelay);
     }
     // Move y axis
     for (long i = 0; i < dy*STEPS_PER_MM; i++) {
-      //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
+      // if (digitalRead(LIMIT_PIN[2])) {
+      //   motor_coordinates[1] = -3;
+      //   break;
+      // }
+      // if (digitalRead(LIMIT_PIN[3])) {
+      //   motor_coordinates[1] = 7;
+      //   break;
+      // }
       stepper_square_wave(1, stepDelay);
     }
   } else if (dx == dy) {
@@ -961,20 +977,20 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
 
   // TODO
   // TODO: don't write the motor moving code here, just write the logic to move the motor and call motor_move_to_coordinate function
-  
+
   // Convert square coordinates to mm coordinates
   if (from_x < 0) {
-    from_x = from_x * MM_PER_SQUARE - 10;
+    from_x = from_x * MM_PER_SQUARE - GRAVEYARD_GAP;
   } else if (from_x > 7) {
-    from_x = from_x * MM_PER_SQUARE + 10;
+    from_x = from_x * MM_PER_SQUARE + GRAVEYARD_GAP;
   } else {
     from_x = from_x * MM_PER_SQUARE;
   }
 
   if (to_x < 0) {
-    to_x = to_x * MM_PER_SQUARE - 10;
+    to_x = to_x * MM_PER_SQUARE - GRAVEYARD_GAP;
   } else if (to_x > 7) {
-    to_x = to_x * MM_PER_SQUARE + 10;
+    to_x = to_x * MM_PER_SQUARE + GRAVEYARD_GAP;
   } else {
     to_x = to_x * MM_PER_SQUARE;
   }
@@ -986,7 +1002,9 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
   int corner_x, corner_y;
 
   // Move motor to starting location
-  if (ret = move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY)) return ret;
+  if (move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY)) {
+    //  move_motor_to_origin(10);
+  }
 
   delay(1000); // pick up piece
   Serial.println("Pick up piece");
@@ -1015,7 +1033,7 @@ int move_motor_to_origin(int offset) {
   // fastMove: if true, it will move fast until the last 50mm until "supposed" origin and move slowly until it hits the limit switch
   //           if false, it will move slowly from the beginning until it hits the limit switch
   // The function should reference motor_coordinates variable to estimate where it is
-  int dx = -motor_coordinates[0];
+  int dx = -3-motor_coordinates[0];
   int dy = -motor_coordinates[1];
   
   // Sets direction
@@ -3125,7 +3143,7 @@ void loop() {
     // End a turn - switch player
     player_turn = !player_turn;
 
-    move_motor_to_origin(10); // input is offset value, eyeball it during testing
+    move_motor_to_origin(ORIGIN_GAP); // input is offset value, eyeball it during testing
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
