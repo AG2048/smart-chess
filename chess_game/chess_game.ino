@@ -261,12 +261,40 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
  for (int8_t j = 0; j < 8; j++) {
     for (int8_t i = 0; i < 8; i++) {
       // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
-      if (p_board->pieces[i][j]->type == EMPTY || p_board->pieces[i][j]->type == KING || p_board->pieces[i][j]->type == QUEEN) {
+      if (p_board->pieces[i][j]->type == EMPTY) {
         // Ignore empty squares
         continue;
       } else {
-        // Find out where this piece originally belongs to
-        if (p_board->pieces[i][j]->type == ROOK){
+        // Find out if this piece is currently at its destination square
+        if (p_board->pieces[i][j]->type == KING){
+          // White king:
+          if (p_board->pieces[i][j]->color == 0) {
+            if ((i == 0) && (j == 4)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          // Black king:
+          } else {
+            if ((i == 7) && (j == 4)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          }
+        } else if (p_board->pieces[i][j]->type == QUEEN){
+          // White queen:
+          if (p_board->pieces[i][j]->color == 0) {
+            if ((i == 0) && (j == 3)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          // Black queen:
+          } else {
+            if ((i == 7) && (j == 3)) {
+              destination_arr[i * 14 + 3 + j] = -1;
+              square_is_already_destination[i * 14 + 3 + j] = true;
+            }
+          }
+        } else if (p_board->pieces[i][j]->type == ROOK){
           // For rooks, we have to check if the "leftmore" square is already occupied
           // White rook:
           if (p_board->pieces[i][j]->color == 0) {
@@ -338,6 +366,9 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
       if (p_board->pieces[i][j]->type == EMPTY) {
         // Ignore empty squares
+        continue;
+      } else if (destination_arr[(i * 14 + 3) + j] == -1) {
+        // If this square is already designated a destination, continue, don't do anything
         continue;
       } else {
         // Find out where this piece originally belongs to
