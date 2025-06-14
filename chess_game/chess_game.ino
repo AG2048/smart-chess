@@ -3204,7 +3204,7 @@ void loop() {
       Serial.print(reset_moves[reset_idx].second / 14);
       Serial.println("]");
 
-      move_piece_by_motor(reset_moves[reset_idx].first % 14, reset_moves[reset_idx].first / 14, reset_moves[reset_idx].second % 14, reset_moves[reset_idx].second / 14, true);
+      move_piece_by_motor((reset_moves[reset_idx].first % 14) - 3, reset_moves[reset_idx].first / 14, (reset_moves[reset_idx].second % 14) - 3, reset_moves[reset_idx].second / 14, true);
     } // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
 
