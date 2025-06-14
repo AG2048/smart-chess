@@ -1094,11 +1094,11 @@ bool update_joystick_values() {
   // So LSB of data2 is the 8th bit of the combined value
   uint16_t combinedData = data1 | (data2 << 8); // Combine the two bytes
   // Print the received data for debugging
-  Serial.print("Received data: ");
-  Serial.print(combinedData, BIN); // Print in binary format
-  Serial.print(" (0x");
-  Serial.print(combinedData, HEX); // Print in hexadecimal format
-  Serial.println(")");
+  // Serial.print("Received data: ");
+  // Serial.print(combinedData, BIN); // Print in binary format
+  // Serial.print(" (0x");
+  // Serial.print(combinedData, HEX); // Print in hexadecimal format
+  // Serial.println(")");
   // Update joystick values based on the received data
   JOYSTICK_POS_X_VALUE[0] = (combinedData >> JOYSTICK_0_POS_X_INDEX) & 1;
   JOYSTICK_POS_X_VALUE[1] = (combinedData >> JOYSTICK_1_POS_X_INDEX) & 1;
@@ -1111,27 +1111,27 @@ bool update_joystick_values() {
   JOYSTICK_BUTTON_VALUE[0] = (combinedData >> JOYSTICK_0_BUTTON_INDEX) & 1;
   JOYSTICK_BUTTON_VALUE[1] = (combinedData >> JOYSTICK_1_BUTTON_INDEX) & 1;
   // Print the joystick values for debugging
-  Serial.print("Joystick Values: ");
-  Serial.print("White X: ");
-  Serial.print(JOYSTICK_POS_X_VALUE[0]);
-  Serial.print(", White Y: ");
-  Serial.print(JOYSTICK_POS_Y_VALUE[0]);
-  Serial.print(", Black X: ");
-  Serial.print(JOYSTICK_POS_X_VALUE[1]);
-  Serial.print(", Black Y: ");
-  Serial.print(JOYSTICK_POS_Y_VALUE[1]);
-  Serial.print(", White Neg X: ");
-  Serial.print(JOYSTICK_NEG_X_VALUE[0]);
-  Serial.print(", White Neg Y: ");
-  Serial.print(JOYSTICK_NEG_Y_VALUE[0]);
-  Serial.print(", Black Neg X: ");
-  Serial.print(JOYSTICK_NEG_X_VALUE[1]);
-  Serial.print(", Black Neg Y: ");
-  Serial.print(JOYSTICK_NEG_Y_VALUE[1]);
-  Serial.print(", White Button: ");
-  Serial.print(JOYSTICK_BUTTON_VALUE[0]);
-  Serial.print(", Black Button: ");
-  Serial.println(JOYSTICK_BUTTON_VALUE[1]);
+  // Serial.print("Joystick Values: ");
+  // Serial.print("White X: ");
+  // Serial.print(JOYSTICK_POS_X_VALUE[0]);
+  // Serial.print(", White Y: ");
+  // Serial.print(JOYSTICK_POS_Y_VALUE[0]);
+  // Serial.print(", Black X: ");
+  // Serial.print(JOYSTICK_POS_X_VALUE[1]);
+  // Serial.print(", Black Y: ");
+  // Serial.print(JOYSTICK_POS_Y_VALUE[1]);
+  // Serial.print(", White Neg X: ");
+  // Serial.print(JOYSTICK_NEG_X_VALUE[0]);
+  // Serial.print(", White Neg Y: ");
+  // Serial.print(JOYSTICK_NEG_Y_VALUE[0]);
+  // Serial.print(", Black Neg X: ");
+  // Serial.print(JOYSTICK_NEG_X_VALUE[1]);
+  // Serial.print(", Black Neg Y: ");
+  // Serial.print(JOYSTICK_NEG_Y_VALUE[1]);
+  // Serial.print(", White Button: ");
+  // Serial.print(JOYSTICK_BUTTON_VALUE[0]);
+  // Serial.print(", Black Button: ");
+  // Serial.println(JOYSTICK_BUTTON_VALUE[1]);
   // Decode the pin value from the combined data
   return true;
 }
