@@ -27,6 +27,7 @@ void setup() {
   }
   Wire.begin(SUBORDINATE_ADDR);
   Wire.onRequest(requestEvent);
+  Serial.begin(9600);
 }
 
 void loop() {
@@ -44,4 +45,6 @@ void requestEvent() {
   // Send as 2 bytes, LSB first
   Wire.write(value & 0xFF);        // Send LSB
   Wire.write((value >> 8) & 0xFF); // Send MSB
+  Serial.print("Printed Value: ");
+  Serial.println(value);
 }
