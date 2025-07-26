@@ -31,6 +31,8 @@ Valid Captures: Red + X Pattern
 Pawn Promotion: Purple??
 
 ## Modules Used:
+`esp32` 3.2.1 by Espressif Systems 
+
 `Arduino_AVRSTL` 1.2.5 and `ArduinoSTL` 1.3.3 by Mike Matera
 
 `Adafruit BusIO` 1.17.0, `Adafruit GFX Library` 1.11.11, `Adafruit SSD1306` 2.5.13 by Adafruit
