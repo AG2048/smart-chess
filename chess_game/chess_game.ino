@@ -17,51 +17,51 @@
 #include "Timer.h"
 
 // SOME DEBUG DEFINES...
-#define USING_STOCKFISH 0 // 1 for using stockfish, 0 for not using stockfish
-#define USING_OLED 0 // 1 for using OLED, 0 for not using OLED
+#define USING_STOCKFISH 0  // 1 for using stockfish, 0 for not using stockfish
+#define USING_OLED 0       // 1 for using OLED, 0 for not using OLED
 
 // OLED DEFINES
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define SCREEN_WIDTH 128  // OLED display width, in pixels
+#define SCREEN_HEIGHT 64  // OLED display height, in pixels
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-// The pins for I2C are defined by the Wire-library. 
+// The pins for I2C are defined by the Wire-library.
 // On an arduino MEGA 2560: 20(SDA), 21(SCL)
 
-#define OLED_RESET     -1 // Reset pin (-1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS_ONE 0x3C // Address is 0x3D for 128x64
+#define OLED_RESET -1            // Reset pin (-1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS_ONE 0x3C  // Address is 0x3D for 128x64
 #define SCREEN_ADDRESS_TWO 0x3D  // Apparently the next address is 0x3D not 0x7A on the board.
 
-Adafruit_SSD1306 * display_one;
-Adafruit_SSD1306 * display_two;
+Adafruit_SSD1306 *display_one;
+Adafruit_SSD1306 *display_two;
 
 // Arduino MEGA as I2C subordinate
-#define SUBORDINATE_ADDRESS 8 // Address of the subordinate device
+#define SUBORDINATE_ADDRESS 8  // Address of the subordinate device
 
 // ############################################################
 // #                    GAME STATE CONTROL                    #
 // ############################################################
 
 enum GameState {
-  GAME_POWER_ON,    // Power on the board, motors calibrate
-  GAME_IDLE,        // No game is being played yet, waiting for a game to start
-  GAME_INITIALIZE,  // Game started, initialize the board
-  GAME_BEGIN_TURN,  // Begin a turn - generate moves, remove illegal moves,
-                    // check for checkmate/draw
-  GAME_WAIT_FOR_SELECT,  // Joystick moving, before pressing select button on
-                         // valid piece
-  GAME_WAIT_FOR_MOVE,  // Joystick moving, after pressing select button on valid
-                       // destination
-  GAME_MOVE_MOTOR,     // Motors moving pieces
-  GAME_END_MOVE,       // Update chess board, see if a pawn can promote
+  GAME_POWER_ON,                        // Power on the board, motors calibrate
+  GAME_IDLE,                            // No game is being played yet, waiting for a game to start
+  GAME_INITIALIZE,                      // Game started, initialize the board
+  GAME_BEGIN_TURN,                      // Begin a turn - generate moves, remove illegal moves,
+                                        // check for checkmate/draw
+  GAME_WAIT_FOR_SELECT,                 // Joystick moving, before pressing select button on
+                                        // valid piece
+  GAME_WAIT_FOR_MOVE,                   // Joystick moving, after pressing select button on valid
+                                        // destination
+  GAME_MOVE_MOTOR,                      // Motors moving pieces
+  GAME_END_MOVE,                        // Update chess board, see if a pawn can promote
   GAME_WAIT_FOR_SELECT_PAWN_PROMOTION,  // Joystick moving, before pressing
                                         // select button on promotion piece
-  GAME_PAWN_PROMOTION_MOTOR,  // Motors moving pieces for pawn promotion
-  GAME_END_TURN,              // End a turn - switch player
-  GAME_OVER_WHITE_WIN,        // White wins
-  GAME_OVER_BLACK_WIN,        // Black wins
-  GAME_OVER_DRAW,             // Draw
-  GAME_RESET                  // Reset the game
+  GAME_PAWN_PROMOTION_MOTOR,            // Motors moving pieces for pawn promotion
+  GAME_END_TURN,                        // End a turn - switch player
+  GAME_OVER_WHITE_WIN,                  // White wins
+  GAME_OVER_BLACK_WIN,                  // Black wins
+  GAME_OVER_DRAW,                       // Draw
+  GAME_RESET                            // Reset the game
 };
 
 // Game state
@@ -100,14 +100,14 @@ int8_t previous_selected_x = 0;
 int8_t previous_selected_y = 0;
 int number_of_turns = 0;
 bool promotion_happened = false;  // If true, a pawn has been promoted
-bool is_first_move = true;  // If true, this is the first move of the game
+bool is_first_move = true;        // If true, this is the first move of the game
 
 bool draw_three_fold_repetition;  // If true, the game is a draw due to three fold repetition
 bool draw_fifty_move_rule;        // If true, the game is a draw due to fifty move rule
 bool draw_stalemate;              // If true, the game is a draw due to stalemate
 bool draw_insufficient_material;  // If true, the game is a draw due to insufficient material
 
-// Graveyard will be updated when a piece is captured - must consider cases of: 
+// Graveyard will be updated when a piece is captured - must consider cases of:
 // 1. normal piece captured - it can immediately replace a temp piece (update graveyard by moving the pawn to the graveyard)
 // 2. temp piece captured - move temp piece to graveyard...
 // 3. pawn promoted - move pawn to graveyard, and replace with promoted piece (it could be a temp piece or piece from graveyard)
@@ -118,29 +118,29 @@ int8_t graveyard[12];  // Graveyard, each for one piece type. 0 is queen, 1 is
                        // This records how many pieces of each type are in the graveyard
 
 // This records the position of promoted pawns that are using temp pieces
-std::vector<std::pair<int8_t, int8_t>> promoted_pawns_using_temp_pieces; 
+std::vector<std::pair<int8_t, int8_t>> promoted_pawns_using_temp_pieces;
 
 // Initialize Memory for the Board Object and Moves Vector (keeping track of possible moves)
 Board *p_board;
 std::vector<std::pair<int8_t, int8_t>>
-    all_moves[8][8];
+  all_moves[8][8];
 
 std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
-                                                   bool color) {
+                                                         bool color) {
   // Get the graveyard coordinate for a piece type (THE FIRST EMPTY SPACE)
-  // piece_type: 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 
-  //    5 for pawn, 6 for temp piece 
-  // color: 0 for white, 1 for black 
+  // piece_type: 1 for queen, 2 for rook, 3 for bishop, 4 for knight,
+  //    5 for pawn, 6 for temp piece
+  // color: 0 for white, 1 for black
   // Returns the x, y coordinate for this piece in the graveyard as a pair
 
-  // This function should be called BEFORE the graveyard is updated 
-  //    (since a value of 0 is used for the first piece of each type) 
-  // We treat the white queen moves to coordinate (8,7), 
-  //    rook to (8,6) and (8,5), bishop to (8,4) and (8,3), 
-  //    knight to (8,2) and (8,1), pawn to (9,7 to 9,0) 
-  // We treat the black queen moves to coordinate (-1,0), 
-  //    rook to (-1,1) and (-1,2), bishop to (-1,3) and (-1,4), knight to (-1,5) and (-1,6), 
-  //    pawn to (-2,0 to -2,7) 
+  // This function should be called BEFORE the graveyard is updated
+  //    (since a value of 0 is used for the first piece of each type)
+  // We treat the white queen moves to coordinate (8,7),
+  //    rook to (8,6) and (8,5), bishop to (8,4) and (8,3),
+  //    knight to (8,2) and (8,1), pawn to (9,7 to 9,0)
+  // We treat the black queen moves to coordinate (-1,0),
+  //    rook to (-1,1) and (-1,2), bishop to (-1,3) and (-1,4), knight to (-1,5) and (-1,6),
+  //    pawn to (-2,0 to -2,7)
   // The specific coordinate is decided by graveyard[index] and index is decided by piece_type and color
 
   int8_t graveyard_index = 0;
@@ -172,17 +172,17 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 
   if (color == 0) {
     // White
-    if (piece_type == 1) { // Queen
+    if (piece_type == 1) {          // Queen
       return std::make_pair(8, 7);  // only 1 queen can be captured
-    } else if (piece_type == 2) { // Rook
+    } else if (piece_type == 2) {   // Rook
       return std::make_pair(8, 6 - graveyard[graveyard_index]);
-    } else if (piece_type == 3) { // Bishop
+    } else if (piece_type == 3) {  // Bishop
       return std::make_pair(8, 4 - graveyard[graveyard_index]);
-    } else if (piece_type == 4) { // Knight
+    } else if (piece_type == 4) {  // Knight
       return std::make_pair(8, 2 - graveyard[graveyard_index]);
-    } else if (piece_type == 5) { // Pawn
+    } else if (piece_type == 5) {  // Pawn
       return std::make_pair(9, 7 - graveyard[graveyard_index]);
-    } else if (piece_type == 6) { // Temp piece
+    } else if (piece_type == 6) {  // Temp piece
       return std::make_pair(10, 7 - graveyard[graveyard_index]);
     }
   } else {
@@ -198,7 +198,7 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
     } else if (piece_type == 5) {
       return std::make_pair(-2, graveyard[graveyard_index]);
     } else if (piece_type == 6) {
-      return std::make_pair(-3, graveyard[graveyard_index]); // small bug that was ignored before, used 11 instead of -3. 
+      return std::make_pair(-3, graveyard[graveyard_index]);  // small bug that was ignored before, used 11 instead of -3.
     }
   }
 }
@@ -207,7 +207,7 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
 // result in the board being reset to starting position.
 
 // The pair consists of Board indices, calculated using (y * 14 + 3) + x (this 14+3 is to handle negative x coordinate from -3 all the way to 10)
-std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead of _ * 14 + 3 + col, --> _ * 14 + col
+std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board) {  // instead of _ * 14 + 3 + col, --> _ * 14 + col
 
   /*
   This function will return a vector of motor moves that will result in the board being reset to the starting position.
@@ -221,12 +221,12 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   // temporary -- check to be sure
   int8_t temp_x = -1, temp_y = 0;
   bool loop_detected;
-  std::vector<int8_t> current_chain; // Chain to hold the current chain of indices we're moving (acts like a stack)
-  std::vector<std::pair<int8_t, int8_t>> reset_moves; // The vector to be returned
+  std::vector<int8_t> current_chain;                   // Chain to hold the current chain of indices we're moving (acts like a stack)
+  std::vector<std::pair<int8_t, int8_t>> reset_moves;  // The vector to be returned
 
   // An array to keep track of where each piece wants to move to (for 2nd step)
-  int8_t destination_arr[14*8] = {-1}; // Initialize every element to -1
-  bool square_is_already_destination[14*8] = {false}; // Initialize every element to false, this array is to keep track if a square has been designated a destination already (so 2 pieces of same kind don't move to same square)
+  int8_t destination_arr[14 * 8] = { -1 };                 // Initialize every element to -1
+  bool square_is_already_destination[14 * 8] = { false };  // Initialize every element to false, this array is to keep track if a square has been designated a destination already (so 2 pieces of same kind don't move to same square)
 
   // ### Moving all temp pieces off of the board ###
   // Looping through all of the pieces in the board to find temp pieces
@@ -238,7 +238,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
         continue;
       } else {
         // check if this piece is currently using a temp piece
-        for (int8_t temp_piece_index = 0; temp_piece_index < promoted_pawns_using_temp_pieces.size(); temp_piece_index++) { 
+        for (int8_t temp_piece_index = 0; temp_piece_index < promoted_pawns_using_temp_pieces.size(); temp_piece_index++) {
           if (promoted_pawns_using_temp_pieces[temp_piece_index].first == j && promoted_pawns_using_temp_pieces[temp_piece_index].second == i) {
             // This piece is using a temp piece
             // Find first empty square in graveyard, send it back (graveyard (6 == temp piece))
@@ -255,10 +255,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       }
     }
   }
-  
-  // TODO: loop thru the board, and find ALL R,B,N,pawns that are at ONE of their valid destination squares. 
+
+  // TODO: loop thru the board, and find ALL R,B,N,pawns that are at ONE of their valid destination squares.
   // The idea of this code is to prevent the case where a piece is at its destination square, and then we move it to another square.
- for (int8_t j = 0; j < 8; j++) {
+  for (int8_t j = 0; j < 8; j++) {
     for (int8_t i = 0; i < 8; i++) {
       // We are looping in column major order (for purpose of allowing each piece to get to the "closer" square)
       if (p_board->pieces[i][j]->type == EMPTY) {
@@ -266,90 +266,90 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
         continue;
       } else {
         // Find out if this piece is currently at its destination square
-        if (p_board->pieces[i][j]->type == KING){
+        if (p_board->pieces[i][j]->type == KING) {
           // White king:
           if (p_board->pieces[i][j]->color == 0) {
             if ((i == 0) && (j == 4)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
-          // Black king:
+            // Black king:
           } else {
             if ((i == 7) && (j == 4)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j]->type == QUEEN){
+        } else if (p_board->pieces[i][j]->type == QUEEN) {
           // White queen:
           if (p_board->pieces[i][j]->color == 0) {
             if ((i == 0) && (j == 3)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
-          // Black queen:
+            // Black queen:
           } else {
             if ((i == 7) && (j == 3)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j]->type == ROOK){
+        } else if (p_board->pieces[i][j]->type == ROOK) {
           // For rooks, we have to check if the "leftmore" square is already occupied
           // White rook:
           if (p_board->pieces[i][j]->color == 0) {
-            if ((i == 0) && (j == 0 || j ==7)) {
+            if ((i == 0) && (j == 0 || j == 7)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
-          // Black rook:
+            // Black rook:
           } else {
-            if ((i == 7) && (j == 0 || j ==7)) {
+            if ((i == 7) && (j == 0 || j == 7)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j]->type == BISHOP){
+        } else if (p_board->pieces[i][j]->type == BISHOP) {
           // For bishops, we have to check if the "leftmore" square is already occupied
           // White bishop:
           if (p_board->pieces[i][j]->color == 0) {
-          if ((i == 0) && (j == 2 || j == 5)) {
+            if ((i == 0) && (j == 2 || j == 5)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
-          // Black bishop:
+            // Black bishop:
           } else {
-          if ((i == 7) && (j == 2 || j == 5)) {
+            if ((i == 7) && (j == 2 || j == 5)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j]->type == KNIGHT){
+        } else if (p_board->pieces[i][j]->type == KNIGHT) {
           // For knights, we have to check if the "leftmore" square is already occupied
           // White knight:
           if (p_board->pieces[i][j]->color == 0) {
-          if ((i == 0) && (j == 1 || j == 6)) {
+            if ((i == 0) && (j == 1 || j == 6)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
-          // Black knight:
+            // Black knight:
           } else {
-          if ((i == 7) && (j == 1 || j == 6)) {
+            if ((i == 7) && (j == 1 || j == 6)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
           }
-        } else if (p_board->pieces[i][j]->type == PAWN){
+        } else if (p_board->pieces[i][j]->type == PAWN) {
           // For pawn, we have a small for loop to check if the "leftmore" square is already occupied
           // White pawn:
           if (p_board->pieces[i][j]->color == 0) {
-          if ((i == 1)) {
+            if ((i == 1)) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
-          // Black pawn:
+            // Black pawn:
           } else {
-          if (i == 6) {
+            if (i == 6) {
               destination_arr[i * 14 + 3 + j] = -1;
               square_is_already_destination[i * 14 + 3 + j] = true;
             }
@@ -374,109 +374,109 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
         continue;
       } else {
         // Find out where this piece originally belongs to
-        if (p_board->pieces[i][j]->type == KING){
+        if (p_board->pieces[i][j]->type == KING) {
           // White king:
           if (p_board->pieces[i][j]->color == 0) {
-          destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 4;
-          square_is_already_destination[(0 * 14 + 3) + 4] = true;
-          // Black king:
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 4;
+            square_is_already_destination[(0 * 14 + 3) + 4] = true;
+            // Black king:
           } else {
-          destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 4;
-          square_is_already_destination[(7 * 14 + 3) + 4] = true;
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 4;
+            square_is_already_destination[(7 * 14 + 3) + 4] = true;
           }
-        } else if (p_board->pieces[i][j]->type == QUEEN){
+        } else if (p_board->pieces[i][j]->type == QUEEN) {
           // White queen:
           if (p_board->pieces[i][j]->color == 0) {
-          destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 3;
-          square_is_already_destination[(0 * 14 + 3) + 3] = true;
-          // Black queen:
+            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 3;
+            square_is_already_destination[(0 * 14 + 3) + 3] = true;
+            // Black queen:
           } else {
-          destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 3;
-          square_is_already_destination[(7 * 14 + 3) + 3] = true;
+            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 3;
+            square_is_already_destination[(7 * 14 + 3) + 3] = true;
           }
-        } else if (p_board->pieces[i][j]->type == ROOK){
+        } else if (p_board->pieces[i][j]->type == ROOK) {
           // For rooks, we have to check if the "leftmore" square is already occupied
           // White rook:
           if (p_board->pieces[i][j]->color == 0) {
-          if (square_is_already_destination[(0 * 14 + 3) + 0] == false) {
-            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 0;
-            square_is_already_destination[(0 * 14 + 3) + 0] = true;
+            if (square_is_already_destination[(0 * 14 + 3) + 0] == false) {
+              destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 0;
+              square_is_already_destination[(0 * 14 + 3) + 0] = true;
+            } else {
+              destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 7;
+              square_is_already_destination[(0 * 14 + 3) + 7] = true;
+            }
+            // Black rook:
           } else {
-            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 7;
-            square_is_already_destination[(0 * 14 + 3) + 7] = true;
+            if (square_is_already_destination[(7 * 14 + 3) + 0] == false) {
+              destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 0;
+              square_is_already_destination[(7 * 14 + 3) + 0] = true;
+            } else {
+              destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 7;
+              square_is_already_destination[(7 * 14 + 3) + 7] = true;
+            }
           }
-          // Black rook:
-          } else {
-          if (square_is_already_destination[(7 * 14 + 3) + 0] == false) {
-            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 0;
-            square_is_already_destination[(7 * 14 + 3) + 0] = true;
-          } else {
-            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 7;
-            square_is_already_destination[(7 * 14 + 3) + 7] = true;
-          }
-          }
-        } else if (p_board->pieces[i][j]->type == BISHOP){
+        } else if (p_board->pieces[i][j]->type == BISHOP) {
           // For bishops, we have to check if the "leftmore" square is already occupied
           // White bishop:
           if (p_board->pieces[i][j]->color == 0) {
-          if (square_is_already_destination[(0 * 14 + 3) + 2] == false) {
-            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 2;
-            square_is_already_destination[(0 * 14 + 3) + 2] = true;
+            if (square_is_already_destination[(0 * 14 + 3) + 2] == false) {
+              destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 2;
+              square_is_already_destination[(0 * 14 + 3) + 2] = true;
+            } else {
+              destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 5;
+              square_is_already_destination[(0 * 14 + 3) + 5] = true;
+            }
+            // Black bishop:
           } else {
-            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 5;
-            square_is_already_destination[(0 * 14 + 3) + 5] = true;
+            if (square_is_already_destination[(7 * 14 + 3) + 2] == false) {
+              destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 2;
+              square_is_already_destination[(7 * 14 + 3) + 2] = true;
+            } else {
+              destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 5;
+              square_is_already_destination[(7 * 14 + 3) + 5] = true;
+            }
           }
-          // Black bishop:
-          } else {
-          if (square_is_already_destination[(7 * 14 + 3) + 2] == false) {
-            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 2;
-            square_is_already_destination[(7 * 14 + 3) + 2] = true;
-          } else {
-            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 5;
-            square_is_already_destination[(7 * 14 + 3) + 5] = true;
-          }
-          }
-        } else if (p_board->pieces[i][j]->type == KNIGHT){
+        } else if (p_board->pieces[i][j]->type == KNIGHT) {
           // For knights, we have to check if the "leftmore" square is already occupied
           // White knight:
           if (p_board->pieces[i][j]->color == 0) {
-          if (square_is_already_destination[(0 * 14 + 3) + 1] == false) {
-            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 1;
-            square_is_already_destination[(0 * 14 + 3) + 1] = true;
+            if (square_is_already_destination[(0 * 14 + 3) + 1] == false) {
+              destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 1;
+              square_is_already_destination[(0 * 14 + 3) + 1] = true;
+            } else {
+              destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 6;
+              square_is_already_destination[(0 * 14 + 3) + 6] = true;
+            }
+            // Black knight:
           } else {
-            destination_arr[(i * 14 + 3) + j] = (0 * 14 + 3) + 6;
-            square_is_already_destination[(0 * 14 + 3) + 6] = true;
+            if (square_is_already_destination[(7 * 14 + 3) + 1] == false) {
+              destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 1;
+              square_is_already_destination[(7 * 14 + 3) + 1] = true;
+            } else {
+              destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 6;
+              square_is_already_destination[(7 * 14 + 3) + 6] = true;
+            }
           }
-          // Black knight:
-          } else {
-          if (square_is_already_destination[(7 * 14 + 3) + 1] == false) {
-            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 1;
-            square_is_already_destination[(7 * 14 + 3) + 1] = true;
-          } else {
-            destination_arr[(i * 14 + 3) + j] = (7 * 14 + 3) + 6;
-            square_is_already_destination[(7 * 14 + 3) + 6] = true;
-          }
-          }
-        } else if (p_board->pieces[i][j]->type == PAWN){
+        } else if (p_board->pieces[i][j]->type == PAWN) {
           // For pawn, we have a small for loop to check if the "leftmore" square is already occupied
           // White pawn:
           if (p_board->pieces[i][j]->color == 0) {
-          for (int8_t k = 0; k < 8; k++) {
-            if (square_is_already_destination[(1 * 14 + 3) + k] == false) {
-            destination_arr[(i * 14 + 3) + j] = (1 * 14 + 3) + k;
-            square_is_already_destination[(1 * 14 + 3) + k] = true;
-            break;
+            for (int8_t k = 0; k < 8; k++) {
+              if (square_is_already_destination[(1 * 14 + 3) + k] == false) {
+                destination_arr[(i * 14 + 3) + j] = (1 * 14 + 3) + k;
+                square_is_already_destination[(1 * 14 + 3) + k] = true;
+                break;
+              }
             }
-          }
-          // Black pawn:
+            // Black pawn:
           } else {
-          for (int8_t k = 0; k < 8; k++) {
-            if (square_is_already_destination[(6 * 14 + 3) + k] == false) {
-            destination_arr[(i * 14 + 3) + j] = (6 * 14 + 3) + k;
-            square_is_already_destination[(6 * 14 + 3) + k] = true;
-            break;
+            for (int8_t k = 0; k < 8; k++) {
+              if (square_is_already_destination[(6 * 14 + 3) + k] == false) {
+                destination_arr[(i * 14 + 3) + j] = (6 * 14 + 3) + k;
+                square_is_already_destination[(6 * 14 + 3) + k] = true;
+                break;
+              }
             }
-          }
           }
         }
         // Check if the piece is already on its destination. If so, set destination_arr to -1
@@ -492,10 +492,8 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
   // If -1, add chain to reset_moves in reverse order
   // If loop, add a move to temp, then add the chain to reset_moves in reverse order
 
-  for (int8_t i = 0; i < 8; i++)
-  {
-    for (int8_t j = 0; j < 8; j++)
-    {
+  for (int8_t i = 0; i < 8; i++) {
+    for (int8_t j = 0; j < 8; j++) {
       int8_t curr_idx = (i * 14 + 3) + j;
       // If we've come across an index that is -1, continue
       // This accounts for free squares as well as pieces moved in previous chains
@@ -511,43 +509,38 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       int8_t starting_y = i;
 
       // Handle the chain of indices
-      while (1)
-      {
-        current_chain.push_back(curr_idx); // push_back adds an element to the end of the vector
-        curr_idx = destination_arr[curr_idx]; // Go to the index that curr_idx wants to move to
+      while (1) {
+        current_chain.push_back(curr_idx);     // push_back adds an element to the end of the vector
+        curr_idx = destination_arr[curr_idx];  // Go to the index that curr_idx wants to move to
 
-        if (destination_arr[curr_idx] == -1)
-        { // chain ends in a -1, means no loop.
-          break; // Exit while loop
-        } // else, chain continues and we go to the next index
+        if (destination_arr[curr_idx] == -1) {  // chain ends in a -1, means no loop.
+          break;                                // Exit while loop
+        }                                       // else, chain continues and we go to the next index
 
         // Check if curr_idx wants to move to the first index in the chain
-        if (curr_idx == (starting_y * 14 + 3) + starting_x)
-        {
-          loop_detected = 1; // Loop detected
-          break;            // Exit while loop
+        if (curr_idx == (starting_y * 14 + 3) + starting_x) {
+          loop_detected = 1;  // Loop detected
+          break;              // Exit while loop
         }
       }
 
       // If loop detected, move first square to temp. Add the chain in reverse order, then add temp to first square destination.
-      if (loop_detected)
-      {
+      if (loop_detected) {
         // The temp square is at: 8,0 or -1,8. Move it to closer square
-        if (starting_x < starting_y){
+        if (starting_x < starting_y) {
           temp_x = -1;
           temp_y = 8;
         } else {
           temp_x = 8;
           temp_y = 0;
         }
-        reset_moves.push_back(std::make_pair(current_chain[0], (temp_y * 14 + 3) + temp_x)); // Move the first square to temp
+        reset_moves.push_back(std::make_pair(current_chain[0], (temp_y * 14 + 3) + temp_x));  // Move the first square to temp
         // Remove first square from chain
         current_chain.erase(current_chain.begin());
       }
 
       // While the chain is not empty, add the moves in reverse order. And set the destination_arr to -1
-      while (!current_chain.empty())
-      {
+      while (!current_chain.empty()) {
         reset_moves.push_back(std::make_pair(current_chain.back(), destination_arr[current_chain.back()]));
         // Now, update the destination_arr to -1
         destination_arr[current_chain.back()] = -1;
@@ -555,8 +548,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
       }
 
       // If loop detected, add the temp square to the first square destination
-      if (loop_detected)
-      {
+      if (loop_detected) {
         // cuz the one moved to temp location is always the starting square
         reset_moves.push_back(std::make_pair((temp_y * 14 + 3) + temp_x, destination_arr[starting_y * 14 + 3 + starting_x]));
         destination_arr[starting_y * 14 + 3 + starting_x] = -1;
@@ -568,19 +560,17 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
 
   // ### Moving pieces in graveyard to their starting squares
   // For each graveyard types, as long as the graveyard[index] is not 0, move the piece to its starting square. Ignore index 10 and 11 as they are temp pieces
-  for (int8_t i = 0; i < 10; i++)
-  {
-    while (graveyard[i] > 0)
-    {
+  for (int8_t i = 0; i < 10; i++) {
+    while (graveyard[i] > 0) {
       // Update the graveyard memory
-      graveyard[i]--; // we decrease first cuz we want the piece square, not the empty square. 
+      graveyard[i]--;  // we decrease first cuz we want the piece square, not the empty square.
       // Find the first empty square in graveyard (the function takes 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for pawn)
-      std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i%5)+1, i < 5);
+      std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i % 5) + 1, i < 5);
       // Find the first available square on the board
-      if (i==0) {
+      if (i == 0) {
         // White queen
         reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 3));
-      } else if (i==1) {
+      } else if (i == 1) {
         // White Rook
         if (!square_is_already_destination[(0 * 14 + 3) + 7]) {
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 7));
@@ -589,7 +579,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 0));
           square_is_already_destination[(0 * 14 + 3) + 0] = true;
         }
-      } else if (i==2) {
+      } else if (i == 2) {
         // White Bishop
         if (!square_is_already_destination[(0 * 14 + 3) + 5]) {
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 5));
@@ -598,7 +588,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 2));
           square_is_already_destination[(0 * 14 + 3) + 2] = true;
         }
-      } else if (i==3) {
+      } else if (i == 3) {
         // White Knight
         if (!square_is_already_destination[(0 * 14 + 3) + 6]) {
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 6));
@@ -607,7 +597,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (0 * 14 + 3) + 1));
           square_is_already_destination[(0 * 14 + 3) + 1] = true;
         }
-      } else if (i==4) {
+      } else if (i == 4) {
         // White Pawn
         for (int8_t k = 7; k >= 0; k--) {
           if (!square_is_already_destination[(1 * 14 + 3) + k]) {
@@ -616,10 +606,10 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
             break;
           }
         }
-      } else if (i==5) {
+      } else if (i == 5) {
         // Black Queen
         reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 3));
-      } else if (i==6) {
+      } else if (i == 6) {
         // Black Rook
         if (!square_is_already_destination[(7 * 14 + 3) + 0]) {
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 0));
@@ -628,7 +618,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 7));
           square_is_already_destination[(7 * 14 + 3) + 7] = true;
         }
-      } else if (i==7) {
+      } else if (i == 7) {
         // Black Bishop
         if (!square_is_already_destination[(7 * 14 + 3) + 2]) {
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 2));
@@ -637,7 +627,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 5));
           square_is_already_destination[(7 * 14 + 3) + 5] = true;
         }
-      } else if (i==8) {
+      } else if (i == 8) {
         // Black Knight
         if (!square_is_already_destination[(7 * 14 + 3) + 1]) {
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 1));
@@ -646,7 +636,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
           reset_moves.push_back(std::make_pair((graveyard_coordinate.second * 14 + 3) + graveyard_coordinate.first, (7 * 14 + 3) + 6));
           square_is_already_destination[(7 * 14 + 3) + 6] = true;
         }
-      } else if (i==9) {
+      } else if (i == 9) {
         // Black Pawn
         for (int8_t k = 0; k < 8; k++) {
           if (!square_is_already_destination[(6 * 14 + 3) + k]) {
@@ -666,17 +656,17 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board){ // instead o
 // ############################################################
 
 // Pin definitions
-const int clk = 0;    
-const int WValid = 15;  
-const int WReady = 2; 
-const int WData = 4;   
-const int RValid = 16; 
-const int RReady = 17;  
-const int RData = 5;   
+const int clk = 0;
+const int WValid = 15;
+const int WReady = 2;
+const int WData = 4;
+const int RValid = 16;
+const int RReady = 17;
+const int RData = 5;
 const int OVERWRITE = 18;
-const int clock_half_period = 10; // how long a clock half period is in ms
+const int clock_half_period = 10;  // how long a clock half period is in ms
 
-int stockfish_received_data = 0; // an int storing whatever stockfish sends us
+int stockfish_received_data = 0;  // an int storing whatever stockfish sends us
 
 int stockfish_read() {
   //
@@ -732,16 +722,17 @@ int stockfish_read() {
   Serial.println(num_received);
   num_received = 0;
   for (int j = 0; j < 14; j++) {
-      num_received |= (receivedData[j] << (14-j-1));
+    num_received |= (receivedData[j] << (14 - j - 1));
   }
   digitalWrite(RReady, LOW);
   digitalWrite(WValid, LOW);
-  return num_received; 
+  return num_received;
 }
 
 int pi_return_to_from_square(int value) {
   // return the from square value
-  return (value >> 8) & 0b111111;;
+  return (value >> 8) & 0b111111;
+  ;
 }
 int pi_return_to_to_square(int value) {
   // return the to square value
@@ -753,12 +744,12 @@ int pi_return_to_promotion(int value) {
 }
 
 int stockfish_write(bool writing_all_zeros, int is_programming, int programming_colour,
-          bool is_human, int programming_difficulty, int from_square,
-          int to_square, bool is_promotion,
-          int promotion_piece) {  // could change argument to: "Is programming"
-                                  // "programming_colour"
-                                  // "programming_difficulty" "from square" "to
-                                  // square" "if promotion" "promotion piece"
+                    bool is_human, int programming_difficulty, int from_square,
+                    int to_square, bool is_promotion,
+                    int promotion_piece) {  // could change argument to: "Is programming"
+                                            // "programming_colour"
+                                            // "programming_difficulty" "from square" "to
+                                            // square" "if promotion" "promotion piece"
   // 010000000000000 // a promotion is happening and we are promoting to queen.
   // 000000000... // No promotion hapening
   // 0100000000000011 // a promotion is happening, and we promoting to a knight.
@@ -767,10 +758,10 @@ int stockfish_write(bool writing_all_zeros, int is_programming, int programming_
   uint8_t temp_difficulty = programming_difficulty;
   uint8_t temp_from = from_square;
   uint8_t temp_to = to_square;
-  int datas[16] = {0};  // Example data, all zeros
+  int datas[16] = { 0 };  // Example data, all zeros
   if (!writing_all_zeros) {
     if (is_programming) {
-      datas[0] = 1; 
+      datas[0] = 1;
       datas[1] = programming_colour;
       for (i = 2; i < 16; i++) {
         datas[i] = temp_difficulty & 1 | is_human;
@@ -847,19 +838,20 @@ int stockfish_write(bool writing_all_zeros, int is_programming, int programming_
 // ############################################################
 
 // MOTOR CONTROL VARIABLES
-const int8_t PUL_PIN[] = {27, 12}; // x, y
-const int8_t DIR_PIN[] = {14, 13}; // x, y
-const int8_t LIMIT_PIN[] = {19, 3, 1, 23}; // x-, x+, y-, y+
-const int STEPS_PER_MM = 80; // measured value from testing, 3.95cm per rotation (1600 steps)
-const int MM_PER_SQUARE = 66; // width of chessboard squares in mm
-const int GRAVEYARD_GAP = 10; // gap between graveyard and chessboard in mm
-const int ORIGIN_GAP = 10; // gap between real origin and where gantry rests at default (prevents holding down limit switches)
-const int FAST_STEP_DELAY = 50; // half the period of square wave pulse for stepper motor
-const int SLOW_STEP_DELAY = 100; // half the period of square wave pulse for stepper motor
-const long ORIGIN_RESET_TIMEOUT = 50000; // how many steps motor will attempt to recenter to origin before giving up
+const int8_t PUL_PIN[] = { 14, 13 };          // x, y
+const int8_t DIR_PIN[] = { 27, 12 };          // x, y
+const int8_t LIMIT_PIN[] = { 19, 3, 1, 23 };  // x-, x+, y-, y+
+const int STEPS_PER_MM = 80;                  // measured value from testing, 3.95cm per rotation (1600 steps)
+const int MM_PER_SQUARE = 66;                 // width of chessboard squares in mm
+const int GRAVEYARD_GAP = 10;                 // gap between graveyard and chessboard in mm
+const int ORIGIN_GAP = 10;                    // gap between real origin and where gantry rests at default (prevents holding down limit switches)
+const int FAST_STEP_DELAY = 50;               // half the period of square wave pulse for stepper motor
+const int SLOW_STEP_DELAY = 100;              // half the period of square wave pulse for stepper motor
+const long ORIGIN_RESET_TIMEOUT = 50000;      // how many steps motor will attempt to recenter to origin before giving up
 
-int motor_error = 0; // 0: normal operation, 1: misaligned origin, 2: cannot reach origin (stuck)
-int motor_coordinates[2] = {-3, 0};  // x, y coordinates of the motor in millimeters
+int motor_error = 0;                   // 0: normal operation, 1: misaligned origin, 2: cannot reach origin (stuck)
+int motor_coordinates[2] = { 0, 0 };  // x, y coordinates of the motor in millimeters
+// Need to offset by negative 3 squares (in mm)
 
 void stepper_square_wave(int mode, int stepDelay) {
   // Modes: 0 -> x-axis, 1 -> y-axis, 2 -> x and y-axis
@@ -888,11 +880,29 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
 
   // TODO
   Serial.println("Move motor code running");
-  long dx = x-motor_coordinates[0];
-  long dy = y-motor_coordinates[1];
+  long dx = x - motor_coordinates[0];
+  long dy = y - motor_coordinates[1];
+
+  Serial.print("Starting to (");
+  Serial.print(motor_coordinates[0]);
+  Serial.print(", ");
+  Serial.print(motor_coordinates[1]);
+  Serial.println(") in mm");
+
+  Serial.print("Moving to (");
+  Serial.print(x);
+  Serial.print(", ");
+  Serial.print(y);
+  Serial.println(") in mm");
+
+  Serial.print("Differential (");
+  Serial.print(dx);
+  Serial.print(", ");
+  Serial.print(dy);
+  Serial.println(") in mm");
 
   // Setting direction
-  digitalWrite(DIR_PIN[0], dx > 0);
+  digitalWrite(DIR_PIN[0], dx < 0);
   digitalWrite(DIR_PIN[1], dy > 0);
 
   dx = abs(dx);
@@ -901,7 +911,8 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
   // Check if movement should be axis-aligned or diagonal
   if (axisAligned || dx == 0 || dy == 0) {
     // Move x axis
-    for (long i = 0; i < dx*STEPS_PER_MM; i++) {
+    Serial.println("Move x axis");
+    for (long i = 0; i < dx * STEPS_PER_MM; i++) {
       // if (digitalRead(LIMIT_PIN[0])) {
       //   motor_coordinates[0] = -3;
       //   break;
@@ -913,7 +924,8 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
       stepper_square_wave(0, stepDelay);
     }
     // Move y axis
-    for (long i = 0; i < dy*STEPS_PER_MM; i++) {
+    Serial.println("Move y axis");
+    for (long i = 0; i < dy * STEPS_PER_MM; i++) {
       // if (digitalRead(LIMIT_PIN[2])) {
       //   motor_coordinates[1] = -3;
       //   break;
@@ -926,13 +938,15 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
     }
   } else if (dx == dy) {
     // Move diagonal axis
-    for (long i = 0; i < dx*STEPS_PER_MM; i++) {
+    Serial.println("Move diag dx == dy");
+    for (long i = 0; i < dx * STEPS_PER_MM; i++) {
       //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
       stepper_square_wave(2, stepDelay);
     }
-  } else if (dx > dy){
-    for (long i = 0; i < dx*STEPS_PER_MM; i++) {
-      if (i < dy*STEPS_PER_MM) {
+  } else if (dx > dy) {
+    Serial.println("Move dx > dy");
+    for (long i = 0; i < dx * STEPS_PER_MM; i++) {
+      if (i < dy * STEPS_PER_MM) {
         //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
         stepper_square_wave(2, stepDelay);
       } else {
@@ -941,8 +955,9 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
       }
     }
   } else {
-    for (long i = 0; i < dy*STEPS_PER_MM; i++) {
-      if (i < dx*STEPS_PER_MM) {
+    Serial.println("Move diag dy > dx");
+    for (long i = 0; i < dy * STEPS_PER_MM; i++) {
+      if (i < dx * STEPS_PER_MM) {
         //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
         stepper_square_wave(2, stepDelay);
       } else {
@@ -951,16 +966,16 @@ int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
       }
     }
   }
-  
+
   // Update motor coordinates
   motor_coordinates[0] = x;
   motor_coordinates[1] = y;
 
-  Serial.print("Moving to (");
-  Serial.print(x);
-  Serial.print(", ");
-  Serial.print(y);
-  Serial.println(") in mm");
+  // Serial.print("Moving to (");
+  // Serial.print(x);
+  // Serial.print(", ");
+  // Serial.print(y);
+  // Serial.println(") in mm");
 
   return 0;
 }
@@ -1002,27 +1017,25 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
   int corner_x, corner_y;
 
   // Move motor to starting location
-  if (move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY)) {
-    //  move_motor_to_origin(10);
-  }
+  move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY);
 
-  delay(1000); // pick up piece
+  delay(1000);  // pick up piece
   Serial.println("Pick up piece");
 
   if (gridAligned) {
     // Move motor onto edges instead of centers, then move to destination
-    corner_x = from_x < to_x ? from_x + (MM_PER_SQUARE)/2 : from_x - (MM_PER_SQUARE)/2;
-    corner_y = from_y < to_y ? from_y + (MM_PER_SQUARE)/2 : from_y - (MM_PER_SQUARE)/2;
+    corner_x = from_x < to_x ? from_x + (MM_PER_SQUARE) / 2 : from_x - (MM_PER_SQUARE) / 2;
+    corner_y = from_y < to_y ? from_y + (MM_PER_SQUARE) / 2 : from_y - (MM_PER_SQUARE) / 2;
     if (ret = move_motor_to_coordinate(corner_x, corner_y, false, FAST_STEP_DELAY)) return ret;
 
-    corner_x = from_x < to_x ? to_x - (MM_PER_SQUARE)/2 : to_x + (MM_PER_SQUARE)/2;
-    corner_y = from_y < to_y ? to_y - (MM_PER_SQUARE)/2 : to_y + (MM_PER_SQUARE)/2;
+    corner_x = from_x < to_x ? to_x - (MM_PER_SQUARE) / 2 : to_x + (MM_PER_SQUARE) / 2;
+    corner_y = from_y < to_y ? to_y - (MM_PER_SQUARE) / 2 : to_y + (MM_PER_SQUARE) / 2;
     if (ret = move_motor_to_coordinate(corner_x, corner_y, true, FAST_STEP_DELAY)) return ret;
   }
 
   if (ret = move_motor_to_coordinate(to_x, to_y, false, FAST_STEP_DELAY)) return ret;
 
-  delay(1000); // release piece
+  delay(1000);  // release piece
   Serial.println("Release piece");
 
   return 0;
@@ -1033,9 +1046,9 @@ int move_motor_to_origin(int offset) {
   // fastMove: if true, it will move fast until the last 50mm until "supposed" origin and move slowly until it hits the limit switch
   //           if false, it will move slowly from the beginning until it hits the limit switch
   // The function should reference motor_coordinates variable to estimate where it is
-  int dx = -3-motor_coordinates[0];
+  int dx = -motor_coordinates[0]; // Need to offset by negative 3 squares (in mm)
   int dy = -motor_coordinates[1];
-  
+
   // Sets direction
   digitalWrite(DIR_PIN[0], dx > 0);
   digitalWrite(DIR_PIN[1], dy > 0);
@@ -1049,7 +1062,7 @@ int move_motor_to_origin(int offset) {
   while (!digitalRead(LIMIT_PIN[0])) {
     stepper_square_wave(0, SLOW_STEP_DELAY);
     counter++;
-    if (counter > ORIGIN_RESET_TIMEOUT) return 2; // Motor unable to recenter to origin
+    if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
   }
 
   // Slowly moves towards origin until hits y limit switch
@@ -1057,7 +1070,7 @@ int move_motor_to_origin(int offset) {
   while (!digitalRead(LIMIT_PIN[2])) {
     stepper_square_wave(1, SLOW_STEP_DELAY);
     counter++;
-    if (counter > ORIGIN_RESET_TIMEOUT) return 2; // Motor unable to recenter to origin
+    if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
   }
 
   // Move motor slightly off origin, so limit switches are not held
@@ -1079,11 +1092,11 @@ int move_motor_to_origin(int offset) {
 // Changes made: Now this just stores the value read by digital pin on Arduino Mega
 // The arduino mega will periodically send values back via I2C
 // Active LOW, so initialize to 1
-int8_t JOYSTICK_POS_X_VALUE[] = {1, 1};
-int8_t JOYSTICK_POS_Y_VALUE[] = {1, 1};
-int8_t JOYSTICK_NEG_X_VALUE[] = {1, 1};
-int8_t JOYSTICK_NEG_Y_VALUE[] = {1, 1};
-int8_t JOYSTICK_BUTTON_VALUE[] = {1, 1};
+int8_t JOYSTICK_POS_X_VALUE[] = { 1, 1 };
+int8_t JOYSTICK_POS_Y_VALUE[] = { 1, 1 };
+int8_t JOYSTICK_NEG_X_VALUE[] = { 1, 1 };
+int8_t JOYSTICK_NEG_Y_VALUE[] = { 1, 1 };
+int8_t JOYSTICK_BUTTON_VALUE[] = { 1, 1 };
 
 enum {
   JOYSTICK_0_POS_X_INDEX,
@@ -1102,17 +1115,17 @@ enum {
 bool update_joystick_values() {
   // Read joystick values from I2C
   // Return true if successful, false otherwise
-  Wire.requestFrom(SUBORDINATE_ADDRESS, 2); // Request 2 bytes from slave
+  Wire.requestFrom(SUBORDINATE_ADDRESS, 2);  // Request 2 bytes from slave
   if (Wire.available() < 2) {
     Serial.println("NO DATA");
-    return false; // Not enough data received
+    return false;  // Not enough data received
   }
-  uint8_t data1 = Wire.read(); // Read first byte
-  uint8_t data2 = Wire.read(); // Read second byte
+  uint8_t data1 = Wire.read();  // Read first byte
+  uint8_t data2 = Wire.read();  // Read second byte
   // Combine the two bytes into a single 16-bit value
   // Note, data1 is lower byte and data2 is higher byte
   // So LSB of data2 is the 8th bit of the combined value
-  uint16_t combinedData = data1 | (data2 << 8); // Combine the two bytes
+  uint16_t combinedData = data1 | (data2 << 8);  // Combine the two bytes
   // Print the received data for debugging
   // Serial.print("Received data: ");
   // Serial.print(combinedData, BIN); // Print in binary format
@@ -1171,9 +1184,9 @@ int8_t idle_joystick_y[2];
 // Memory to see if a player is ready (game starts when both players ready)
 bool player_ready[2];
 // Remember if the game is in full idle screen or not
-#define IDLE_SCREEN_TIMEOUT 6 // 10 seconds
+#define IDLE_SCREEN_TIMEOUT 6  // 10 seconds
 bool in_idle_screen;
-uint32_t last_idle_change_time; // last time a button was pressed.
+uint32_t last_idle_change_time;  // last time a button was pressed.
 
 void move_user_joystick_x_y(bool color) {
   // Get input from the joystick and modify the corresponding joystick coord for the color (player)
@@ -1186,7 +1199,7 @@ void move_user_joystick_x_y(bool color) {
   // Also display the OLED if a joystick movement is detected
 
   // Read the joystick values -- low is pressed, high is not pressed
-  update_joystick_values(); // Read joystick values from I2C
+  update_joystick_values();  // Read joystick values from I2C
   int8_t x_val = JOYSTICK_POS_X_VALUE[color];
   int8_t y_val = JOYSTICK_POS_Y_VALUE[color];
   int8_t neg_x_val = JOYSTICK_NEG_X_VALUE[color];
@@ -1198,7 +1211,7 @@ void move_user_joystick_x_y(bool color) {
   if (prev_joystick_neutral[color]) {
     // If previous joystick WAS neutral
     bool change_happened =
-        false;  // For displaying, only serial printif change happened.
+      false;  // For displaying, only serial printif change happened.
     if (x_val == 0) {
       joystick_x[color]++;
       prev_joystick_neutral[color] = false;
@@ -1241,7 +1254,7 @@ void move_user_joystick_x_y(bool color) {
   if (button_val == 0 && prev_confirm_button_pressed[color] == 0) {
     confirm_button_pressed[color] = true;
   } else {
-    confirm_button_pressed[color] = false;  
+    confirm_button_pressed[color] = false;
     // Note: this also automatically reset the confirm_button_pressed flag
     // If your state machine requires multiple cycles to "load in" the confirm
     // button press, you need to remove this line from this function
@@ -1252,15 +1265,15 @@ void move_user_joystick_x_y(bool color) {
 }
 
 void move_user_joystick_promotion(bool color) {
-  // Get input from joystick, but the promotion_joystick_selection just loops from 0 to 3 
-  // color: 0 for white, 1 for black 
-  // Update the promotion_joystick_selection, and confirm button pressed flag 
+  // Get input from joystick, but the promotion_joystick_selection just loops from 0 to 3
+  // color: 0 for white, 1 for black
+  // Update the promotion_joystick_selection, and confirm button pressed flag
   // Result: promotion_joystick_selection ++ or --, confirm_button_pressed = true if confirm button is pressed from neutral state
 
   // Also show the OLED screen for joystick promotion selection
 
   // Read the joystick values -- low is pressed, high is not pressed
-  update_joystick_values(); // Read joystick values from I2C
+  update_joystick_values();  // Read joystick values from I2C
 
   int8_t x_val = JOYSTICK_POS_X_VALUE[color];
   int8_t y_val = JOYSTICK_POS_Y_VALUE[color];
@@ -1328,7 +1341,7 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
   // Handle displaying the IDLE screen. Only run if a change happened (joystick moved or button pressed)
 
   // Read the joystick values -- low is pressed, high is not pressed
-  update_joystick_values(); // Read joystick values from I2C
+  update_joystick_values();  // Read joystick values from I2C
   int8_t x_val = JOYSTICK_POS_X_VALUE[color];
   int8_t y_val = JOYSTICK_POS_Y_VALUE[color];
   int8_t neg_x_val = JOYSTICK_NEG_X_VALUE[color];
@@ -1360,8 +1373,8 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
       change_happened = true;
     }
     // joystick x and y loop from 0 to 7
-    idle_joystick_x[color] = (idle_joystick_x[color]+2) % 2;
-    idle_joystick_y[color] = (idle_joystick_y[color]+max_y) % max_y;
+    idle_joystick_x[color] = (idle_joystick_x[color] + 2) % 2;
+    idle_joystick_y[color] = (idle_joystick_y[color] + max_y) % max_y;
     // if no joystick movement, joystick_neutral stays true
   } else {
     // If previous joystick was NOT neutral, set to neutral if all joystick values are high
@@ -1384,10 +1397,10 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
   // Note active low for button (pressed is low 0)
   // Flag is true if button was pressed from previous state
   if (button_val == 0 && prev_confirm_button_pressed[color] == 0) {
-    last_idle_change_time = game_timer.read(); // a button press happened, reset the idle timer
+    last_idle_change_time = game_timer.read();  // a button press happened, reset the idle timer
     if (in_idle_screen) {
       // We are currently in idle screen, just break out of the idle state. Don't update the joystick values
-      in_idle_screen = false; 
+      in_idle_screen = false;
       // Issue: Do note that this code will have issues if both buttons are tied together. Since this case, player_0's button will trigger an "exit idle screen", but player_1's button (which is the same thing), triggers button press...
       // This should be fine since in reality they are not the same button, and will have at least some sort of delay between them
       display_idle_screen(game_timer, in_idle_screen, idle_joystick_x[1], idle_joystick_y[1], display_two, 1);
@@ -1396,7 +1409,7 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
       confirm_button_pressed[color] = true;
     }
   } else {
-    confirm_button_pressed[color] = false;  
+    confirm_button_pressed[color] = false;
     // Note: this also automatically reset the confirm_button_pressed flag
     // If your state machine requires multiple cycles to "load in" the confirm
     // button press, you need to remove this line from this function
@@ -1411,7 +1424,7 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
 // ############################################################
 // LED variables
 
-// Decleration for number of rows, the number of leds in a single 1x8 row, 
+// Decleration for number of rows, the number of leds in a single 1x8 row,
 // and he number of nuber of leds in a row of a single 4x4 chess square
 // LED colours, led_display struct and strip length are defined.
 const uint8_t COLUMNS = 32;
@@ -1434,11 +1447,11 @@ const uint8_t PROMOTION_STRIP_LEN = 4;
 // #define LED_BOARD_PIN_2 = 14
 // #define LED_BOARD_PIN_3 = 15
 // #define LED_BOARD_PIN_4 = 16
-const uint8_t LED_PROMOTION_PIN = 17; 
+const uint8_t LED_PROMOTION_PIN = 17;
 const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
 struct CRGB led_promotion[PROMOTION_STRIP_LEN];
-struct CRGB led_display[5][STRIP_LEN]; 
+struct CRGB led_display[5][STRIP_LEN];
 // Due to hardware limitations, the 4th block of 256 leds (8 rows) has to be addressed separately as a 5 row and 3 row block
 // Thus led_display[3] and led_display[4] are both for the 4th block of 256 LEDs
 
@@ -1448,14 +1461,14 @@ struct CRGB led_display[5][STRIP_LEN];
 // A function to update LED strip in each situation
 
 // Takes in a chess square coordinate and a local LED coordinate. Returns index and data line of the selected LED
-void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line){
-  if (v % 2 == 0){
+void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line) {
+  if (v % 2 == 0) {
     index = u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * y);
   } else {
     index = -u + (COLUMNS * (v + 1)) - (LEDSPERSQUAREROW * x) + (LEDSPERROW * y) - 1;
   }
 
-  if (index < 928) { // 928 is the first index of the 2nd type of LED
+  if (index < 928) {  // 928 is the first index of the 2nd type of LED
     data_line = index / 256;
     index -= data_line * 256;
   } else {
@@ -1474,26 +1487,26 @@ void setLED(int x, int y, int u, int v, struct CRGB colour) {
 
 // Assumes a fill_solid is called before this function
 // This function will NOT reset LEDs of squares that are not being used
-void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour){
+void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour) {
   int *index, *data_line;
 
   // Pattern Types
   // 0-Solid, 1-Cursor, 2-Capture
 
-  if(patternType == SOLID){
-    for(int i = 0; i < LEDSPERSQUAREROW; i++){
-      for(int j = 0; j < LEDSPERSQUAREROW; j++){
+  if (patternType == SOLID) {
+    for (int i = 0; i < LEDSPERSQUAREROW; i++) {
+      for (int j = 0; j < LEDSPERSQUAREROW; j++) {
         setLED(x, y, i, j, colour);
       }
     }
-  }else if(patternType == CURSOR){
-    for(int i = 1; i < LEDSPERSQUAREROW - 1; i++){
-       for(int j = 1; j < LEDSPERSQUAREROW - 1; j++){
+  } else if (patternType == CURSOR) {
+    for (int i = 1; i < LEDSPERSQUAREROW - 1; i++) {
+      for (int j = 1; j < LEDSPERSQUAREROW - 1; j++) {
         setLED(x, y, i, j, colour);
       }
     }
-  }else if(patternType == CAPTURE){
-    for(int i = 0; i < LEDSPERSQUAREROW; i++){
+  } else if (patternType == CAPTURE) {
+    for (int i = 0; i < LEDSPERSQUAREROW; i++) {
       setLED(x, y, i, i, colour);
       setLED(x, y, i, LEDSPERSQUAREROW - 1 - i, colour);
     }
@@ -1502,35 +1515,33 @@ void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour){
 
 // Assumes a fill_solid is called before this function
 // Sets a 4x4 square of LEDs to a specific colour
-void setSquareLED(int x, int y, int colourNumber, int patternType){
+void setSquareLED(int x, int y, int colourNumber, int patternType) {
   struct CRGB colour;
 
   // Colour Coding
   // 0-Cyan, 1-Green, 2-Yellow, 3-Orange, 4-Red, 5-Purple
 
-  for(int i = 0; i < 4; i++){
+  for (int i = 0; i < 4; i++) {
 
-    for(int j = 0; j < 4; j++){
+    for (int j = 0; j < 4; j++) {
 
-      if(colourNumber == CYAN){
+      if (colourNumber == CYAN) {
         colour = CRGB(0, 255, 255);
-      }else if(colourNumber == GREEN){
+      } else if (colourNumber == GREEN) {
         colour = CRGB(0, 255, 15);
-      }else if(colourNumber == YELLOW){
+      } else if (colourNumber == YELLOW) {
         colour = CRGB(255, 247, 18);
-      }else if(colourNumber == W_WHITE){
+      } else if (colourNumber == W_WHITE) {
         colour = CRGB(255, 153, 0);
-      }else if(colourNumber == RED){
+      } else if (colourNumber == RED) {
         colour = CRGB(255, 0, 0);
-      }else if(colourNumber == PURPLE){
+      } else if (colourNumber == PURPLE) {
         colour = CRGB(209, 22, 219);
       }
 
       set_LED_Pattern(x, y, patternType, colour);
     }
-
   }
-  
 }
 
 // Sets all the LEDs of the main board to off
@@ -1545,7 +1556,7 @@ void clearLEDs() {
       led_len = 5 * (STRIP_LEN / 8);
     } else if (i == 4) {
       led_len = 3 * (STRIP_LEN / 8);
-    } 
+    }
 
     fill_solid(led_display[i], led_len, CRGB(0, 0, 0));
   }
@@ -1553,7 +1564,7 @@ void clearLEDs() {
 
 // Idle animation for LEDs
 void idleAnimationLEDs() {
-  clearLEDs(); // for now just clears the LEDs
+  clearLEDs();  // for now just clears the LEDs
 }
 
 // ############################################################
@@ -1567,7 +1578,7 @@ bool idle_one, idle_two;
 
 void free_displays() {
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
   // Serial.println("Freeing displays");
   // Serial.println(freeMemory());
@@ -1593,13 +1604,13 @@ void display_init() {
   if (!USING_OLED) {
     display_one = nullptr;
     display_two = nullptr;
-    return; // Don't initialize displays if not using OLED
+    return;  // Don't initialize displays if not using OLED
   }
 
   // Initializing flags
   last_interacted_time = 0;
   last_idle_change = 0;
-  idle_one = 1; // Display idle screen one first by default
+  idle_one = 1;  // Display idle screen one first by default
   idle_two = 0;
 
   // Print space before initializing displays
@@ -1613,12 +1624,14 @@ void display_init() {
   // Serial.println(freeMemory());
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display_one->begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_ONE)) {
-    for(;;); // Don't proceed, loop forever
+  if (!display_one->begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_ONE)) {
+    for (;;)
+      ;  // Don't proceed, loop forever
   }
 
-  if(!display_two->begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
-    for(;;); // Don't proceed, loop forever
+  if (!display_two->begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS_TWO)) {
+    for (;;)
+      ;  // Don't proceed, loop forever
   }
 
   // Serial.print("After display begin: ");
@@ -1653,7 +1666,7 @@ void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, ui
   */
 
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
 
   if (!is_idle) {
@@ -1666,9 +1679,7 @@ void display_idle_screen(Timer timer, bool is_idle, bool is_display_computer, ui
     } else {
       display_select_computer(display, comp_diff);
     }
-
   }
-
 }
 
 // Displayes who is making what moves
@@ -1688,7 +1699,7 @@ void display_turn_select(int8_t player_id, int8_t joystick_x, int8_t joystick_y,
       both assumed to be -1 if not set
   */
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
 
   char msg[100];
@@ -1707,27 +1718,27 @@ void display_turn_select(int8_t player_id, int8_t joystick_x, int8_t joystick_y,
   display_two->setCursor(0, 0);
 
   // If we have not yet selected
-  if (selected_x == -1 && selected_y == -1) { // if the user is still selecting their first move
+  if (selected_x == -1 && selected_y == -1) {  // if the user is still selecting their first move
     sprintf(msg, "Moving %c%c...", (joystick_x + 'a'), (joystick_y + '1'));
 
     if (player_id == 1) {
       // Player id 1 is selecting, corresponds to screen id 2... cuz index...
 
       display_two->print(msg);
-      msg[0] = 'm'; // display lower case m
+      msg[0] = 'm';  // display lower case m
       display_one->println(F("Your opponent is "));
       display_one->print(msg);
 
     } else {
       // Display on the other screen
       display_one->print(msg);
-      msg[0] = 'm'; // display lower case m
+      msg[0] = 'm';  // display lower case m
       display_two->println(F("Your opponent is "));
       display_two->print(msg);
     }
 
-  // A piece has been successfully selected, now selecting second move
-  } else if (destination_x == -1 && destination_y == -1) { // if the user is selecting their second move
+    // A piece has been successfully selected, now selecting second move
+  } else if (destination_x == -1 && destination_y == -1) {  // if the user is selecting their second move
     // Display the Second coordinate player is selecting
 
     sprintf(msg, "Moving %c%c to %c%c...", (selected_x + 'a'), (selected_y + '1'), (joystick_x + 'a'), (joystick_y + '1'));
@@ -1738,7 +1749,7 @@ void display_turn_select(int8_t player_id, int8_t joystick_x, int8_t joystick_y,
       display_two->print(msg);
       msg[0] = 'm';
       display_one->println(F("Your opponent is "));
-      display_one->print(msg);  
+      display_one->print(msg);
 
     } else {
       display_one->print(msg);
@@ -1766,7 +1777,7 @@ void display_while_motor_moving(int8_t player_id, int8_t selected_x, int8_t sele
       both assumed to be -1 if not set
   */
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
   char msg[100];
 
@@ -1780,7 +1791,7 @@ void display_while_motor_moving(int8_t player_id, int8_t selected_x, int8_t sele
 
   // At this time of code, we always have a valid selected_x and selected_y, and destination_x and destination_y
   // player_id is whoever is moving
-  
+
   sprintf(msg, "Moving %c%c to %c%c...", (selected_x + 'a'), (selected_y + '1'), (destination_x + 'a'), (destination_y + '1'));
 
   if (player_id == 1) {
@@ -1810,7 +1821,7 @@ void display_promotion(int8_t player_promoting, int8_t piece, Adafruit_SSD1306 *
 
   */
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
   display_one->clearDisplay();
   display_one->setTextSize(1);
@@ -1821,10 +1832,10 @@ void display_promotion(int8_t player_promoting, int8_t piece, Adafruit_SSD1306 *
 
   if (player_promoting == 1) {
 
-    // Player black is promoting   
+    // Player black is promoting
     display_two->println(F("You are currently promoting to a..."));
 
-    switch(piece) {
+    switch (piece) {
       // Order is Queen Rook Bishop Knight
       case 0:
         display_two->print(F("QUEEN"));
@@ -1843,13 +1854,13 @@ void display_promotion(int8_t player_promoting, int8_t piece, Adafruit_SSD1306 *
     display_one->print(F("Your opponent is promoting..."));
     display_one->display();
     display_two->display();
-    
+
   } else {
 
-    // Player 2 is promoting   
+    // Player 2 is promoting
     display_one->println(F("You are currently promoting to a..."));
 
-    switch(piece) {
+    switch (piece) {
       case 0:
         display_one->print(F("QUEEN"));
         break;
@@ -1867,7 +1878,6 @@ void display_promotion(int8_t player_promoting, int8_t piece, Adafruit_SSD1306 *
     display_two->print(F("Your opponent is promoting..."));
     display_one->display();
     display_two->display();
-
   }
 }
 
@@ -1888,9 +1898,9 @@ void display_game_over(int8_t winner, int8_t draw, Adafruit_SSD1306 *display_one
 
   */
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
-  if (draw == 0){
+  if (draw == 0) {
     // display winner
     if (winner == 0) {
       display_winner(0, display_one);
@@ -1910,13 +1920,13 @@ void display_game_over(int8_t winner, int8_t draw, Adafruit_SSD1306 *display_one
 
 void display_select_player(Adafruit_SSD1306 *display) {
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
   display->clearDisplay();
   display->setTextSize(1);
   // Draw bitmap
   display->setCursor(0, 0);
-  display->println(F(      "PLAYER"));
+  display->println(F("PLAYER"));
   display->println(F("HUMAN  Comp>"));
   display->print(F("MODE"));
   display->display();
@@ -1924,7 +1934,7 @@ void display_select_player(Adafruit_SSD1306 *display) {
 
 void display_select_computer(Adafruit_SSD1306 *display, uint8_t comp_diff) {
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
   display->clearDisplay();
   display->setTextSize(1);
@@ -1932,13 +1942,13 @@ void display_select_computer(Adafruit_SSD1306 *display, uint8_t comp_diff) {
   display->println(F("STOCKFISH"));
   display->print(F("<Human  LV:"));
   // Draw bitmap
-  display->print(comp_diff+1, DEC);
+  display->print(comp_diff + 1, DEC);
   display->display();
 }
 
 void display_idle_scroll(Adafruit_SSD1306 *display) {
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
   display->clearDisplay();
   display->setTextSize(2);
@@ -1947,7 +1957,7 @@ void display_idle_scroll(Adafruit_SSD1306 *display) {
   display->print(F("SMARTCHESS"));
   display->display();
   // display->startscrollleft(0, 1); // (row 1, row 2). Scrolls just the first row of text.
-  display->startscrollright(2, 3); // SSD1306 can't handle two concurrent scroll directions.
+  display->startscrollright(2, 3);  // SSD1306 can't handle two concurrent scroll directions.
 
   // Serial.print("Free memory: ");
   // Serial.println(freeMemory());
@@ -1955,7 +1965,7 @@ void display_idle_scroll(Adafruit_SSD1306 *display) {
 
 void display_draw(int8_t draw, Adafruit_SSD1306 *display) {
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
 
   /*
@@ -1996,7 +2006,7 @@ void display_draw(int8_t draw, Adafruit_SSD1306 *display) {
 
 void display_winner(int8_t winner, Adafruit_SSD1306 *display) {
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
 
   display->clearDisplay();
@@ -2008,12 +2018,11 @@ void display_winner(int8_t winner, Adafruit_SSD1306 *display) {
   display->println(F(" wins!"));
 
   display->display();
-
 }
 
 void display_loser(int8_t loser, Adafruit_SSD1306 *display) {
   if (!USING_OLED) {
-    return; // Don't do anything about displays if not using OLED
+    return;  // Don't do anything about displays if not using OLED
   }
 
   display->clearDisplay();
@@ -2031,8 +2040,8 @@ void display_loser(int8_t loser, Adafruit_SSD1306 *display) {
 // ############################################################
 
 // Display in serial monitor
-const char CHESS_PIECE_CHAR[] = {' ', 'K', 'Q', 'B', 'N', 'R', 'P',
-                                 'k', 'q', 'b', 'n', 'r', 'p'};
+const char CHESS_PIECE_CHAR[] = { ' ', 'K', 'Q', 'B', 'N', 'R', 'P',
+                                  'k', 'q', 'b', 'n', 'r', 'p' };
 
 void serial_display_board_and_selection() {
   // print the "-------..." in for loop
@@ -2047,15 +2056,13 @@ void serial_display_board_and_selection() {
         if (selected_x == -1 || selected_y == -1) {
           break;
         }
-        if (all_moves[selected_y][selected_x][i].second%8 == col &&
-            all_moves[selected_y][selected_x][i].second/8 == row) {
+        if (all_moves[selected_y][selected_x][i].second % 8 == col && all_moves[selected_y][selected_x][i].second / 8 == row) {
           Serial.print("X");
           Serial.print("\t");
           showed = true;
           break;
         }
-        if (all_moves[selected_y][selected_x][i].first%8 == col &&
-            all_moves[selected_y][selected_x][i].first/8 == row) {
+        if (all_moves[selected_y][selected_x][i].first % 8 == col && all_moves[selected_y][selected_x][i].first / 8 == row) {
           Serial.print("O");
           Serial.print("\t");
           showed = true;
@@ -2071,8 +2078,7 @@ void serial_display_board_and_selection() {
         // Print CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
         // 6*p_board->pieces[row][col]->get_color()];
         Serial.print(
-            CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() +
-                             6 * p_board->pieces[row][col]->get_color()]);
+          CHESS_PIECE_CHAR[p_board->pieces[row][col]->get_type() + 6 * p_board->pieces[row][col]->get_color()]);
       }
       Serial.print("\t");
     }
@@ -2101,7 +2107,7 @@ void serial_display_board_and_selection() {
 void setup() {
   Serial.begin(9600);
   Wire.begin();
-  // delay(1000);  // Wait for serial monitor to open
+  delay(1000);  // Wait for serial monitor to open
   Serial.println("Starting up...");
   // Serial.println("Free memory: ");
   // Serial.println(freeMemory());
@@ -2174,7 +2180,7 @@ void loop() {
     prev_confirm_button_pressed[1] = true;
     prev_joystick_neutral[0] = true;
     prev_joystick_neutral[1] = true;
-    
+
     idle_joystick_x[0] = 0;
     idle_joystick_y[0] = 0;
     idle_joystick_x[1] = 1;
@@ -2215,10 +2221,9 @@ void loop() {
     bool initialized = false;
 
     // Wait for the stockfish to initialize
-    while (!initialized && USING_STOCKFISH) { // skip if not using stockfish
+    while (!initialized && USING_STOCKFISH) {  // skip if not using stockfish
       stockfish_received_data = stockfish_read();
-      if (stockfish_received_data == 0b10101010101010 ||
-          stockfish_received_data == 0b01010101010101) {
+      if (stockfish_received_data == 0b10101010101010 || stockfish_received_data == 0b01010101010101) {
         initialized = true;
         digitalWrite(OVERWRITE, HIGH);
       }
@@ -2246,6 +2251,7 @@ void loop() {
     // Serial.println(player_ready[0]);
     // Serial.print("Player 2 ready: ");
     // Serial.println(player_ready[1]);
+    Serial.println("Game idle");
 
     uint32_t time_since_last_change = game_timer.read() - last_idle_change_time;
     // Serial.print("Time since last change: ");
@@ -2275,10 +2281,10 @@ void loop() {
     // x==0 means player, x==1 means computer
     // only move_y if computer is selected
     // If we are in idle_screen, nothing happens, we only break out of idle screen if a button is pressed
-    
-    move_user_joystick_idle(0, idle_joystick_x[0] == 1, 20); // max stockfish level is 20
+
+    move_user_joystick_idle(0, idle_joystick_x[0] == 1, 20);  // max stockfish level is 20
     move_user_joystick_idle(1, idle_joystick_x[1] == 1, 20);
-    
+
 
     // Check button presses: if button pressed, toggle player_ready
     if (confirm_button_pressed[0]) {
@@ -2289,7 +2295,7 @@ void loop() {
       player_ready[1] = !player_ready[1];
       confirm_button_pressed[1] = false;
     }
-    
+
     // Board LED IDLE animation
     idleAnimationLEDs();
 
@@ -2305,30 +2311,30 @@ void loop() {
 
       // STOCKFISHTODO: Send player types and game difficulty of BOTH players to Stockfish
       // STOCKFISHTODO: If white is a computer, also write all zeros to indicate a beginning move
-      if (USING_STOCKFISH){
+      if (USING_STOCKFISH) {
         // Remember if players are human or computer
         // 0 = human, 1 = computer
         player_is_computer[0] = idle_joystick_x[0];
         player_is_computer[1] = idle_joystick_x[1];
-        stockfish_write(0,   // writing_all_zeros
-          1,   // is programming
-          0,   // programming colour
-          !idle_joystick_x[0],   // is human
-          idle_joystick_y[0],  // difficulty
-          0,   // from square (doesn't matter)
-          0,   // to square (doesn't matter)
-          0,   // is promotion (doesn't matter)
-          0);  // promotion square (doesn't matter)
+        stockfish_write(0,                    // writing_all_zeros
+                        1,                    // is programming
+                        0,                    // programming colour
+                        !idle_joystick_x[0],  // is human
+                        idle_joystick_y[0],   // difficulty
+                        0,                    // from square (doesn't matter)
+                        0,                    // to square (doesn't matter)
+                        0,                    // is promotion (doesn't matter)
+                        0);                   // promotion square (doesn't matter)
 
-        stockfish_write(0,   // writing_all_zeros
-          1,   // is programming
-          1,   // programming colour
-          !idle_joystick_x[1],   // is human
-          idle_joystick_y[1],  // difficulty
-          0,   // from square (doesn't matter)
-          0,   // to square (doesn't matter)
-          0,   // is promotion (doesn't matter)
-          0);  // promotion square (doesn't matter)
+        stockfish_write(0,                    // writing_all_zeros
+                        1,                    // is programming
+                        1,                    // programming colour
+                        !idle_joystick_x[1],  // is human
+                        idle_joystick_y[1],   // difficulty
+                        0,                    // from square (doesn't matter)
+                        0,                    // to square (doesn't matter)
+                        0,                    // is promotion (doesn't matter)
+                        0);                   // promotion square (doesn't matter)
       } else {
         // Set both to players if not using stockfish
         player_is_computer[0] = 0;
@@ -2352,11 +2358,12 @@ void loop() {
   } else if (game_state == GAME_INITIALIZE) {
     // Game started, initialize the board
 
+    Serial.println("Game init");
     // Initialize the board
-    p_board = new Board();  // Initialize the board object to a new board
-    player_turn = 0;  // White to move first
+    p_board = new Board();           // Initialize the board object to a new board
+    player_turn = 0;                 // White to move first
     current_player_under_check = 0;  // No player is under check initially
-    sources_of_check.clear();  // clean memory for sources of check
+    sources_of_check.clear();        // clean memory for sources of check
 
     // Draw reason is false by default
     draw_three_fold_repetition = false;  // If true, the game is a draw due to three fold repetition
@@ -2446,13 +2453,12 @@ void loop() {
       for (int8_t j = 0; j < 8; j++) {
         // Non-player's piece should have empty moves
         all_moves[i][j].clear();
-        if (p_board->pieces[i][j]->get_type() == EMPTY ||
-            p_board->pieces[i][j]->get_color() != player_turn) {
+        if (p_board->pieces[i][j]->get_type() == EMPTY || p_board->pieces[i][j]->get_color() != player_turn) {
           continue;
         }
         all_moves[i][j] = p_board->pieces[i][j]->get_possible_moves(p_board);
         p_board->remove_illegal_moves_for_a_piece(
-            j, i, all_moves[i][j]);  // NOTE it's j, i!!!!!
+          j, i, all_moves[i][j]);  // NOTE it's j, i!!!!!
         if (all_moves[i][j].size() > 0) {
           no_moves = false;
         }
@@ -2487,32 +2493,32 @@ void loop() {
     // WE HAVE FINISHED ALL "GAME_OVER" CHECKS, tell stockfish what move just happened (this happened before the move variables are reset)
     // STOCKFISHTODO: Send the move that was made (selected_x, selected_y, destination_x, destination_y) to stockfish
     // STOCKFISHTODO: Also include promotion if there was any (see if promotion_type is -1 or not)
-    if (is_first_move){
+    if (is_first_move) {
       // In the case of first move, only send something to stockfish if white is a computer
       is_first_move = false;
       if (player_is_computer[0]) {
         // If white is a computer, send all zeros to stockfish for the first move
         stockfish_write(1,   // writing_all_zeros
-          0,   // is programming
-          0,   // programming colour
-          0,   // is human
-          0,  // difficulty
-          0,   // from square
-          0,   // to square
-          0,   // is promotion (doesn't matter)
-          0);  // promotion square (doesn't matter)
+                        0,   // is programming
+                        0,   // programming colour
+                        0,   // is human
+                        0,   // difficulty
+                        0,   // from square
+                        0,   // to square
+                        0,   // is promotion (doesn't matter)
+                        0);  // promotion square (doesn't matter)
       }
     } else if (USING_STOCKFISH) {
       // If not first move, send the move to stockfish
-      stockfish_write(0,                 // writing_all_zeros
-        0,                 // is programming
-        0,                 // programming colour
-        0,                 // is human
-        20,                // difficulty
-        selected_y * 8 + selected_x ,       // from square
-        destination_y * 8 + destination_x,         // to square
-        promotion_happened,                 // is promotion
-        promotion_joystick_selection);  // promotion square
+      stockfish_write(0,                                  // writing_all_zeros
+                      0,                                  // is programming
+                      0,                                  // programming colour
+                      0,                                  // is human
+                      20,                                 // difficulty
+                      selected_y * 8 + selected_x,        // from square
+                      destination_y * 8 + destination_x,  // to square
+                      promotion_happened,                 // is promotion
+                      promotion_joystick_selection);      // promotion square
     }
 
     // TEMP DISPLAY CODE:
@@ -2525,7 +2531,7 @@ void loop() {
     destination_y = -1;
     capture_x = -1;
     capture_y = -1;
-    promotion_type = -1; // This is mostly for stockfish, so we know if there is a promotion or not when sending info to stockfish
+    promotion_type = -1;  // This is mostly for stockfish, so we know if there is a promotion or not when sending info to stockfish
     // Display screen once before moving to next state
     display_init();
     display_turn_select(player_turn, joystick_x[player_turn], joystick_y[player_turn], selected_x, selected_y, destination_x, destination_y, display_one, display_two);
@@ -2553,20 +2559,20 @@ void loop() {
     // by green if the cursor is on the same square) red on king square if under
     // check
     clearLEDs();
-    
-    if(number_of_turns != 0){
+
+    if (number_of_turns != 0) {
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
       setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
 
     // STOCKFISHTODO: Let LED display first.
-    // STOCKFISHTODO: If player is a computer: 
-    // STOCKFISHTODO: Read from stockfish. Decode the coordinates. Set selected_x, selected_y, destination_x, destination_y, capture_x, capture_y accordingly. 
+    // STOCKFISHTODO: If player is a computer:
+    // STOCKFISHTODO: Read from stockfish. Decode the coordinates. Set selected_x, selected_y, destination_x, destination_y, capture_x, capture_y accordingly.
     // STOCKFISHTODO: Capture x,y have to be found within the list of possible moves...
     // STOCKFISHTODO: If any error occurs here, just make the FIRST move in the list of possible moves.
     // STOCKFISHTODO: Stockfish may also return promotion piece. If so, set promotion_joystick_selection to the correct value.
     // STOCKFISHTODO: Then we directly move to GAME_MOVE_MOTOR
-    
+
     if (player_is_computer[player_turn]) {
       // Receive from stockfish, convert to x,y coordinates
       // Assuming stockfish doesn't return any errors. // TODO: if there happens to be error here we might need to check...
@@ -2583,20 +2589,19 @@ void loop() {
       promotion_joystick_selection = stockfish_promotion;
       bool valid_move = false;
       for (int8_t i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
-        if (all_moves[selected_y][selected_x][i].first%8 == destination_x &&
-            all_moves[selected_y][selected_x][i].first/8 == destination_y) {
+        if (all_moves[selected_y][selected_x][i].first % 8 == destination_x && all_moves[selected_y][selected_x][i].first / 8 == destination_y) {
           valid_move = true;
-          capture_x = all_moves[selected_y][selected_x][i].second%8;
-          capture_y = all_moves[selected_y][selected_x][i].second/8;
+          capture_x = all_moves[selected_y][selected_x][i].second % 8;
+          capture_y = all_moves[selected_y][selected_x][i].second / 8;
           break;
         }
       }
       if (!valid_move) {
         // Invalid move, just take the first move.
-        for(int i = 0; i < 8; i++){
+        for (int i = 0; i < 8; i++) {
           bool found = false;
-          for(int j = 0; j < 8; j++){
-            if(all_moves[i][j].size() > 0){
+          for (int j = 0; j < 8; j++) {
+            if (all_moves[i][j].size() > 0) {
               selected_x = j;
               selected_y = i;
               destination_x = all_moves[i][j][0].first % 8;
@@ -2607,19 +2612,19 @@ void loop() {
               break;
             }
           }
-          if(found){
+          if (found) {
             break;
           }
         }
       }
-      
+
       // Computer move, straight to motor
       game_state = GAME_MOVE_MOTOR;
     }
 
 
     setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
-    
+
     if (p_board->under_check(player_turn % 2)) {
       setSquareLED((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
     }
@@ -2627,13 +2632,13 @@ void loop() {
     // OLED display: show the current selection
     // TODO
     // display_turn_select()...
-    
-  
+
+
 
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
-      confirm_button_pressed[player_turn] = false; 
+      confirm_button_pressed[player_turn] = false;
       // This line is unnecessary, as the confirm_button_pressed flag is reset in the move_user_joystick_x_y function
       // And all subsequent confirm_button_pressed checks are done after the move_user_joystick_x_y function is called, which resets the flag as well
     } else {
@@ -2655,8 +2660,7 @@ void loop() {
       // Invalid input
       return;
     }
-    if (p_board->pieces[selected_y][selected_x]->get_type() == EMPTY ||
-        p_board->pieces[selected_y][selected_x]->get_color() != player_turn) {
+    if (p_board->pieces[selected_y][selected_x]->get_type() == EMPTY || p_board->pieces[selected_y][selected_x]->get_color() != player_turn) {
       // Not player's piece
       return;
     }
@@ -2671,8 +2675,8 @@ void loop() {
     // Joystick moving, after pressing select button on valid destination
     // Wait for joystick input
     // If there is input, check if it's a valid destination, if not, ignore
-    // If the input is the selected_x, selected_y, move back to GAME_WAIT_FOR_SELECT 
-    // If it's another of your own piece, replace selected_x, selected_y with the new piece, 
+    // If the input is the selected_x, selected_y, move back to GAME_WAIT_FOR_SELECT
+    // If it's another of your own piece, replace selected_x, selected_y with the new piece,
     // stay in this state If it's a valid destination, move the piece, and move to GAME_MOVE_MOTOR
 
     // Get button input, update joystick location, update confirm button pressed
@@ -2682,23 +2686,23 @@ void loop() {
 
     // LED display
     // HERE, highlight the "prevoius move" that just happened by highlighting pieces... (in orange)
-    // Also display the cursor location - which is joystick_x[player_turn], joystick_y[player_turn] (green - overwrites orange) 
-    // Also highlight the "selected piece" with a different color (selected_x, selected_y) (blue) overwrites green 
+    // Also display the cursor location - which is joystick_x[player_turn], joystick_y[player_turn] (green - overwrites orange)
+    // Also highlight the "selected piece" with a different color (selected_x, selected_y) (blue) overwrites green
     // Also display sources of check, if any (red) (will be overwritten by green if the cursor is on the same square) red on king square if under check, unless selected piece is on the king square
     // ALSO, display the possible moves of the selected piece (yellow) (overwrites orange)
     clearLEDs();
-    
-    if(number_of_turns != 0){
+
+    if (number_of_turns != 0) {
       setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
       setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
-    
-    for(int i = 0; i < all_moves[selected_y][selected_x].size(); i++){
+
+    for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
       int x_move = all_moves[selected_y][selected_x][i].first % 8;
       int isCapture = all_moves[selected_y][selected_x][i].second;
       int y_move = all_moves[selected_y][selected_x][i].first / 8;
 
-      if(isCapture != -1){
+      if (isCapture != -1) {
         setSquareLED(x_move, y_move, RED, CAPTURE);
       } else {
         setSquareLED(x_move, y_move, W_WHITE, SOLID);
@@ -2732,8 +2736,7 @@ void loop() {
     destination_y = joystick_y[player_turn];
 
     // Check for valid input (within the board)
-    if (destination_x < 0 || destination_x > 7 || destination_y < 0 ||
-        destination_y > 7) {
+    if (destination_x < 0 || destination_x > 7 || destination_y < 0 || destination_y > 7) {
       // Invalid input
       return;
     }
@@ -2752,9 +2755,7 @@ void loop() {
       return;
     }
     // If we selected another piece of our own, replace selected piece
-    if (p_board->pieces[destination_y][destination_x]->get_type() != EMPTY &&
-        p_board->pieces[destination_y][destination_x]->get_color() ==
-            player_turn) {
+    if (p_board->pieces[destination_y][destination_x]->get_type() != EMPTY && p_board->pieces[destination_y][destination_x]->get_color() == player_turn) {
       // Replace selected piece, and repeat this state
       selected_x = destination_x;
       selected_y = destination_y;
@@ -2768,11 +2769,10 @@ void loop() {
     // Check if the move is valid (if the destination is in the list of possible moves)
     bool valid_move = false;
     for (int8_t i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
-      if (all_moves[selected_y][selected_x][i].first%8 == destination_x &&
-          all_moves[selected_y][selected_x][i].first/8 == destination_y) {
+      if (all_moves[selected_y][selected_x][i].first % 8 == destination_x && all_moves[selected_y][selected_x][i].first / 8 == destination_y) {
         valid_move = true;
-        capture_x = all_moves[selected_y][selected_x][i].second%8;
-        capture_y = all_moves[selected_y][selected_x][i].second/8;
+        capture_x = all_moves[selected_y][selected_x][i].second % 8;
+        capture_y = all_moves[selected_y][selected_x][i].second / 8;
         break;
       }
     }
@@ -2825,8 +2825,7 @@ void loop() {
       int8_t captured_temp_piece_x = -1;
       int8_t captured_temp_piece_y = -1;
       for (int8_t i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
-        if (promoted_pawns_using_temp_pieces[i].first == capture_x &&
-            promoted_pawns_using_temp_pieces[i].second == capture_y) {
+        if (promoted_pawns_using_temp_pieces[i].first == capture_x && promoted_pawns_using_temp_pieces[i].second == capture_y) {
           captured_piece_is_temp = true;
           break;
         }
@@ -2835,16 +2834,15 @@ void loop() {
       if (captured_piece_is_temp) {
         // The captured piece is a temp piece, so just move to graveyard (6 == temp piece)
         std::pair<int8_t, int8_t> graveyard_coordinate =
-            get_graveyard_empty_coordinate(6, p_board->pieces[capture_y][capture_x]->get_color());
+          get_graveyard_empty_coordinate(6, p_board->pieces[capture_y][capture_x]->get_color());
         // Motor move the piece from capture_x, capture_y to graveyard_coordinate
         move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first,
-                   graveyard_coordinate.second, true);
+                            graveyard_coordinate.second, true);
         // Update the graveyard memory
         graveyard[10 + p_board->pieces[capture_y][capture_x]->get_color()]++;
         // Remove the promoted pawn from the vector
         for (int8_t i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
-          if (promoted_pawns_using_temp_pieces[i].first == capture_x &&
-              promoted_pawns_using_temp_pieces[i].second == capture_y) {
+          if (promoted_pawns_using_temp_pieces[i].first == capture_x && promoted_pawns_using_temp_pieces[i].second == capture_y) {
             promoted_pawns_using_temp_pieces.erase(promoted_pawns_using_temp_pieces.begin() + i);
             break;
           }
@@ -2860,12 +2858,11 @@ void loop() {
           // motor to make a replacement.
           int8_t pawn_x = promoted_pawns_using_temp_pieces[i].first;
           int8_t pawn_y = promoted_pawns_using_temp_pieces[i].second;
-          if (p_board->pieces[capture_y][capture_x]->get_color() == p_board->pieces[pawn_y][pawn_x]->get_color() &&
-              p_board->pieces[capture_y][capture_x]->get_type() == p_board->pieces[pawn_y][pawn_x]->get_type()) {
+          if (p_board->pieces[capture_y][capture_x]->get_color() == p_board->pieces[pawn_y][pawn_x]->get_color() && p_board->pieces[capture_y][capture_x]->get_type() == p_board->pieces[pawn_y][pawn_x]->get_type()) {
             // There exists a promoted pawn that can be replaced by the captured
             // piece Move temp piece to graveyard (6 == temp piece)
             std::pair<int8_t, int8_t> graveyard_coordinate =
-                get_graveyard_empty_coordinate(6, p_board->pieces[pawn_y][pawn_x]->get_color());
+              get_graveyard_empty_coordinate(6, p_board->pieces[pawn_y][pawn_x]->get_color());
             move_piece_by_motor(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
 
             // Move captured piece to the pawn's location (use safe move)
@@ -2885,7 +2882,7 @@ void loop() {
           // If the captured piece cannot replace a promoted pawn, move the
           // captured piece to the graveyard
           PieceType captured_piece_type =
-              p_board->pieces[capture_y][capture_x]->get_type();
+            p_board->pieces[capture_y][capture_x]->get_type();
           int8_t graveyard_index = 0;
           if (captured_piece_type == QUEEN) {
             graveyard_index = 0;
@@ -2903,7 +2900,7 @@ void loop() {
           // plus 1 for get_graveyard_empty_coordinate function as it takes 1 to 5,
           // and 6 for temp piece)
           std::pair<int8_t, int8_t> graveyard_coordinate =
-              get_graveyard_empty_coordinate(graveyard_index + 1, p_board->pieces[capture_y][capture_x]->get_color());
+            get_graveyard_empty_coordinate(graveyard_index + 1, p_board->pieces[capture_y][capture_x]->get_color());
           move_piece_by_motor(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
 
           // If colour is black, add 5 to the index, and update the graveyard
@@ -2916,8 +2913,7 @@ void loop() {
     // If the piece that's moving is a temp piece, edit its coordinates in the
     // promoted_pawns_using_temp_pieces vector
     for (int8_t i = 0; i < promoted_pawns_using_temp_pieces.size(); i++) {
-      if (promoted_pawns_using_temp_pieces[i].first == selected_x &&
-          promoted_pawns_using_temp_pieces[i].second == selected_y) {
+      if (promoted_pawns_using_temp_pieces[i].first == selected_x && promoted_pawns_using_temp_pieces[i].second == selected_y) {
         promoted_pawns_using_temp_pieces[i].first = destination_x;
         promoted_pawns_using_temp_pieces[i].second = destination_y;
         break;
@@ -2927,8 +2923,7 @@ void loop() {
     move_piece_by_motor(selected_x, selected_y, destination_x, destination_y, p_board->pieces[selected_y][selected_x]->get_type() == KNIGHT);
 
     // If the piece is a king that moved 2 squares, move the rook (castling)
-    if (p_board->pieces[selected_y][selected_x]->get_type() == KING &&
-        abs(destination_x - selected_x) == 2) {
+    if (p_board->pieces[selected_y][selected_x]->get_type() == KING && abs(destination_x - selected_x) == 2) {
       // Castling move
       int8_t rook_x = 0;
       int8_t rook_y = 0;
@@ -2961,7 +2956,7 @@ void loop() {
       game_state = GAME_WAIT_FOR_SELECT_PAWN_PROMOTION;
       // STOCKFISHTODO: If this player is a computer, then the promotion_joystick_selection should already be set by stockfish
       // STOCKFISHTODO: Then we do not modify promotion_joystick_selection here (since it's already set in get_move part)
-      if (!player_is_computer[player_turn]) promotion_joystick_selection = 0; // default to queen
+      if (!player_is_computer[player_turn]) promotion_joystick_selection = 0;  // default to queen
       // display_init();
       display_promotion(player_turn, 0, display_one, display_two);
       // free_displays();
@@ -3064,11 +3059,11 @@ void loop() {
     // OLED display: show the current selection
     // TODO
     // display_promotion()...
-  
+
     // Check if there's a valid piece in the graveyard to be used for promotion
     bool valid_graveyard_piece = false;
     PieceType promotion_piece_type =
-        p_board->pieces[destination_y][destination_x]->get_type();
+      p_board->pieces[destination_y][destination_x]->get_type();
     int8_t graveyard_index = 0;
     if (promotion_piece_type == QUEEN) {
       graveyard_index = 0;
@@ -3081,7 +3076,7 @@ void loop() {
     }
     // If colour is black, add 5 to the index
     graveyard_index +=
-        5 * p_board->pieces[destination_y][destination_x]->get_color();
+      5 * p_board->pieces[destination_y][destination_x]->get_color();
     if (graveyard[graveyard_index] > 0) {
       valid_graveyard_piece = true;
     }
@@ -3089,9 +3084,9 @@ void loop() {
     // Move pawn to graveyard regardless of promotion (5 == pawn in function,
     // but index is 4 + 5*color)
     std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate(
-        5, p_board->pieces[destination_y][destination_x]->get_color());
+      5, p_board->pieces[destination_y][destination_x]->get_color());
     move_piece_by_motor(destination_x, destination_y, graveyard_coordinate.first,
-               graveyard_coordinate.second, true);
+                        graveyard_coordinate.second, true);
     graveyard[4 + 5 * p_board->pieces[destination_y][destination_x]->get_color()]++;
 
     // If there is a valid piece in the graveyard, use that piece for promotion
@@ -3105,9 +3100,9 @@ void loop() {
 
       // Obtain the graveyard coordinate for the piece, and move the piece
       graveyard_coordinate = get_graveyard_empty_coordinate(
-          graveyard_index - p_board->pieces[destination_y][destination_x]->get_color() * 5 + 1, p_board->pieces[destination_y][destination_x]->get_color());
+        graveyard_index - p_board->pieces[destination_y][destination_x]->get_color() * 5 + 1, p_board->pieces[destination_y][destination_x]->get_color());
       move_piece_by_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y, true);
+                          destination_x, destination_y, true);
     } else {
       // There isn't a valid piece in the graveyard, use a temp piece
 
@@ -3116,13 +3111,13 @@ void loop() {
 
       // Move a temp piece to the destination (6 == temp piece)
       graveyard_coordinate = get_graveyard_empty_coordinate(
-          6, p_board->pieces[destination_y][destination_x]->get_color());
+        6, p_board->pieces[destination_y][destination_x]->get_color());
       move_piece_by_motor(graveyard_coordinate.first, graveyard_coordinate.second,
-                 destination_x, destination_y, true);
+                          destination_x, destination_y, true);
 
       // Update the promoted pawns using temp pieces vector (add this promoted pawn)
       promoted_pawns_using_temp_pieces.push_back(
-          std::make_pair(destination_x, destination_y));
+        std::make_pair(destination_x, destination_y));
     }
 
     // TODO: motor should move back to origin and calibrate
@@ -3132,7 +3127,7 @@ void loop() {
   } else if (game_state == GAME_END_TURN) {
     // Record the move that just happened (selected_x, selected_y, destination_x, destination_y) as the "previous move"
     // This "previous move" will be displayed by LED
-    
+
     previous_destination_x = destination_x;
     previous_destination_y = destination_y;
     previous_selected_x = selected_x;
@@ -3143,7 +3138,7 @@ void loop() {
     // End a turn - switch player
     player_turn = !player_turn;
 
-    move_motor_to_origin(ORIGIN_GAP); // input is offset value, eyeball it during testing
+    //move_motor_to_origin(ORIGIN_GAP);  // input is offset value, eyeball it during testing
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
@@ -3206,7 +3201,7 @@ void loop() {
 
     // The reset_moves vector contains the (from, to) coordinate pairs. Each int8_t is a coordinate.
     // Each coordinate is i*14+j. With the coordinate (0,0) being coordinate 3...
-    // 3 extra cols are added on left, 3 extra cols are added on right. 
+    // 3 extra cols are added on left, 3 extra cols are added on right.
     // Regular chess board (x,y) coordinate is now converted to (y*14+3+x), so for x<0 it means graveyard on left, x>7 means graveyard on right
 
     for (int reset_idx = 0; reset_idx < reset_moves.size(); reset_idx++) {
@@ -3223,18 +3218,18 @@ void loop() {
       Serial.println("]");
 
       move_piece_by_motor((reset_moves[reset_idx].first % 14) - 3, reset_moves[reset_idx].first / 14, (reset_moves[reset_idx].second % 14) - 3, reset_moves[reset_idx].second / 14, true);
-    } // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
+    }  // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
 
-      // Free unnecessary memory
-      // TODO
-      // 3-fold repetition vectors is no longer needed
+    // Free unnecessary memory
+    // TODO
+    // 3-fold repetition vectors is no longer needed
 
-      // First, move the pieces back to the initial position
-      // TODO: motor
+    // First, move the pieces back to the initial position
+    // TODO: motor
 
-      // Free memory
-      delete p_board;
+    // Free memory
+    delete p_board;
 
     // Clear vectors (find ones that aren't cleared by game_initialize)
     // TODO
