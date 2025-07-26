@@ -1069,7 +1069,7 @@ int move_motor_to_origin(int offset) {
   int ret;
 
   // Moves to a bit short of where origin is
-  move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)
+  move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY);
 
   // if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
 
