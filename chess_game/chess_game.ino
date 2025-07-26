@@ -1034,6 +1034,7 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
   delay(1000);  // pick up piece
   Serial.println("Pick up piece");
   piece_picker.write(PIECE_PICKER_UP_ANGLE);
+  delay(1000);
 
   if (gridAligned) {
     // Move motor onto edges instead of centers, then move to destination
@@ -1051,6 +1052,7 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
   delay(1000);  // release piece
   Serial.println("Release piece");
   piece_picker.write(PIECE_PICKER_DOWN_ANGLE);
+  delay(1000);
 
   return 0;
 }
@@ -1069,7 +1071,7 @@ int move_motor_to_origin(int offset) {
   int ret;
 
   // Moves to a bit short of where origin is
-  move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY);
+  move_motor_to_coordinate(-(MM_PER_SQUARE*3 + GRAVEYARD_GAP)+offset, offset, false, FAST_STEP_DELAY);
 
   // if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
 
