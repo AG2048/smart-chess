@@ -9,6 +9,7 @@
 #include <string.h>
 #include <Arduino.h>
 #include "FastLED.h"
+#include "Servo.h"
 // #include "ArduinoSTL.h"
 #include "Board.h"
 // #include "MemoryFree.h"
@@ -833,6 +834,23 @@ int stockfish_write(bool writing_all_zeros, int is_programming, int programming_
   return 0;
 }
 
+
+// ############################################################
+// #                       PIECE PICKER                       #
+// ############################################################
+
+#define PIECE_PICKER_PIN 3
+
+Servo piece_picker;
+
+void move_piece_picker(int start, int end, int step, int step_delay) {
+  for (int i = start; i < end; i += step) {
+    piece_picker.write(i)
+    delay(step_delay);
+  }  
+}
+
+
 // ############################################################
 // #                       MOTOR CONTROL                      #
 // ############################################################
@@ -850,7 +868,7 @@ const int SLOW_STEP_DELAY = 100;              // half the period of square wave 
 const long ORIGIN_RESET_TIMEOUT = 50000;      // how many steps motor will attempt to recenter to origin before giving up
 
 int motor_error = 0;                   // 0: normal operation, 1: misaligned origin, 2: cannot reach origin (stuck)
-int motor_coordinates[2] = { 0, 0 };  // x, y coordinates of the motor in millimeters
+int motor_coordinates[2] = {-(MM_PER_SQUARE*3 + GRAVEYARD_GAP), 0};  // x, y coordinates of the motor in millimeters
 // Need to offset by negative 3 squares (in mm)
 
 void stepper_square_wave(int mode, int stepDelay) {
@@ -1021,6 +1039,7 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
 
   delay(1000);  // pick up piece
   Serial.println("Pick up piece");
+  move_piece_picker(0, 45, 1, 15);
 
   if (gridAligned) {
     // Move motor onto edges instead of centers, then move to destination
@@ -1037,6 +1056,7 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
 
   delay(1000);  // release piece
   Serial.println("Release piece");
+  move_piece_picker(45, 0, -1, 15);
 
   return 0;
 }
@@ -1046,7 +1066,7 @@ int move_motor_to_origin(int offset) {
   // fastMove: if true, it will move fast until the last 50mm until "supposed" origin and move slowly until it hits the limit switch
   //           if false, it will move slowly from the beginning until it hits the limit switch
   // The function should reference motor_coordinates variable to estimate where it is
-  int dx = -motor_coordinates[0]; // Need to offset by negative 3 squares (in mm)
+  int dx = -(MM_PER_SQUARE*3 + GRAVEYARD_GAP)-motor_coordinates[0]; // Need to offset by negative 3 squares (in mm)
   int dy = -motor_coordinates[1];
 
   // Sets direction
@@ -1055,26 +1075,28 @@ int move_motor_to_origin(int offset) {
   int ret;
 
   // Moves to a bit short of where origin is
-  if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
+  move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)
 
-  // Slowly moves towards origin until hits x limit switch
-  int counter = 0;
-  while (!digitalRead(LIMIT_PIN[0])) {
-    stepper_square_wave(0, SLOW_STEP_DELAY);
-    counter++;
-    if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
-  }
+  // if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
 
-  // Slowly moves towards origin until hits y limit switch
-  counter = 0;
-  while (!digitalRead(LIMIT_PIN[2])) {
-    stepper_square_wave(1, SLOW_STEP_DELAY);
-    counter++;
-    if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
-  }
+  // // Slowly moves towards origin until hits x limit switch
+  // int counter = 0;
+  // while (!digitalRead(LIMIT_PIN[0])) {
+  //   stepper_square_wave(0, SLOW_STEP_DELAY);
+  //   counter++;
+  //   if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
+  // }
 
-  // Move motor slightly off origin, so limit switches are not held
-  if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
+  // // Slowly moves towards origin until hits y limit switch
+  // counter = 0;
+  // while (!digitalRead(LIMIT_PIN[2])) {
+  //   stepper_square_wave(1, SLOW_STEP_DELAY);
+  //   counter++;
+  //   if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
+  // }
+
+  // // Move motor slightly off origin, so limit switches are not held
+  // if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
 
   // Updates current motor coordinates
   motor_coordinates[0] = offset;
@@ -2123,6 +2145,8 @@ void setup() {
   // LEDS.addLeds<WS2812B, LED_PROMOTION_PIN, GRB>(led_display[5], PROMOTION_STRIP_LEN);
   // FastLED.setBrightness(LED_BRIGHTNESS);
 
+  piece_picker.attach(PIECE_PICKER_PIN);
+
   // Initial game state
   game_state = GAME_POWER_ON;
 }
@@ -3138,7 +3162,7 @@ void loop() {
     // End a turn - switch player
     player_turn = !player_turn;
 
-    //move_motor_to_origin(ORIGIN_GAP);  // input is offset value, eyeball it during testing
+    move_motor_to_origin(0);  // input is offset value, eyeball it during testing
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
