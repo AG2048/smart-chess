@@ -9,7 +9,7 @@
 #include <string.h>
 #include <Arduino.h>
 #include "FastLED.h"
-#include "Servo.h"
+#include <ESP32Servo.h>
 // #include "ArduinoSTL.h"
 #include "Board.h"
 // #include "MemoryFree.h"
@@ -839,17 +839,11 @@ int stockfish_write(bool writing_all_zeros, int is_programming, int programming_
 // #                       PIECE PICKER                       #
 // ############################################################
 
-#define PIECE_PICKER_PIN 3
+#define PIECE_PICKER_PIN 23
+#define PIECE_PICKER_UP_ANGLE 50
+#define PIECE_PICKER_DOWN_ANGLE 180
 
 Servo piece_picker;
-
-void move_piece_picker(int start, int end, int step, int step_delay) {
-  for (int i = start; i < end; i += step) {
-    piece_picker.write(i)
-    delay(step_delay);
-  }  
-}
-
 
 // ############################################################
 // #                       MOTOR CONTROL                      #
@@ -1039,7 +1033,7 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
 
   delay(1000);  // pick up piece
   Serial.println("Pick up piece");
-  move_piece_picker(0, 45, 1, 15);
+  piece_picker.write(PIECE_PICKER_UP_ANGLE);
 
   if (gridAligned) {
     // Move motor onto edges instead of centers, then move to destination
@@ -1056,7 +1050,7 @@ int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAlig
 
   delay(1000);  // release piece
   Serial.println("Release piece");
-  move_piece_picker(45, 0, -1, 15);
+  piece_picker.write(PIECE_PICKER_DOWN_ANGLE);
 
   return 0;
 }
