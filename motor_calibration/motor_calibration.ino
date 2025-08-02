@@ -25,6 +25,12 @@ Servo piece_picker;
 // #                       MOTOR CONTROL                      #
 // ############################################################
 
+int motor_x = 0;
+int motor_y = 0;
+int servo_angle = 0;
+bool value_changed = false;
+bool servo_value_changed = false;
+
 // MOTOR CONTROL VARIABLES
 const int8_t PUL_PIN[] = { 14, 13 };          // x, y
 const int8_t DIR_PIN[] = { 27, 12 };          // x, y
@@ -363,11 +369,7 @@ void setup() {
   servo_value_changed = false;
 }
 
-int motor_x = 0;
-int motor_y = 0;
-int servo_angle = 0;
-bool value_changed = false;
-bool servo_value_changed = false;
+
 void loop() {
   value_changed = false;  // Reset value changed flag
   servo_value_changed = false;  // Reset servo value changed flag
@@ -375,24 +377,24 @@ void loop() {
   if (JOYSTICK_POS_X_VALUE[0] == 0) {
     // Move motor to right. 
     Serial.println("Moving motor to right");
-    motor_x += 1;
+    motor_x += 33;
     value_changed = true;
   } else if (JOYSTICK_NEG_X_VALUE[0] == 0) {
     // Move motor to left.
     Serial.println("Moving motor to left");
-    motor_x -= 1;
+    motor_x -= 33;
     value_changed = true;
   }
 
   if (JOYSTICK_POS_Y_VALUE[0] == 0) {
     // Move motor up.
     Serial.println("Moving motor up");
-    motor_y += 1;   
+    motor_y += 33;   
     value_changed = true;
   } else if (JOYSTICK_NEG_Y_VALUE[0] == 0) {
     // Move motor down.
     Serial.println("Moving motor down");
-    motor_y -= 1;
+    motor_y -= 33;
     value_changed = true;
   }
 
@@ -420,15 +422,13 @@ void loop() {
     Serial.print(", ");
     Serial.print(motor_y);
     Serial.println(") in mm");
-    move_motor_to_coordinate(motor_x, motor_y, true, FAST_STEP_DELAY);  // Move motor to new coordinates
+    move_motor_to_coordinate(motor_x, motor_y, false, FAST_STEP_DELAY);  // Move motor to new coordinates
   }
 
   if (servo_value_changed) {
     Serial.print("Moving servo to ");
     Serial.print(servo_angle);
     Serial.println(" degrees");
-    move_servo_to_angle(servo_angle, true, FAST_STEP_DELAY);  // Move servo to new angle
+    piece_picker.write(servo_angle);  // Move servo to new angle
   }
-
-  delay(100);  // Delay to prevent flooding the serial monitor
 }
