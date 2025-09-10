@@ -664,7 +664,7 @@ const int WData = 4;
 const int RValid = 16;
 const int RReady = 17;
 const int RData = 5;
-const int OVERWRITE = 18;
+const int OVERWRITE = 5; // TEMP: cannot be same as RData
 const int clock_half_period = 10;  // how long a clock half period is in ms
 
 int stockfish_received_data = 0;  // an int storing whatever stockfish sends us
@@ -844,7 +844,7 @@ Servo piece_picker;
 const uint8_t PIECE_PICKER_PIN = 23;
 const uint8_t PIECE_PICKER_UP_ANGLE = 50;
 const uint8_t PIECE_PICKER_DOWN_ANGLE = 180;
-const int8_t BED_LEVEL_OFFSET[][8] = {            // Offset in degrees
+const int8_t BED_LEVEL_OFFSET[8][8] = {            // Offset in degrees
     {0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0},
@@ -858,7 +858,7 @@ const int8_t BED_LEVEL_OFFSET[][8] = {            // Offset in degrees
 // STEPPER MOTOR CONTROL VARIABLES
 const uint8_t PUL_PIN[] = { 14, 13 };             // x, y
 const uint8_t DIR_PIN[] = { 27, 12 };             // x, y
-const uint8_t LIMIT_PIN[] = { 19, 3, 1, 23 };     // x-, x+, y-, y+
+// const uint8_t LIMIT_PIN[] = { 19, 3, 1, 23 };     // x-, x+, y-, y+
 const uint8_t STEPS_PER_MM = 80;                  // measured value from testing, 3.95cm per rotation (1600 steps)
 const uint8_t MM_PER_SQUARE = 66;                 // width of chessboard squares in mm
 const uint8_t GRAVEYARD_GAP = 10;                 // gap between graveyard and chessboard in mm
@@ -880,179 +880,179 @@ typedef struct m_vec{
 int motor_coordinates[2] = {-(MM_PER_SQUARE*3 + GRAVEYARD_GAP), 0};  // x, y coordinates of the motor in millimeters
 // Need to offset by negative 3 squares (in mm)
 
-void stepper_square_wave(int mode, int stepDelay) { // delay in us
-  if (mode == XY_AXIS) {
-    digitalWrite(PUL_PIN[X_AXIS], HIGH);
-    digitalWrite(PUL_PIN[Y_AXIS], HIGH);
-    delayMicroseconds(stepDelay);
-    digitalWrite(PUL_PIN[X_AXIS], LOW);
-    digitalWrite(PUL_PIN[Y_AXIS], LOW);
-  } else {
-    digitalWrite(PUL_PIN[mode], HIGH);
-    delayMicroseconds(stepDelay);
-    digitalWrite(PUL_PIN[mode], LOW);
-  }
-  delayMicroseconds(stepDelay);
-}
+// void stepper_square_wave(int mode, int stepDelay) { // delay in us
+//   if (mode == XY_AXIS) {
+//     digitalWrite(PUL_PIN[X_AXIS], HIGH);
+//     digitalWrite(PUL_PIN[Y_AXIS], HIGH);
+//     delayMicroseconds(stepDelay);
+//     digitalWrite(PUL_PIN[X_AXIS], LOW);
+//     digitalWrite(PUL_PIN[Y_AXIS], LOW);
+//   } else {
+//     digitalWrite(PUL_PIN[mode], HIGH);
+//     delayMicroseconds(stepDelay);
+//     digitalWrite(PUL_PIN[mode], LOW);
+//   }
+//   delayMicroseconds(stepDelay);
+// }
 
-void servo_bed_level(int x, int y, int servoAngle) { // x and y in mm 
-  piece_picker.write(servoAngle + BED_LEVEL_OFFSET[floor(x/MM_PER_SQUARE)][floor(y/MM_PER_SQUARE)]);
-}
+// void servo_bed_level(int x, int y, int servoAngle) { // x and y in mm 
+//   piece_picker.write(servoAngle + BED_LEVEL_OFFSET[floor(x/MM_PER_SQUARE)][floor(y/MM_PER_SQUARE)]);
+// }
 
-void motor_loop(int dist, int mode, int x_i, int y_i, int stepDelay, int servoAngle) {
-  // If servo timing is too tight, add an init setup
-  for (int i = 0; i < dist; i++) {
-    stepper_square_wave(mode, stepDelay);
-    servo_bed_level(motor_coordinates[0]+i*x_i, motor_coordinates[1]+i*y_i, servoAngle);
-  }
-}
+// void motor_loop(int dist, int mode, int x_i, int y_i, int stepDelay, int servoAngle) {
+//   // If servo timing is too tight, add an init setup
+//   for (int i = 0; i < dist; i++) {
+//     stepper_square_wave(mode, stepDelay);
+//     servo_bed_level(motor_coordinates[0]+i*x_i, motor_coordinates[1]+i*y_i, servoAngle);
+//   }
+// }
 
-void motor_move_cardinal(m_vec dx, m_vec dy, int stepDelay, int servoAngle) {
-  digitalWrite(DIR_PIN[X_AXIS], dx.dir);
-  digitalWrite(DIR_PIN[Y_AXIS], dy.dir);
+// void motor_move_cardinal(m_vec dx, m_vec dy, int stepDelay, int servoAngle) {
+//   digitalWrite(DIR_PIN[X_AXIS], dx.dir);
+//   digitalWrite(DIR_PIN[Y_AXIS], dy.dir);
 
-  if (dx.mag != 0) {
-    motor_loop(dx.mag, X_AXIS, dx.dir, 0, stepDelay, servoAngle);
-  } else if (dy.mag != 0) {
-    motor_loop(dy.mag, Y_AXIS, 0, dy.dir, stepDelay, servoAngle);
-  } else if (dx.mag == dy.mag) {
-    motor_loop(dx.mag, XY_AXIS, dx.dir, dy.dir, stepDelay, servoAngle);
-  }
-}
+//   if (dx.mag != 0) {
+//     motor_loop(dx.mag, X_AXIS, dx.dir, 0, stepDelay, servoAngle);
+//   } else if (dy.mag != 0) {
+//     motor_loop(dy.mag, Y_AXIS, 0, dy.dir, stepDelay, servoAngle);
+//   } else if (dx.mag == dy.mag) {
+//     motor_loop(dx.mag, XY_AXIS, dx.dir, dy.dir, stepDelay, servoAngle);
+//   }
+// }
 
-void motor_move_coordinate(int x, int y, int axisAligned, int overshoot, int stepDelay, int servoAngle) {
-  m_vec dx = {abs(x - motor_coordinates[X_AXIS]), (x - motor_coordinates[X_AXIS]) < 0};
-  m_vec dy = {abs(y - motor_coordinates[Y_AXIS]), (y - motor_coordinates[Y_AXIS]) > 0};
+// void motor_move_coordinate(int x, int y, int axisAligned, int overshoot, int stepDelay, int servoAngle) {
+//   m_vec dx = {abs(x - motor_coordinates[X_AXIS]), (x - motor_coordinates[X_AXIS]) < 0};
+//   m_vec dy = {abs(y - motor_coordinates[Y_AXIS]), (y - motor_coordinates[Y_AXIS]) > 0};
 
-  if (dx.mag == 0 || dy.mag == 0 || axisAligned) {
-    if (dx.mag != 0) {
-      if (overshoot) dx.mag += dx.dir*MOVE_OVERSHOOT;
-      motor_move_cardinal(dx, 0, servoAngle);
-      if (overshoot) {
-        dx.mag = dx.dir*MOVE_OVERSHOOT;
-        dx.dir *= -1;
-        motor_move_cardinal(dx, 0, servoAngle);
-      }
-    }
-    if (dy.mag != 0) {
-      if (overshoot) dy.mag += dy.dir*MOVE_OVERSHOOT;
-      motor_move_cardinal(0, dy, servoAngle);
-      if (overshoot) {
-        dy.mag = dy.dir*MOVE_OVERSHOOT;
-        dy.dir *= -1;
-        motor_move_cardinal(0, dy, servoAngle);
-      }
-    }
-  } else if (dx.mag == dy.mag) {
-    if (overshoot) {
-      dx.mag += dx.dir*MOVE_OVERSHOOT;
-      dy.mag += dy.dir*MOVE_OVERSHOOT;
-    }
-    motor_move_cardinal(dx, dy, servoAngle);
-    if (overshoot) {
-      // jjdjdf
-    }
-  } else if (dx.mag < dy.mag) {
-    // move xy by x
-    // overshoot xy
-    // move remainder y
-    // overshoot y
-  } else if (dx.mag > dy.mag) {
-    // move xy by y
-    // overshoot xy
-    // move remainder x
-    // overshoot x
-  }
+//   if (dx.mag == 0 || dy.mag == 0 || axisAligned) {
+//     if (dx.mag != 0) {
+//       if (overshoot) dx.mag += dx.dir*MOVE_OVERSHOOT;
+//       motor_move_cardinal(dx, 0, servoAngle);
+//       if (overshoot) {
+//         dx.mag = dx.dir*MOVE_OVERSHOOT;
+//         dx.dir *= -1;
+//         motor_move_cardinal(dx, 0, servoAngle);
+//       }
+//     }
+//     if (dy.mag != 0) {
+//       if (overshoot) dy.mag += dy.dir*MOVE_OVERSHOOT;
+//       motor_move_cardinal(0, dy, servoAngle);
+//       if (overshoot) {
+//         dy.mag = dy.dir*MOVE_OVERSHOOT;
+//         dy.dir *= -1;
+//         motor_move_cardinal(0, dy, servoAngle);
+//       }
+//     }
+//   } else if (dx.mag == dy.mag) {
+//     if (overshoot) {
+//       dx.mag += dx.dir*MOVE_OVERSHOOT;
+//       dy.mag += dy.dir*MOVE_OVERSHOOT;
+//     }
+//     motor_move_cardinal(dx, dy, servoAngle);
+//     if (overshoot) {
+//       // jjdjdf
+//     }
+//   } else if (dx.mag < dy.mag) {
+//     // move xy by x
+//     // overshoot xy
+//     // move remainder y
+//     // overshoot y
+//   } else if (dx.mag > dy.mag) {
+//     // move xy by y
+//     // overshoot xy
+//     // move remainder x
+//     // overshoot x
+//   }
 
-  motor_coordinates[0] = x;
-  motor_coordinates[1] = y;
-}
+//   motor_coordinates[0] = x;
+//   motor_coordinates[1] = y;
+// }
 
-void motor_move_piece (int from_x, int from_y, int to_x, int to_y, int gridAligned) {
-  Serial.println("MOVING CODE RUNNING");
-  // Move the motor from one square to another
-  // from_x, from_y: x, y coordinates of the square to move from
-  // to_x, to_y: x, y coordinates of the square to move to
-  // stepDelay: time in microseconds to wait between each step (half a period)
-  // fastMove: if true, move piece in a straight line to destination, else, move along edges
-  // Move the motor from (from_x, from_y) to (to_x, to_y)
+// void motor_move_piece (int from_x, int from_y, int to_x, int to_y, int gridAligned) {
+//   Serial.println("MOVING CODE RUNNING");
+//   // Move the motor from one square to another
+//   // from_x, from_y: x, y coordinates of the square to move from
+//   // to_x, to_y: x, y coordinates of the square to move to
+//   // stepDelay: time in microseconds to wait between each step (half a period)
+//   // fastMove: if true, move piece in a straight line to destination, else, move along edges
+//   // Move the motor from (from_x, from_y) to (to_x, to_y)
 
-  int corner_x, corner_y;
+//   int corner_x, corner_y;
 
-  // Convert square coordinates to mm coordinates
-  if (from_x < 0) {
-    from_x = from_x * MM_PER_SQUARE - GRAVEYARD_GAP;
-  } else if (from_x > 7) {
-    from_x = from_x * MM_PER_SQUARE + GRAVEYARD_GAP;
-  } else {
-    from_x = from_x * MM_PER_SQUARE;
-  }
+//   // Convert square coordinates to mm coordinates
+//   if (from_x < 0) {
+//     from_x = from_x * MM_PER_SQUARE - GRAVEYARD_GAP;
+//   } else if (from_x > 7) {
+//     from_x = from_x * MM_PER_SQUARE + GRAVEYARD_GAP;
+//   } else {
+//     from_x = from_x * MM_PER_SQUARE;
+//   }
 
-  if (to_x < 0) {
-    to_x = to_x * MM_PER_SQUARE - GRAVEYARD_GAP;
-  } else if (to_x > 7) {
-    to_x = to_x * MM_PER_SQUARE + GRAVEYARD_GAP;
-  } else {
-    to_x = to_x * MM_PER_SQUARE;
-  }
+//   if (to_x < 0) {
+//     to_x = to_x * MM_PER_SQUARE - GRAVEYARD_GAP;
+//   } else if (to_x > 7) {
+//     to_x = to_x * MM_PER_SQUARE + GRAVEYARD_GAP;
+//   } else {
+//     to_x = to_x * MM_PER_SQUARE;
+//   }
 
-  from_y = from_y * MM_PER_SQUARE;
-  to_y = to_y * MM_PER_SQUARE;
+//   from_y = from_y * MM_PER_SQUARE;
+//   to_y = to_y * MM_PER_SQUARE;
 
-  // Move motor to starting location
-  move_motor_coordinate(from_x, from_y, false, false, FAST_STEP_DELAY, PIECE_PICKER_DOWN_ANGLE);
-  servo_bed_level(from_x, from_y, PIECE_PICKER_UP_ANGLE); // Check if .write is blocking and if actually need the delay
-  delay(1000);
+//   // Move motor to starting location
+//   move_motor_coordinate(from_x, from_y, false, false, FAST_STEP_DELAY, PIECE_PICKER_DOWN_ANGLE);
+//   servo_bed_level(from_x, from_y, PIECE_PICKER_UP_ANGLE); // Check if .write is blocking and if actually need the delay
+//   delay(1000);
 
-  if (gridAligned) {
-    // Move motor onto edges instead of centers, then move to destination
-    corner_x = from_x < to_x ? from_x + (MM_PER_SQUARE) / 2 : from_x - (MM_PER_SQUARE) / 2;
-    corner_y = from_y < to_y ? from_y + (MM_PER_SQUARE) / 2 : from_y - (MM_PER_SQUARE) / 2;
-    move_motor_coordinate(corner_x, corner_y, false, true, FAST_STEP_DELAY, PIECE_PICKER_UP_ANGLE);
+//   if (gridAligned) {
+//     // Move motor onto edges instead of centers, then move to destination
+//     corner_x = from_x < to_x ? from_x + (MM_PER_SQUARE) / 2 : from_x - (MM_PER_SQUARE) / 2;
+//     corner_y = from_y < to_y ? from_y + (MM_PER_SQUARE) / 2 : from_y - (MM_PER_SQUARE) / 2;
+//     move_motor_coordinate(corner_x, corner_y, false, true, FAST_STEP_DELAY, PIECE_PICKER_UP_ANGLE);
 
-    corner_x = from_x < to_x ? to_x - (MM_PER_SQUARE) / 2 : to_x + (MM_PER_SQUARE) / 2;
-    corner_y = from_y < to_y ? to_y - (MM_PER_SQUARE) / 2 : to_y + (MM_PER_SQUARE) / 2;
-    move_motor_coordinate(corner_x, corner_y, true, true, FAST_STEP_DELAY, PIECE_PICKER_UP_ANGLE);
-  }
+//     corner_x = from_x < to_x ? to_x - (MM_PER_SQUARE) / 2 : to_x + (MM_PER_SQUARE) / 2;
+//     corner_y = from_y < to_y ? to_y - (MM_PER_SQUARE) / 2 : to_y + (MM_PER_SQUARE) / 2;
+//     move_motor_coordinate(corner_x, corner_y, true, true, FAST_STEP_DELAY, PIECE_PICKER_UP_ANGLE);
+//   }
 
-  move_motor_coordinate(to_x, to_y, false, true, FAST_STEP_DELAY, PIECE_PICKER_UP_ANGLE);
-  servo_bed_level(to_x, to_y, PIECE_PICKER_DOWN_ANGLE);
-  delay(1000);
-}
+//   move_motor_coordinate(to_x, to_y, false, true, FAST_STEP_DELAY, PIECE_PICKER_UP_ANGLE);
+//   servo_bed_level(to_x, to_y, PIECE_PICKER_DOWN_ANGLE);
+//   delay(1000);
+// }
 
-void motor_move_origin(int x_offset, int y_offset) {
-  // resets the motor to origin (0, 0) and re-calibrate the motor
-  // fastMove: if true, it will move fast until the last 50mm until "supposed" origin and move slowly until it hits the limit switch
-  //           if false, it will move slowly from the beginning until it hits the limit switch
-  // The function should reference motor_coordinates variable to estimate where it is
-  int dx, dy, i;
+// void motor_move_origin(int x_offset, int y_offset) {
+//   // resets the motor to origin (0, 0) and re-calibrate the motor
+//   // fastMove: if true, it will move fast until the last 50mm until "supposed" origin and move slowly until it hits the limit switch
+//   //           if false, it will move slowly from the beginning until it hits the limit switch
+//   // The function should reference motor_coordinates variable to estimate where it is
+//   int dx, dy, i;
 
-  dx = -(MM_PER_SQUARE*3 + GRAVEYARD_GAP)-motor_coordinates[0]; // Need to offset by negative 3 squares (in mm)
-  dy = -motor_coordinates[1];
+//   dx = -(MM_PER_SQUARE*3 + GRAVEYARD_GAP)-motor_coordinates[0]; // Need to offset by negative 3 squares (in mm)
+//   dy = -motor_coordinates[1];
 
-  // Moves to a bit short of where origin is
-  motor_move_coordinate(-(MM_PER_SQUARE*3 + GRAVEYARD_GAP)+x_offset, y_offset, false, false, FAST_STEP_DELAY, PIECE_PICKER_DOWN_ANGLE);
+//   // Moves to a bit short of where origin is
+//   motor_move_coordinate(-(MM_PER_SQUARE*3 + GRAVEYARD_GAP)+x_offset, y_offset, false, false, FAST_STEP_DELAY, PIECE_PICKER_DOWN_ANGLE);
 
-  i = 0;
-  while (!digitalRead(LIMIT_PIN[X_AXIS])) {
-    stepper_square_wave(X_AXIS, SLOW_STEP_DELAY);
-    i++;
-  }
-  motor_coordinates[X_AXIS] = -(MM_PER_SQUARE*3 + GRAVEYARD_GAP);
+//   i = 0;
+//   while (!digitalRead(LIMIT_PIN[X_AXIS])) {
+//     stepper_square_wave(X_AXIS, SLOW_STEP_DELAY);
+//     i++;
+//   }
+//   motor_coordinates[X_AXIS] = -(MM_PER_SQUARE*3 + GRAVEYARD_GAP);
 
-  i = 0;
-  while (!digitalRead(LIMIT_PIN[Y_AXIS])) {
-    stepper_square_wave(Y_AXIS, SLOW_STEP_DELAY);
-    i++;
-  }
-  motor_coordinates[Y_AXIS] = 0;
+//   i = 0;
+//   while (!digitalRead(LIMIT_PIN[Y_AXIS])) {
+//     stepper_square_wave(Y_AXIS, SLOW_STEP_DELAY);
+//     i++;
+//   }
+//   motor_coordinates[Y_AXIS] = 0;
 
-  motor_move_coordinate(-(MM_PER_SQUARE*3 + GRAVEYARD_GAP)+x_offset, y_offset, false, false, FAST_STEP_DELAY, PIECE_PICKER_DOWN_ANGLE);
+//   motor_move_coordinate(-(MM_PER_SQUARE*3 + GRAVEYARD_GAP)+x_offset, y_offset, false, false, FAST_STEP_DELAY, PIECE_PICKER_DOWN_ANGLE);
 
-  // Updates current motor coordinates
-  motor_coordinates[0] = x_offset;
-  motor_coordinates[1] = y_offset;
-}
+//   // Updates current motor coordinates
+//   motor_coordinates[0] = x_offset;
+//   motor_coordinates[1] = y_offset;
+// }
 
 // ############################################################
 // #                     JOYSTICK CONTROL                     #
@@ -1413,11 +1413,7 @@ const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
 // The pin define doesn't do anything, change the values manually later
-// #define LED_BOARD_PIN_0 = 12
-// #define LED_BOARD_PIN_1 = 13
-// #define LED_BOARD_PIN_2 = 14
-// #define LED_BOARD_PIN_3 = 15
-// #define LED_BOARD_PIN_4 = 16
+const uint8_t LED_BOARD_PIN[5] = {19, 18, 32, 33, 25};
 const uint8_t LED_PROMOTION_PIN = 17;
 const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
@@ -1449,7 +1445,7 @@ void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line)
 }
 
 // Sets specific LED to a specific colour
-void setLED(int x, int y, int u, int v, struct CRGB colour) {
+void set_LED(int x, int y, int u, int v, struct CRGB colour) {
   int index, data_line;
 
   coordinate_to_index(x, y, u, v, index, data_line);
@@ -1467,19 +1463,19 @@ void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour) {
   if (patternType == SOLID) {
     for (int i = 0; i < LEDSPERSQUAREROW; i++) {
       for (int j = 0; j < LEDSPERSQUAREROW; j++) {
-        setLED(x, y, i, j, colour);
+        set_LED(x, y, i, j, colour);
       }
     }
   } else if (patternType == CURSOR) {
     for (int i = 1; i < LEDSPERSQUAREROW - 1; i++) {
       for (int j = 1; j < LEDSPERSQUAREROW - 1; j++) {
-        setLED(x, y, i, j, colour);
+        set_LED(x, y, i, j, colour);
       }
     }
   } else if (patternType == CAPTURE) {
     for (int i = 0; i < LEDSPERSQUAREROW; i++) {
-      setLED(x, y, i, i, colour);
-      setLED(x, y, i, LEDSPERSQUAREROW - 1 - i, colour);
+      set_LED(x, y, i, i, colour);
+      set_LED(x, y, i, LEDSPERSQUAREROW - 1 - i, colour);
     }
   }
 }
@@ -2809,8 +2805,7 @@ void loop() {
         std::pair<int8_t, int8_t> graveyard_coordinate =
           get_graveyard_empty_coordinate(6, p_board->pieces[capture_y][capture_x]->get_color());
         // Motor move the piece from capture_x, capture_y to graveyard_coordinate
-        motor_move_piece(capture_x, capture_y, graveyard_coordinate.first,
-                            graveyard_coordinate.second, true);
+        // motor_move_piece(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
         // Update the graveyard memory
         graveyard[10 + p_board->pieces[capture_y][capture_x]->get_color()]++;
         // Remove the promoted pawn from the vector
@@ -2836,10 +2831,10 @@ void loop() {
             // piece Move temp piece to graveyard (6 == temp piece)
             std::pair<int8_t, int8_t> graveyard_coordinate =
               get_graveyard_empty_coordinate(6, p_board->pieces[pawn_y][pawn_x]->get_color());
-            motor_move_piece(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
+            // motor_move_piece(pawn_x, pawn_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
 
             // Move captured piece to the pawn's location (use safe move)
-            motor_move_piece(capture_x, capture_y, pawn_x, pawn_y, true);
+            // motor_move_piece(capture_x, capture_y, pawn_x, pawn_y, true);
 
             // Remove the promoted pawn from the vector - since it's replaced,
             // and can be treated as a normal piece
@@ -2874,7 +2869,7 @@ void loop() {
           // and 6 for temp piece)
           std::pair<int8_t, int8_t> graveyard_coordinate =
             get_graveyard_empty_coordinate(graveyard_index + 1, p_board->pieces[capture_y][capture_x]->get_color());
-          motor_move_piece(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
+          // motor_move_piece(capture_x, capture_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
 
           // If colour is black, add 5 to the index, and update the graveyard
           graveyard_index += 5 * p_board->pieces[capture_y][capture_x]->get_color();
@@ -2893,7 +2888,7 @@ void loop() {
       }
     }
     // Move the piece (fast move except knight)
-    motor_move_piece(selected_x, selected_y, destination_x, destination_y, p_board->pieces[selected_y][selected_x]->get_type() == KNIGHT);
+    // motor_move_piece(selected_x, selected_y, destination_x, destination_y, p_board->pieces[selected_y][selected_x]->get_type() == KNIGHT);
 
     // If the piece is a king that moved 2 squares, move the rook (castling)
     if (p_board->pieces[selected_y][selected_x]->get_type() == KING && abs(destination_x - selected_x) == 2) {
@@ -2911,7 +2906,7 @@ void loop() {
       }
       // Move the rook (BEWARE, THIS ROOK MOVE NEEDS TO MOVE ALONG THE EDGE, NOT LIKE ANY REGULAR ROOK MOVE)
       // HAVE TO GO AROUND THE KING
-      motor_move_piece(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y, true);
+      // motor_move_piece(rook_x, rook_y, (selected_x + destination_x) / 2, selected_y, true);
     }
 
     // TODO: motor should move back to origin and calibrate
@@ -3058,8 +3053,7 @@ void loop() {
     // but index is 4 + 5*color)
     std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate(
       5, p_board->pieces[destination_y][destination_x]->get_color());
-    motor_move_piece(destination_x, destination_y, graveyard_coordinate.first,
-                        graveyard_coordinate.second, true);
+    // motor_move_piece(destination_x, destination_y, graveyard_coordinate.first, graveyard_coordinate.second, true);
     graveyard[4 + 5 * p_board->pieces[destination_y][destination_x]->get_color()]++;
 
     // If there is a valid piece in the graveyard, use that piece for promotion
@@ -3074,8 +3068,7 @@ void loop() {
       // Obtain the graveyard coordinate for the piece, and move the piece
       graveyard_coordinate = get_graveyard_empty_coordinate(
         graveyard_index - p_board->pieces[destination_y][destination_x]->get_color() * 5 + 1, p_board->pieces[destination_y][destination_x]->get_color());
-      motor_move_piece(graveyard_coordinate.first, graveyard_coordinate.second,
-                          destination_x, destination_y, true);
+      // motor_move_piece(graveyard_coordinate.first, graveyard_coordinate.second, destination_x, destination_y, true);
     } else {
       // There isn't a valid piece in the graveyard, use a temp piece
 
@@ -3085,8 +3078,7 @@ void loop() {
       // Move a temp piece to the destination (6 == temp piece)
       graveyard_coordinate = get_graveyard_empty_coordinate(
         6, p_board->pieces[destination_y][destination_x]->get_color());
-      motor_move_piece(graveyard_coordinate.first, graveyard_coordinate.second,
-                          destination_x, destination_y, true);
+      // motor_move_piece(graveyard_coordinate.first, graveyard_coordinate.second, destination_x, destination_y, true);
 
       // Update the promoted pawns using temp pieces vector (add this promoted pawn)
       promoted_pawns_using_temp_pieces.push_back(
@@ -3111,7 +3103,7 @@ void loop() {
     // End a turn - switch player
     player_turn = !player_turn;
 
-    motor_move_origin(0);  // input is offset value, eyeball it during testing
+    // motor_move_origin(0);  // input is offset value, eyeball it during testing
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
@@ -3190,7 +3182,7 @@ void loop() {
       Serial.print(reset_moves[reset_idx].second / 14);
       Serial.println("]");
 
-      motor_move_piece((reset_moves[reset_idx].first % 14) - 3, reset_moves[reset_idx].first / 14, (reset_moves[reset_idx].second % 14) - 3, reset_moves[reset_idx].second / 14, true);
+      // motor_move_piece((reset_moves[reset_idx].first % 14) - 3, reset_moves[reset_idx].first / 14, (reset_moves[reset_idx].second % 14) - 3, reset_moves[reset_idx].second / 14, true);
     }  // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
 
