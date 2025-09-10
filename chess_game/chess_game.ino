@@ -1455,8 +1455,6 @@ void set_LED(int x, int y, int u, int v, struct CRGB colour) {
 // Assumes a fill_solid is called before this function
 // This function will NOT reset LEDs of squares that are not being used
 void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour) {
-  int *index, *data_line;
-
   // Pattern Types
   // 0-Solid, 1-Cursor, 2-Capture
 
@@ -1476,37 +1474,6 @@ void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour) {
     for (int i = 0; i < LEDSPERSQUAREROW; i++) {
       set_LED(x, y, i, i, colour);
       set_LED(x, y, i, LEDSPERSQUAREROW - 1 - i, colour);
-    }
-  }
-}
-
-// Assumes a fill_solid is called before this function
-// Sets a 4x4 square of LEDs to a specific colour
-void setSquareLED(int x, int y, int colourNumber, int patternType) {
-  struct CRGB colour;
-
-  // Colour Coding
-  // 0-Cyan, 1-Green, 2-Yellow, 3-Orange, 4-Red, 5-Purple
-
-  for (int i = 0; i < 4; i++) {
-
-    for (int j = 0; j < 4; j++) {
-
-      if (colourNumber == CYAN) {
-        colour = CRGB(0, 255, 255);
-      } else if (colourNumber == GREEN) {
-        colour = CRGB(0, 255, 15);
-      } else if (colourNumber == YELLOW) {
-        colour = CRGB(255, 247, 18);
-      } else if (colourNumber == W_WHITE) {
-        colour = CRGB(255, 153, 0);
-      } else if (colourNumber == RED) {
-        colour = CRGB(255, 0, 0);
-      } else if (colourNumber == PURPLE) {
-        colour = CRGB(209, 22, 219);
-      }
-
-      set_LED_Pattern(x, y, patternType, colour);
     }
   }
 }
