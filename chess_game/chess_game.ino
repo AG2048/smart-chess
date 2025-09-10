@@ -1401,12 +1401,12 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
 const uint8_t COLUMNS = 32;
 const uint8_t LEDSPERROW = 128;
 const uint8_t LEDSPERSQUAREROW = 4;
-const uint8_t CYAN = 0;
-const uint8_t GREEN = 1;
-const uint8_t YELLOW = 2;
-const uint8_t W_WHITE = 3;
-const uint8_t RED = 4;
-const uint8_t PURPLE = 5;
+const struct CRGB CYAN(0, 255, 255);
+const struct CRGB GREEN(0, 255, 15);
+const struct CRGB YELLOW(255, 247, 18);
+const struct CRGB W_WHITE(255, 153, 0);
+const struct CRGB RED(255, 0, 0);
+const struct CRGB PURPLE(209, 22, 219);
 const uint8_t SOLID = 0;
 const uint8_t CURSOR = 1;
 const uint8_t CAPTURE = 2;
@@ -1454,7 +1454,7 @@ void set_LED(int x, int y, int u, int v, struct CRGB colour) {
 
 // Assumes a fill_solid is called before this function
 // This function will NOT reset LEDs of squares that are not being used
-void set_LED_Pattern(int x, int y, int patternType, struct CRGB colour) {
+void set_LED_Pattern(int x, int y, struct CRGB colour, int patternType) {
   // Pattern Types
   // 0-Solid, 1-Cursor, 2-Capture
 
@@ -2497,8 +2497,8 @@ void loop() {
     clearLEDs();
 
     if (number_of_turns != 0) {
-      setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
-      setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
+      set_LED_Pattern(previous_selected_x, previous_selected_y, YELLOW, SOLID);
+      set_LED_Pattern(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
 
     // STOCKFISHTODO: Let LED display first.
@@ -2559,10 +2559,10 @@ void loop() {
     }
 
 
-    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
+    set_LED_Pattern(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
 
     if (p_board->under_check(player_turn % 2)) {
-      setSquareLED((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
+      set_LED_Pattern((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
     }
 
     // OLED display: show the current selection
@@ -2629,8 +2629,8 @@ void loop() {
     clearLEDs();
 
     if (number_of_turns != 0) {
-      setSquareLED(previous_selected_x, previous_selected_y, YELLOW, SOLID);
-      setSquareLED(previous_destination_x, previous_destination_y, YELLOW, SOLID);
+      set_LED_Pattern(previous_selected_x, previous_selected_y, YELLOW, SOLID);
+      set_LED_Pattern(previous_destination_x, previous_destination_y, YELLOW, SOLID);
     }
 
     for (int i = 0; i < all_moves[selected_y][selected_x].size(); i++) {
@@ -2639,18 +2639,18 @@ void loop() {
       int y_move = all_moves[selected_y][selected_x][i].first / 8;
 
       if (isCapture != -1) {
-        setSquareLED(x_move, y_move, RED, CAPTURE);
+        set_LED_Pattern(x_move, y_move, RED, CAPTURE);
       } else {
-        setSquareLED(x_move, y_move, W_WHITE, SOLID);
+        set_LED_Pattern(x_move, y_move, W_WHITE, SOLID);
       }
 
       if (p_board->under_check(player_turn % 2)) {
-        setSquareLED((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
+        set_LED_Pattern((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
       }
     }
 
-    setSquareLED(selected_x, selected_y, GREEN, SOLID);
-    setSquareLED(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
+    set_LED_Pattern(selected_x, selected_y, GREEN, SOLID);
+    set_LED_Pattern(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
 
 
 
@@ -2740,8 +2740,8 @@ void loop() {
 
     clearLEDs();
 
-    setSquareLED(selected_x, selected_y, GREEN, SOLID);
-    setSquareLED(destination_x, destination_y, RED, SOLID);
+    set_LED_Pattern(selected_x, selected_y, GREEN, SOLID);
+    set_LED_Pattern(destination_x, destination_y, RED, SOLID);
 
 
 
