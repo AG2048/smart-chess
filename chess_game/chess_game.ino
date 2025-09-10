@@ -1399,6 +1399,7 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
 // and he number of nuber of leds in a row of a single 4x4 chess square
 // LED colours, led_display struct and strip length are defined.
 const uint8_t COLUMNS = 32;
+const uint8_t SQUAREROWS = 8;
 const uint8_t LEDSPERROW = 128;
 const uint8_t LEDSPERSQUAREROW = 4;
 const struct CRGB CYAN(0, 255, 255);
@@ -1413,7 +1414,7 @@ const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
 // The pin define doesn't do anything, change the values manually later
-const uint8_t LED_BOARD_PIN[5] = {19, 18, 32, 33, 25};
+const uint8_t LED_DISPLAY_PIN[5] = {19, 18, 32, 33, 25}; // Not actually used, just for reference
 const uint8_t LED_PROMOTION_PIN = 17;
 const int LED_BRIGHTNESS = 50;
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
@@ -1428,6 +1429,7 @@ struct CRGB led_display[5][STRIP_LEN];
 // A function to update LED strip in each situation
 
 // Takes in a chess square coordinate and a local LED coordinate. Returns index and data line of the selected LED
+// Assuming 3D coordinate system, (x,y) is right-handed, (u,v) is left-handed
 void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line) {
   if (v % 2 == 0) {
     index = u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * y);
@@ -1498,7 +1500,8 @@ void clearLEDs() {
 
 // Idle animation for LEDs
 void idleAnimationLEDs() {
-  clearLEDs();  // for now just clears the LEDs
+  set_LED_Pattern(0, 0, CYAN, SOLID);
+  // clearLEDs();  // for now just clears the LEDs
 }
 
 // ############################################################
@@ -2049,11 +2052,11 @@ void setup() {
   // Serial.println(freeMemory());
 
   // LED pin initialize:
-  // LEDS.addLeds<WS2812B, 12, GRB>(led_display[0], STRIP_LEN);
-  // LEDS.addLeds<WS2812B, 13, GRB>(led_display[1], STRIP_LEN);
-  // LEDS.addLeds<WS2812B, 14, GRB>(led_display[2], STRIP_LEN);
-  // LEDS.addLeds<WS2812B, 15, GRB>(led_display[3], 5 * (STRIP_LEN / 8));
-  // LEDS.addLeds<WS2812B, 16, GRB>(led_display[4], 3 * (STRIP_LEN / 8));
+  LEDS.addLeds<WS2812B, 19, GRB>(led_display[0], STRIP_LEN);
+  LEDS.addLeds<WS2812B, 18, GRB>(led_display[1], STRIP_LEN);
+  LEDS.addLeds<WS2812B, 32, GRB>(led_display[2], STRIP_LEN);
+  LEDS.addLeds<WS2812B, 33, GRB>(led_display[3], 5 * (STRIP_LEN / 8));
+  LEDS.addLeds<WS2812B, 25, GRB>(led_display[4], 3 * (STRIP_LEN / 8));
   // LEDS.addLeds<WS2812B, LED_PROMOTION_PIN, GRB>(led_display[5], PROMOTION_STRIP_LEN);
   // FastLED.setBrightness(LED_BRIGHTNESS);
 
@@ -2234,6 +2237,7 @@ void loop() {
 
     // Board LED IDLE animation
     idleAnimationLEDs();
+    FastLED.show();
 
     // OLED display: show the current selection
     // TODO:
@@ -2494,12 +2498,6 @@ void loop() {
     // orange) Also display sources of check, if any (red) (will be overwritten
     // by green if the cursor is on the same square) red on king square if under
     // check
-    clearLEDs();
-
-    if (number_of_turns != 0) {
-      set_LED_Pattern(previous_selected_x, previous_selected_y, YELLOW, SOLID);
-      set_LED_Pattern(previous_destination_x, previous_destination_y, YELLOW, SOLID);
-    }
 
     // STOCKFISHTODO: Let LED display first.
     // STOCKFISHTODO: If player is a computer:
@@ -2558,12 +2556,20 @@ void loop() {
       game_state = GAME_MOVE_MOTOR;
     }
 
+    clearLEDs();
+
+    if (number_of_turns != 0) {
+      set_LED_Pattern(previous_selected_x, previous_selected_y, YELLOW, SOLID);
+      set_LED_Pattern(previous_destination_x, previous_destination_y, YELLOW, SOLID);
+    }
 
     set_LED_Pattern(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
 
     if (p_board->under_check(player_turn % 2)) {
       set_LED_Pattern((player_turn % 2) ? p_board->black_king_x : p_board->white_king_x, (player_turn % 2) ? p_board->black_king_y : p_board->white_king_y, RED, SOLID);
     }
+
+    FastLED.show();
 
     // OLED display: show the current selection
     // TODO
@@ -2652,7 +2658,7 @@ void loop() {
     set_LED_Pattern(selected_x, selected_y, GREEN, SOLID);
     set_LED_Pattern(joystick_x[player_turn], joystick_y[player_turn], CYAN, CURSOR);
 
-
+    FastLED.show();
 
     // OLED display: show the current selection
     // TODO
@@ -2743,7 +2749,7 @@ void loop() {
     set_LED_Pattern(selected_x, selected_y, GREEN, SOLID);
     set_LED_Pattern(destination_x, destination_y, RED, SOLID);
 
-
+    FastLED.show();
 
     // OLED display: show the current selection
     // TODO
