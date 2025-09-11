@@ -1399,7 +1399,7 @@ void move_user_joystick_idle(bool color, bool update_y, int8_t max_y) {
 // and he number of nuber of leds in a row of a single 4x4 chess square
 // LED colours, led_display struct and strip length are defined.
 const uint8_t COLUMNS = 32;
-const uint8_t SQUAREROWS = 8;
+const uint8_t ROWINDEX = 7;
 const uint8_t LEDSPERROW = 128;
 const uint8_t LEDSPERSQUAREROW = 4;
 const struct CRGB CYAN(0, 255, 255);
@@ -1429,12 +1429,12 @@ struct CRGB led_display[5][STRIP_LEN];
 // A function to update LED strip in each situation
 
 // Takes in a chess square coordinate and a local LED coordinate. Returns index and data line of the selected LED
-// Assuming 3D coordinate system, (x,y) is right-handed, (u,v) is left-handed
+// Assuming 3D coordinate system with normal out of page, (x,y) is right-handed, (u,v) is left-handed
 void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line) {
   if (v % 2 == 0) {
-    index = u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * y);
+    index = u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * (ROWINDEX - y));
   } else {
-    index = -u + (COLUMNS * (v + 1)) - (LEDSPERSQUAREROW * x) + (LEDSPERROW * y) - 1;
+    index = -u + (COLUMNS * (v + 1)) - (LEDSPERSQUAREROW * x) + (LEDSPERROW * (ROWINDEX - y)) - 1;
   }
 
   if (index < 928) {  // 928 is the first index of the 2nd type of LED
