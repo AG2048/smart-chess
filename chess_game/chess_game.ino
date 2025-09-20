@@ -882,10 +882,20 @@ int motor_coordinates[2] = {-(MM_PER_SQUARE*3 + GRAVEYARD_GAP), 0};  // x, y coo
 
 void motor_i2c(int8_t x0, int8_t y0, int8_t x1, int8_t y1, bool taxicab) {
   Wire.beginTransmission(SUBORDINATE_ADDR);
-  Wire.write((y0 << 4) | (x0 - 3));
+  Wire.write((y0 << 4) | (x0 - 3)); // -3 is to shift center of bound to 0, so the range fits in 4 bits
   Wire.write((y1 << 4) | (x1 - 3));
   Wire.write(taxicab);
   Wire.endTransmission();
+
+  delay(10);
+
+  while (1) { // needs handling on slave side
+    Wire.requestFrom(SUBORDINATE_ADDR, 1);
+    if (Wire.available() != 0) {
+      uint8_t status = Wire.read();
+        if (status == 0x96) break;
+    }
+  }
 }
 
 void stepper_square_wave(int mode, int stepDelay) { // delay in us
@@ -2057,6 +2067,7 @@ void serial_display_board_and_selection() {
 void setup() {
   Serial.begin(9600);
   Wire.begin();
+  Wire.setTimeout(0, false);
   delay(1000);  // Wait for serial monitor to open
   Serial.println("Starting up...");
   // Serial.println("Free memory: ");
@@ -2252,6 +2263,8 @@ void loop() {
     // Board LED IDLE animation
     idleAnimationLEDs();
     FastLED.show();
+
+    motor_i2c(0, 0, 0, 0, 0);
 
     // OLED display: show the current selection
     // TODO:
