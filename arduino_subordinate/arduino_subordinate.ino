@@ -93,5 +93,5 @@ void receiveEvent() {
   x1 &= 0x0F;
   taxicab = Wire.read();
 
-  motor_move_piece(x0-3, y0, x1-3, y1, taxicab);
+  motor_move_piece(x0 + 3, y0, x1 + 3, y1, taxicab);
 }

@@ -880,10 +880,10 @@ typedef struct m_vec{
 int motor_coordinates[2] = {-(MM_PER_SQUARE*3 + GRAVEYARD_GAP), 0};  // x, y coordinates of the motor in millimeters
 // Need to offset by negative 3 squares (in mm)
 
-void motor_i2c(int x0, int y0, int x1, int y1, bool taxicab) {
+void motor_i2c(int8_t x0, int8_t y0, int8_t x1, int8_t y1, bool taxicab) {
   Wire.beginTransmission(SUBORDINATE_ADDR);
-  Wire.write((y0 << 4) | x0);
-  Wire.write((y1 << 4) | x1);
+  Wire.write((y0 << 4) | (x0 - 3));
+  Wire.write((y1 << 4) | (x1 - 3));
   Wire.write(taxicab);
   Wire.endTransmission();
 }
