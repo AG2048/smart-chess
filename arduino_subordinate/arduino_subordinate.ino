@@ -53,7 +53,7 @@ void setup() {
   }
   Wire.begin(SUBORDINATE_ADDR);
   Wire.onRequest(requestEvent);
-  // Serial.begin(9600);
+  Wire.onReceive(receiveEvent);
 }
 
 void loop() {
@@ -71,6 +71,27 @@ void requestEvent() {
   // Send as 2 bytes, LSB first
   Wire.write(value & 0xFF);        // Send LSB
   Wire.write((value >> 8) & 0xFF); // Send MSB
-  // Serial.print("Printed Value: ");
-  // Serial.println(value);
+}
+
+void motor_move_piece(int8_t x0, int8_t y0, int8_t x1, int8_t y1, int8_t taxicab) {
+
+}
+
+void receiveEvent() {
+  // Read coordinate pair (x0, y0) to (xf, yf) and grid
+  // Received x coordinates will be +3 of their true value
+  // Receive motor argument in 17 bits
+  int8_t x0, x1, y0, y1, taxicab;
+
+  if (Wire.available() < 3) return;
+
+  x0 = Wire.read();
+  y0 = (x0 >> 4) & 0x0F;
+  x0 &= 0x0F;
+  x1 = Wire.read();
+  y1 = (x1 >> 4) & 0x0F;
+  x1 &= 0x0F;
+  taxicab = Wire.read();
+
+  motor_move_piece(x0-3, y0, x1-3, y1, taxicab);
 }

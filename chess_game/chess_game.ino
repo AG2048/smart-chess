@@ -37,7 +37,7 @@ Adafruit_SSD1306 *display_one;
 Adafruit_SSD1306 *display_two;
 
 // Arduino MEGA as I2C subordinate
-#define SUBORDINATE_ADDRESS 8  // Address of the subordinate device
+#define SUBORDINATE_ADDR 8  // Address of the subordinate device
 
 // ############################################################
 // #                    GAME STATE CONTROL                    #
@@ -880,6 +880,14 @@ typedef struct m_vec{
 int motor_coordinates[2] = {-(MM_PER_SQUARE*3 + GRAVEYARD_GAP), 0};  // x, y coordinates of the motor in millimeters
 // Need to offset by negative 3 squares (in mm)
 
+void motor_i2c(int x0, int y0, int x1, int y1, bool taxicab) {
+  Wire.beginTransmission(SUBORDINATE_ADDR);
+  Wire.write((y0 << 4) | x0);
+  Wire.write((y1 << 4) | x1);
+  Wire.write(taxicab);
+  Wire.endTransmission();
+}
+
 void stepper_square_wave(int mode, int stepDelay) { // delay in us
   if (mode == XY_AXIS) {
     digitalWrite(PUL_PIN[X_AXIS], HIGH);
@@ -1086,7 +1094,7 @@ enum {
 bool update_joystick_values() {
   // Read joystick values from I2C
   // Return true if successful, false otherwise
-  Wire.requestFrom(SUBORDINATE_ADDRESS, 2);  // Request 2 bytes from slave
+  Wire.requestFrom(SUBORDINATE_ADDR, 2);  // Request 2 bytes from slave
   if (Wire.available() < 2) {
     Serial.println("NO DATA");
     return false;  // Not enough data received
