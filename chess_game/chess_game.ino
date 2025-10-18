@@ -1218,12 +1218,12 @@ const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
 // The pin define doesn't do anything, change the values manually later
-const uint8_t LED_DISPLAY_PIN[5] = {19, 18, 32, 33, 25}; // Not actually used, just for reference
+const uint8_t LED_DISPLAY_PIN[5] = {19, 18, 32, 33, 25, 26, 27}; // Not actually used, just for reference
 const uint8_t LED_PROMOTION_PIN = 17;
 const int LED_BRIGHTNESS = 128; // scale of 0-255
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
 struct CRGB led_promotion[PROMOTION_STRIP_LEN];
-struct CRGB led_display[5][STRIP_LEN];
+struct CRGB led_display[6][STRIP_LEN];
 // Due to hardware limitations, the 4th block of 256 leds (8 rows) has to be addressed separately as a 5 row and 3 row block
 // Thus led_display[3] and led_display[4] are both for the 4th block of 256 LEDs
 
@@ -1586,10 +1586,10 @@ void display_promotion(int8_t player_promoting, int8_t piece, Adafruit_SSD1306 *
       case 0:
         display_two->print(F("QUEEN"));
         break;
-      case 3:
+      case 1:
         display_two->print(F("KNIGHT"));
         break;
-      case 1:
+      case 3:
         display_two->print(F("ROOK"));
         break;
       case 2:
@@ -1867,7 +1867,8 @@ void setup() {
   LEDS.addLeds<WS2812B, 32, GRB>(led_display[2], STRIP_LEN);
   LEDS.addLeds<WS2812B, 33, GRB>(led_display[3], 5 * (STRIP_LEN / 8));
   LEDS.addLeds<WS2812B, 25, GRB>(led_display[4], 3 * (STRIP_LEN / 8));
-  // LEDS.addLeds<WS2812B, LED_PROMOTION_PIN, GRB>(led_display[5], PROMOTION_STRIP_LEN);
+  LEDS.addLeds<WS2812B, 26, GRB>(led_display[5], PROMOTION_STRIP_LEN);
+  LEDS.addLeds<WS2812B, 27, GRB>(led_display[6], PROMOTION_STRIP_LEN);
   FastLED.setBrightness(dim8_lin(LED_BRIGHTNESS));
 
   // Initial game state
@@ -2731,11 +2732,21 @@ void loop() {
     // goes thru) Also display the "move" that just happened by highlight
     // pieces... (orange colour)
 
+    int index = 0;
+
+    if (player_turn % 2 == 0) {
+      index = 5;
+    } else {
+      index = 6;
+    }
+
+    led_promotion[index] = CRGB(255, 0, 0);
+
     for (int i = 0; i < PROMOTION_STRIP_LEN; i++) {
       if (i == promotion_joystick_selection) {
-        led_promotion[i] = CRGB(255, 255, 255);
+        led_promotion[index] = CRGB(255, 255, 255);
       } else {
-        led_promotion[i] = CRGB(0, 0, 0);
+        led_promotion[index] = CRGB(0, 0, 0);
       }
     }
 
@@ -2775,13 +2786,13 @@ void loop() {
       case 0:
         p_board->promote_pawn(destination_x, destination_y, QUEEN);
         break;
-      case 1:
+      case 3:
         p_board->promote_pawn(destination_x, destination_y, ROOK);
         break;
       case 2:
         p_board->promote_pawn(destination_x, destination_y, BISHOP);
         break;
-      case 3:
+      case 1:
         p_board->promote_pawn(destination_x, destination_y, KNIGHT);
         break;
     }

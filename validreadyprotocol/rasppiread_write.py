@@ -34,11 +34,11 @@ def move_to_bits(move_str):
         if promotion == 'q':
             promotion = 0
         elif promotion == 'r':
-            promotion = 1
+            promotion = 3
         elif promotion == 'b':
             promotion = 2
         elif promotion == 'n':
-            promotion = 3
+            promotion = 1
         else:
             raise ValueError("Invalid promotion piece. Use 'q', 'r', 'b', or 'n'.")
     else:
@@ -67,11 +67,11 @@ def bits_to_move(bits, is_promotion=False):
     if is_promotion:
         if promotion == 0:
             promotion = 'q'
-        elif promotion == 1:        
+        elif promotion == 3:        
             promotion = 'r'
         elif promotion == 2:
             promotion = 'b'
-        elif promotion == 3:
+        elif promotion == 1:
             promotion = 'n'
         else:
             raise ValueError("Invalid promotion piece. Use 'q', 'r', 'b', or 'n'.")
