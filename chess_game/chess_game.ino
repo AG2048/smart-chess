@@ -2159,7 +2159,8 @@ void loop() {
     // Promotion joystick selection - default is 0 which is queen
     promotion_joystick_selection = 0;
 
-    // TODO: motor calibration can be done here
+    motor_i2c(0, 0, 0, 0, 2); // Motor calibrate (state = 2)
+
     game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_BEGIN_TURN) {
     // Free display memory
@@ -2885,7 +2886,7 @@ void loop() {
     // End a turn - switch player
     player_turn = !player_turn;
 
-    motor_i2c(0, 0, 0, 0, 2); // input is offset value, eyeball it during testing
+    motor_i2c(0, 0, 0, 0, 2); // Motor calibrate (state = 2)
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
