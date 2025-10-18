@@ -22,7 +22,7 @@ enum {
 
 // GPIO pins
 const uint8_t DPAD_PINS[10] = {31, 33, 35, 37, 39, 41, 43, 45, 47, 49};
-const uint8_t LIMIT_PINS[4] = {0, 0, 0, 0}; // x-, x+, y-, y+
+const uint8_t LIMIT_PINS[4] = {4, 5, 2, 3}; // x-, x+, y-, y+
 const uint8_t DIR_PINS[2] = {9, 11};   // x, y
 const uint8_t PUL_PINS[2] = {10, 12};   // x, y
 const uint8_t PICKER_PIN = 7;
@@ -34,7 +34,7 @@ const float MM_PER_SQUARE = 66.7; // width of chessboard squares in mm
 const uint8_t GRAVEYARD_GAP = 10.0;   // gap between graveyard and chessboard in mm
 const uint8_t STEP_DELAY = 100; // in us, is half the period of square wave
 const uint8_t MOVE_DELAY = 1000; // in ms, delay between piece picker and gantry movement
-const uint8_t PICKER_ANGLE[2] {180, 50}; // down angle, up angle
+const uint8_t PICKER_ANGLE[2] {50, 180}; // down angle, up angle
 const int16_t CALIBRATE_COORD[2] = {(-3*MM_PER_SQUARE)-20, -20}; // actual calibrate coordinate relative to board origin
 // const int8_t BED_LEVEL_OFFSET[8][8] = {
 //   {0, 0, 0, 0, 0, 0, 0, 0},
@@ -215,7 +215,7 @@ void motor_move_calibrate() {
 
 void setup() {
   for (uint8_t i = 0; i < 10; i++) pinMode(DPAD_PINS[i], INPUT_PULLUP); // Set pins as input with pull-up resistors
-  // for (uint8_t i = 0; i < 4; i++) pinMode(LIMIT_PINS[i], INPUT_PULLUP);
+  for (uint8_t i = 0; i < 4; i++) pinMode(LIMIT_PINS[i], INPUT_PULLUP);
   for (uint8_t i = 0; i < 2; i++) pinMode(DIR_PINS[i], OUTPUT);
   for (uint8_t i = 0; i < 2; i++) pinMode(PUL_PINS[i], OUTPUT);
   pinMode(PICKER_PIN, OUTPUT);

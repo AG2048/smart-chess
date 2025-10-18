@@ -2885,7 +2885,7 @@ void loop() {
     // End a turn - switch player
     player_turn = !player_turn;
 
-    // motor_move_origin(0);  // input is offset value, eyeball it during testing
+    motor_i2c(0, 0, 0, 0, 2); // input is offset value, eyeball it during testing
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
