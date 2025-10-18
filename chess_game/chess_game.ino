@@ -2740,6 +2740,28 @@ void loop() {
       index = 6;
     }
 
+    if (promotion_joystick_selection == 0) {
+      led_display[index][7] = CRGB(255, 0, 0);  // Queen
+      led_display[index][8] = CRGB(255, 0, 0);
+      led_display[index][9] = CRGB(255, 0, 0);
+      led_display[index][10] = CRGB(255, 0, 0);
+    } else if (promotion_joystick_selection == 1) {
+      led_display[index][5] = CRGB(255, 0, 0);  // Knight
+      led_display[index][6] = CRGB(255, 0, 0);
+      led_display[index][11] = CRGB(255, 0, 0);
+      led_display[index][12] = CRGB(255, 0, 0);
+    } else if (promotion_joystick_selection == 2) {
+      led_display[index][2] = CRGB(255, 0, 0);  // Bishop
+      led_display[index][3] = CRGB(255, 0, 0);
+      led_display[index][12] = CRGB(255, 0, 0);
+      led_display[index][13] = CRGB(255, 0, 0);
+    } else if (promotion_joystick_selection == 3) {
+      led_display[index][0] = CRGB(255, 0, 0);  // Rook
+      led_display[index][1] = CRGB(255, 0, 0);
+      led_display[index][14] = CRGB(255, 0, 0);
+      led_display[index][15] = CRGB(255, 0, 0);
+    }
+
     led_promotion[index] = CRGB(255, 0, 0);
 
     for (int i = 0; i < PROMOTION_STRIP_LEN; i++) {
