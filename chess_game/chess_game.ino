@@ -2762,16 +2762,6 @@ void loop() {
       led_display[index][15] = CRGB(255, 0, 0);
     }
 
-    led_promotion[index] = CRGB(255, 0, 0);
-
-    for (int i = 0; i < PROMOTION_STRIP_LEN; i++) {
-      if (i == promotion_joystick_selection) {
-        led_promotion[index] = CRGB(255, 255, 255);
-      } else {
-        led_promotion[index] = CRGB(0, 0, 0);
-      }
-    }
-
     // OLED display: show the current selection
     // TODO
     // display_promotion()...
