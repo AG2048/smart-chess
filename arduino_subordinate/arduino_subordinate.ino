@@ -21,7 +21,9 @@ enum {
 */
 
 // GPIO pins
-const uint8_t DPAD_PINS[10] = {31, 33, 35, 37, 39, 41, 43, 45, 47, 49};
+// const uint8_t DPAD_PINS[10] = {31, 33, 35, 37, 39, 41, 43, 45, 47, 49};
+const uint8_t DPAD_PINS[10] = {41, 39, 45, 43, 33, 31, 37, 35, 49, 47}; // swapped white and black
+// const uint8_t DPAD_PINS[10] = {33, 31, 37, 35, 41, 39, 45, 43, 49, 47}; // wrong
 const uint8_t LIMIT_PINS[4] = {4, 5, 2, 3}; // x-, x+, y-, y+
 const uint8_t DIR_PINS[2] = {9, 11};   // x, y
 const uint8_t PUL_PINS[2] = {10, 12};   // x, y

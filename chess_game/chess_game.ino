@@ -1217,8 +1217,8 @@ const uint8_t CURSOR = 1;
 const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
-// The pin define doesn't do anything, change the values manually later
-const uint8_t LED_DISPLAY_PIN[5] = {19, 18, 32, 33, 25, 26, 27}; // Not actually used, just for reference
+// The led_display_pin define doesn't do anything, change the values manually later
+const uint8_t LED_DISPLAY_PIN[7] = {19, 18, 32, 33, 25, 26, 27}; // first 5 are board leds, 6th is promotion white, 7th is promotion black
 const uint8_t LED_PROMOTION_PIN = 17;
 const int LED_BRIGHTNESS = 128; // scale of 0-255
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
@@ -1235,6 +1235,12 @@ struct CRGB led_display[6][STRIP_LEN];
 // Takes in a chess square coordinate and a local LED coordinate. Returns index and data line of the selected LED
 // Assuming 3D coordinate system with normal out of page, (x,y) is right-handed, (u,v) is left-handed
 void coordinate_to_index(int x, int y, int u, int v, int &index, int &data_line) {
+  // NOTE: jank fix, but led is 180 degrees rotated relative to motors, so do a 180 rotation on x, y, u, v
+  x = 7 - x;
+  y = 7 - y;
+  u = 3 - u;
+  v = 3 - v;
+
   if (v % 2 == 0) {
     index = u + (COLUMNS * v) + (LEDSPERSQUAREROW * x) + (LEDSPERROW * (ROWINDEX - y));
   } else {
