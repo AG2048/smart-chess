@@ -1064,10 +1064,12 @@ void move_user_joystick_promotion(bool color) {
     // If previous joystick WAS neutral
     if (x_val == 0) {
       promotion_joystick_selection = (promotion_joystick_selection + 1) % 4;
+      if (promotion_joystick_selection < 0) promotion_joystick_selection = promotion_joystick_selection + 4;
       prev_joystick_neutral[color] = false;
       change_happened = true;
     } else if (neg_x_val == 0) {
       promotion_joystick_selection = (promotion_joystick_selection - 1) % 4;
+      if (promotion_joystick_selection < 0) promotion_joystick_selection = promotion_joystick_selection + 4;
       prev_joystick_neutral[color] = false;
       change_happened = true;
     }
