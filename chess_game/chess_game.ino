@@ -2748,6 +2748,10 @@ void loop() {
       offset = 16;
     }
 
+    for (int i = 0; i < 2*PROMOTION_STRIP_LEN; i++) {
+      led_display[5][i] = CRGB(0, 0, 0);
+    }
+
     if (promotion_joystick_selection == 0) {
       led_display[5][7+offset] = CRGB(255, 0, 0);  // Queen
       led_display[5][8+offset] = CRGB(255, 0, 0);
