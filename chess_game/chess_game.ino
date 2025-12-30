@@ -1220,14 +1220,15 @@ const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
 const uint8_t PROMOTION_STRIP_LEN = 4;
 // The led_display_pin define doesn't do anything, change the values manually later
-const uint8_t LED_DISPLAY_PIN[7] = {19, 18, 32, 33, 25, 26, 27}; // first 5 are board leds, 6th is promotion white, 7th is promotion black
-const uint8_t LED_PROMOTION_PIN = 17;
+// const uint8_t LED_DISPLAY_PIN[7] = {19, 18, 32, 33, 25, 26, 27}; // first 5 are board leds, 6th is promotion white, 7th is promotion black
+// const uint8_t LED_PROMOTION_PIN = 17; THIS AND ABOVE OUT OF DATE AND NOT USED
 const int LED_BRIGHTNESS = 128; // scale of 0-255
 // Array of CRGB objects corresponding to LED colors / brightness (0 indexed)
-struct CRGB led_promotion[PROMOTION_STRIP_LEN];
+// struct CRGB led_promotion[2*PROMOTION_STRIP_LEN]; // First half is white, second half is black
 struct CRGB led_display[6][STRIP_LEN];
 // Due to hardware limitations, the 4th block of 256 leds (8 rows) has to be addressed separately as a 5 row and 3 row block
 // Thus led_display[3] and led_display[4] are both for the 4th block of 256 LEDs
+// led_display[5] is both for the promotion LEDs, first half white, second half black
 
 
 // If we wish to add cosmetic things, add another array of "previous states", or "pre-set patterns" or other stuff
@@ -1875,8 +1876,7 @@ void setup() {
   LEDS.addLeds<WS2812B, 32, GRB>(led_display[2], STRIP_LEN);
   LEDS.addLeds<WS2812B, 33, GRB>(led_display[3], 5 * (STRIP_LEN / 8));
   LEDS.addLeds<WS2812B, 25, GRB>(led_display[4], 3 * (STRIP_LEN / 8));
-  LEDS.addLeds<WS2812B, 26, GRB>(led_display[5], PROMOTION_STRIP_LEN);
-  LEDS.addLeds<WS2812B, 27, GRB>(led_display[6], PROMOTION_STRIP_LEN);
+  LEDS.addLeds<WS2812B, 26, GRB>(led_display[5], 2 * PROMOTION_STRIP_LEN);
   FastLED.setBrightness(dim8_lin(LED_BRIGHTNESS));
 
   // Initial game state
@@ -2740,35 +2740,37 @@ void loop() {
     // goes thru) Also display the "move" that just happened by highlight
     // pieces... (orange colour)
 
-    int index = 0;
+    int offset = 0;
 
     if (player_turn % 2 == 0) {
-      index = 5;
+      offset = 0;
     } else {
-      index = 6;
+      offset = 16;
     }
 
     if (promotion_joystick_selection == 0) {
-      led_display[index][7] = CRGB(255, 0, 0);  // Queen
-      led_display[index][8] = CRGB(255, 0, 0);
-      led_display[index][9] = CRGB(255, 0, 0);
-      led_display[index][10] = CRGB(255, 0, 0);
+      led_display[5][7+offset] = CRGB(255, 0, 0);  // Queen
+      led_display[5][8+offset] = CRGB(255, 0, 0);
+      led_display[5][9+offset] = CRGB(255, 0, 0);
+      led_display[5][10+offset] = CRGB(255, 0, 0);
     } else if (promotion_joystick_selection == 1) {
-      led_display[index][5] = CRGB(255, 0, 0);  // Knight
-      led_display[index][6] = CRGB(255, 0, 0);
-      led_display[index][11] = CRGB(255, 0, 0);
-      led_display[index][12] = CRGB(255, 0, 0);
+      led_display[5][5+offset] = CRGB(255, 0, 0);  // Knight
+      led_display[5][6+offset] = CRGB(255, 0, 0);
+      led_display[5][11+offset] = CRGB(255, 0, 0);
+      led_display[5][12+offset] = CRGB(255, 0, 0);
     } else if (promotion_joystick_selection == 2) {
-      led_display[index][2] = CRGB(255, 0, 0);  // Bishop
-      led_display[index][3] = CRGB(255, 0, 0);
-      led_display[index][12] = CRGB(255, 0, 0);
-      led_display[index][13] = CRGB(255, 0, 0);
+      led_display[5][2+offset] = CRGB(255, 0, 0);  // Bishop
+      led_display[5][3+offset] = CRGB(255, 0, 0);
+      led_display[5][12+offset] = CRGB(255, 0, 0);
+      led_display[5][13+offset] = CRGB(255, 0, 0);
     } else if (promotion_joystick_selection == 3) {
-      led_display[index][0] = CRGB(255, 0, 0);  // Rook
-      led_display[index][1] = CRGB(255, 0, 0);
-      led_display[index][14] = CRGB(255, 0, 0);
-      led_display[index][15] = CRGB(255, 0, 0);
+      led_display[5][0+offset] = CRGB(255, 0, 0);  // Rook
+      led_display[5][1+offset] = CRGB(255, 0, 0);
+      led_display[5][14+offset] = CRGB(255, 0, 0);
+      led_display[5][15+offset] = CRGB(255, 0, 0);
     }
+
+    FastLED.show();
 
     // OLED display: show the current selection
     // TODO
@@ -2921,6 +2923,11 @@ void loop() {
 
     // Turn off promotion LED light if that was on. (if you have a separate LED
     // for promotion indicator)
+    for (int i = 0; i < 2*PROMOTION_STRIP_LEN; i++) {
+      led_display[5][i] = CRGB(0, 0, 0);
+    }
+
+    FastLED.show();
 
     game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_OVER_WHITE_WIN) {
