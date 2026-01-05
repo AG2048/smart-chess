@@ -1,303 +1,10 @@
-// Include
-#include <SPI.h>
 #include <Wire.h>
-#include <stdint.h>
-#include <vector>
-#include <utility>
-#include <string.h>
-#include <Arduino.h>
-#include <ESP32Servo.h>
+#include <Servo.h>
 
-// Arduino MEGA as I2C subordinate
-#define SUBORDINATE_ADDRESS 8  // Address of the subordinate device
+#define SUBORDINATE_ADDR 8
 
-// ############################################################
-// #                       PIECE PICKER                       #
-// ############################################################
-
-#define PIECE_PICKER_PIN 23
-#define PIECE_PICKER_UP_ANGLE 50
-#define PIECE_PICKER_DOWN_ANGLE 180
-
-Servo piece_picker;
-
-// ############################################################
-// #                       MOTOR CONTROL                      #
-// ############################################################
-
-int motor_x = 0;
-int motor_y = 0;
-int servo_angle = 0;
-bool value_changed = false;
-bool servo_value_changed = false;
-
-// MOTOR CONTROL VARIABLES
-const int8_t PUL_PIN[] = { 14, 13 };          // x, y
-const int8_t DIR_PIN[] = { 27, 12 };          // x, y
-const int8_t LIMIT_PIN[] = { 19, 3, 1, 23 };  // x-, x+, y-, y+
-const int STEPS_PER_MM = 80;                  // measured value from testing, 3.95cm per rotation (1600 steps)
-const int MM_PER_SQUARE = 66;                 // width of chessboard squares in mm
-const int GRAVEYARD_GAP = 10;                 // gap between graveyard and chessboard in mm
-const int ORIGIN_GAP = 10;                    // gap between real origin and where gantry rests at default (prevents holding down limit switches)
-const int FAST_STEP_DELAY = 50;               // half the period of square wave pulse for stepper motor
-const int SLOW_STEP_DELAY = 100;              // half the period of square wave pulse for stepper motor
-const long ORIGIN_RESET_TIMEOUT = 50000;      // how many steps motor will attempt to recenter to origin before giving up
-
-int motor_error = 0;                   // 0: normal operation, 1: misaligned origin, 2: cannot reach origin (stuck)
-int motor_coordinates[2] = {-(MM_PER_SQUARE*3 + GRAVEYARD_GAP), 0};  // x, y coordinates of the motor in millimeters
-// Need to offset by negative 3 squares (in mm)
-
-void stepper_square_wave(int mode, int stepDelay) {
-  // Modes: 0 -> x-axis, 1 -> y-axis, 2 -> x and y-axis
-  // Generates a square wave of period (stepDelay*2)
-  if (mode == 2) {
-    digitalWrite(PUL_PIN[0], HIGH);
-    digitalWrite(PUL_PIN[1], HIGH);
-    delayMicroseconds(stepDelay);
-    digitalWrite(PUL_PIN[0], LOW);
-    digitalWrite(PUL_PIN[1], LOW);
-    delayMicroseconds(stepDelay);
-  } else {
-    digitalWrite(PUL_PIN[mode], HIGH);
-    delayMicroseconds(stepDelay);
-    digitalWrite(PUL_PIN[mode], LOW);
-    delayMicroseconds(stepDelay);
-  }
-}
-
-int move_motor_to_coordinate(int x, int y, int axisAligned, int stepDelay) {
-  // Move the motor to a specific coordinate
-  // x, y: x, y coordinates of the square to move to (IN MILLIMETERS)
-  // Move the motor to (x, y)
-  // This function should be used to move the motor to a specific coordinate without any checks, it should be used AFTER calibrating the motor
-  // The "starting" coordinate is assumed to be motor_coordinates variable (x, y)
-
-  // TODO
-  Serial.println("Move motor code running");
-  long dx = x - motor_coordinates[0];
-  long dy = y - motor_coordinates[1];
-
-  Serial.print("Starting to (");
-  Serial.print(motor_coordinates[0]);
-  Serial.print(", ");
-  Serial.print(motor_coordinates[1]);
-  Serial.println(") in mm");
-
-  Serial.print("Moving to (");
-  Serial.print(x);
-  Serial.print(", ");
-  Serial.print(y);
-  Serial.println(") in mm");
-
-  Serial.print("Differential (");
-  Serial.print(dx);
-  Serial.print(", ");
-  Serial.print(dy);
-  Serial.println(") in mm");
-
-  // Setting direction
-  digitalWrite(DIR_PIN[0], dx < 0);
-  digitalWrite(DIR_PIN[1], dy > 0);
-
-  dx = abs(dx);
-  dy = abs(dy);
-
-  // Check if movement should be axis-aligned or diagonal
-  if (axisAligned || dx == 0 || dy == 0) {
-    // Move x axis
-    Serial.println("Move x axis");
-    for (long i = 0; i < dx * STEPS_PER_MM; i++) {
-      // if (digitalRead(LIMIT_PIN[0])) {
-      //   motor_coordinates[0] = -3;
-      //   break;
-      // }
-      // if (digitalRead(LIMIT_PIN[1])) {
-      //   motor_coordinates[0] = 10;
-      //   break;
-      // }
-      stepper_square_wave(0, stepDelay);
-    }
-    // Move y axis
-    Serial.println("Move y axis");
-    for (long i = 0; i < dy * STEPS_PER_MM; i++) {
-      // if (digitalRead(LIMIT_PIN[2])) {
-      //   motor_coordinates[1] = -3;
-      //   break;
-      // }
-      // if (digitalRead(LIMIT_PIN[3])) {
-      //   motor_coordinates[1] = 7;
-      //   break;
-      // }
-      stepper_square_wave(1, stepDelay);
-    }
-  } else if (dx == dy) {
-    // Move diagonal axis
-    Serial.println("Move diag dx == dy");
-    for (long i = 0; i < dx * STEPS_PER_MM; i++) {
-      //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
-      stepper_square_wave(2, stepDelay);
-    }
-  } else if (dx > dy) {
-    Serial.println("Move dx > dy");
-    for (long i = 0; i < dx * STEPS_PER_MM; i++) {
-      if (i < dy * STEPS_PER_MM) {
-        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
-        stepper_square_wave(2, stepDelay);
-      } else {
-        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
-        stepper_square_wave(0, stepDelay);
-      }
-    }
-  } else {
-    Serial.println("Move diag dy > dx");
-    for (long i = 0; i < dy * STEPS_PER_MM; i++) {
-      if (i < dx * STEPS_PER_MM) {
-        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
-        stepper_square_wave(2, stepDelay);
-      } else {
-        //if (digitalRead(LIMIT_PIN[0]) || digitalRead(LIMIT_PIN[1]) || digitalRead(LIMIT_PIN[2]) || digitalRead(LIMIT_PIN[3])) return 1;
-        stepper_square_wave(1, stepDelay);
-      }
-    }
-  }
-
-  // Update motor coordinates
-  motor_coordinates[0] = x;
-  motor_coordinates[1] = y;
-
-  // Serial.print("Moving to (");
-  // Serial.print(x);
-  // Serial.print(", ");
-  // Serial.print(y);
-  // Serial.println(") in mm");
-
-  return 0;
-}
-
-// TODO: motor function need a "safe move" parameter, to tell if the motor need to move the piece along an edge, or just straight to the destination
-int move_piece_by_motor(int from_x, int from_y, int to_x, int to_y, int gridAligned) {
-  Serial.println("MOVING CODE RUNNING");
-  // Move the motor from one square to another
-  // from_x, from_y: x, y coordinates of the square to move from
-  // to_x, to_y: x, y coordinates of the square to move to
-  // stepDelay: time in microseconds to wait between each step (half a period)
-  // fastMove: if true, move piece in a straight line to destination, else, move along edges
-  // Move the motor from (from_x, from_y) to (to_x, to_y)
-
-  // TODO
-  // TODO: don't write the motor moving code here, just write the logic to move the motor and call motor_move_to_coordinate function
-
-  // Convert square coordinates to mm coordinates
-  if (from_x < 0) {
-    from_x = from_x * MM_PER_SQUARE - GRAVEYARD_GAP;
-  } else if (from_x > 7) {
-    from_x = from_x * MM_PER_SQUARE + GRAVEYARD_GAP;
-  } else {
-    from_x = from_x * MM_PER_SQUARE;
-  }
-
-  if (to_x < 0) {
-    to_x = to_x * MM_PER_SQUARE - GRAVEYARD_GAP;
-  } else if (to_x > 7) {
-    to_x = to_x * MM_PER_SQUARE + GRAVEYARD_GAP;
-  } else {
-    to_x = to_x * MM_PER_SQUARE;
-  }
-
-  from_y = from_y * MM_PER_SQUARE;
-  to_y = to_y * MM_PER_SQUARE;
-
-  int ret;
-  int corner_x, corner_y;
-
-  // Move motor to starting location
-  move_motor_to_coordinate(from_x, from_y, false, FAST_STEP_DELAY);
-
-  delay(1000);  // pick up piece
-  Serial.println("Pick up piece");
-  piece_picker.write(PIECE_PICKER_UP_ANGLE);
-  delay(1000);
-
-  if (gridAligned) {
-    // Move motor onto edges instead of centers, then move to destination
-    corner_x = from_x < to_x ? from_x + (MM_PER_SQUARE) / 2 : from_x - (MM_PER_SQUARE) / 2;
-    corner_y = from_y < to_y ? from_y + (MM_PER_SQUARE) / 2 : from_y - (MM_PER_SQUARE) / 2;
-    if (ret = move_motor_to_coordinate(corner_x, corner_y, false, FAST_STEP_DELAY)) return ret;
-
-    corner_x = from_x < to_x ? to_x - (MM_PER_SQUARE) / 2 : to_x + (MM_PER_SQUARE) / 2;
-    corner_y = from_y < to_y ? to_y - (MM_PER_SQUARE) / 2 : to_y + (MM_PER_SQUARE) / 2;
-    if (ret = move_motor_to_coordinate(corner_x, corner_y, true, FAST_STEP_DELAY)) return ret;
-  }
-
-  if (ret = move_motor_to_coordinate(to_x, to_y, false, FAST_STEP_DELAY)) return ret;
-
-  delay(1000);  // release piece
-  Serial.println("Release piece");
-  piece_picker.write(PIECE_PICKER_DOWN_ANGLE);
-  delay(1000);
-
-  return 0;
-}
-
-int move_motor_to_origin(int offset) {
-  // resets the motor to origin (0, 0) and re-calibrate the motor
-  // fastMove: if true, it will move fast until the last 50mm until "supposed" origin and move slowly until it hits the limit switch
-  //           if false, it will move slowly from the beginning until it hits the limit switch
-  // The function should reference motor_coordinates variable to estimate where it is
-  int dx = -(MM_PER_SQUARE*3 + GRAVEYARD_GAP)-motor_coordinates[0]; // Need to offset by negative 3 squares (in mm)
-  int dy = -motor_coordinates[1];
-
-  // Sets direction
-  digitalWrite(DIR_PIN[0], dx > 0);
-  digitalWrite(DIR_PIN[1], dy > 0);
-  int ret;
-
-  // Moves to a bit short of where origin is
-  move_motor_to_coordinate(-(MM_PER_SQUARE*3 + GRAVEYARD_GAP)+offset, offset, false, FAST_STEP_DELAY);
-
-  // if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
-
-  // // Slowly moves towards origin until hits x limit switch
-  // int counter = 0;
-  // while (!digitalRead(LIMIT_PIN[0])) {
-  //   stepper_square_wave(0, SLOW_STEP_DELAY);
-  //   counter++;
-  //   if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
-  // }
-
-  // // Slowly moves towards origin until hits y limit switch
-  // counter = 0;
-  // while (!digitalRead(LIMIT_PIN[2])) {
-  //   stepper_square_wave(1, SLOW_STEP_DELAY);
-  //   counter++;
-  //   if (counter > ORIGIN_RESET_TIMEOUT) return 2;  // Motor unable to recenter to origin
-  // }
-
-  // // Move motor slightly off origin, so limit switches are not held
-  // if (ret = move_motor_to_coordinate(offset, offset, false, FAST_STEP_DELAY)) return ret;
-
-  // Updates current motor coordinates
-  motor_coordinates[0] = offset;
-  motor_coordinates[1] = offset;
-
-  return 0;
-}
-
-// ############################################################
-// #                     JOYSTICK CONTROL                     #
-// ############################################################
-
-// JOYSTICK CONTROL (each corresponds to the pin number) (first index is for white's joystick, second index is for black's joystick)
-// Joystick is active LOW, so connect the other pin to GND
-// Changes made: Now this just stores the value read by digital pin on Arduino Mega
-// The arduino mega will periodically send values back via I2C
-// Active LOW, so initialize to 1
-int8_t JOYSTICK_POS_X_VALUE[] = { 1, 1 };
-int8_t JOYSTICK_POS_Y_VALUE[] = { 1, 1 };
-int8_t JOYSTICK_NEG_X_VALUE[] = { 1, 1 };
-int8_t JOYSTICK_NEG_Y_VALUE[] = { 1, 1 };
-int8_t JOYSTICK_BUTTON_VALUE[] = { 1, 1 };
-
+// Order of pins follow:
+/*
 enum {
   JOYSTICK_0_POS_X_INDEX,
   JOYSTICK_1_POS_X_INDEX,
@@ -311,94 +18,254 @@ enum {
   JOYSTICK_1_BUTTON_INDEX,
   JOYSTICK_PINS_COUNT
 };
+*/
 
-bool update_joystick_values() {
-  // Read joystick values from I2C
-  // Return true if successful, false otherwise
-  Wire.requestFrom(SUBORDINATE_ADDRESS, 2);  // Request 2 bytes from slave
-  if (Wire.available() < 2) {
-    Serial.println("NO DATA");
-    return false;  // Not enough data received
+// GPIO pins
+// const uint8_t DPAD_PINS[10] = {31, 33, 35, 37, 39, 41, 43, 45, 47, 49};
+const uint8_t DPAD_PINS[10] = {41, 39, 45, 43, 33, 31, 37, 35, 49, 47}; // swapped white and black
+// x+, x+, y+, y+, x-, x-, y-, y-, confirm, confirm (white/black)
+// const uint8_t DPAD_PINS[10] = {33, 31, 37, 35, 41, 39, 45, 43, 49, 47}; // wrong
+const uint8_t LIMIT_PINS[4] = {4, 5, 2, 3}; // x-, x+, y-, y+
+const uint8_t DIR_PINS[2] = {9, 11};   // x, y
+const uint8_t PUL_PINS[2] = {10, 12};   // x, y
+const uint8_t PICKER_PIN = 7;
+
+// Piece picker
+Servo piece_picker; 
+const uint8_t STEPS_PER_MM = 80;
+const float MM_PER_SQUARE = 66.66; // width of chessboard squares in mm
+const uint8_t GRAVEYARD_GAP = 10.0;   // gap between graveyard and chessboard in mm
+const uint8_t STEP_DELAY = 100; // in us, is half the period of square wave
+const uint8_t MOVE_DELAY = 1000; // in ms, delay between piece picker and gantry movement
+const uint8_t PICKER_ANGLE[2] {10, 120}; // down angle, up angle  
+const int16_t CALIBRATE_COORD[2] = {(-3*MM_PER_SQUARE)-17, -22}; // actual calibrate coordinate relative to board origin
+// const int8_t BED_LEVEL_OFFSET[8][8] = {
+//   {0, 0, 0, 0, 0, 0, 0, 0},
+//   {0, 0, 0, 0, 0, 0, 0, 0},
+//   {0, 0, 0, 0, 0, 0, 0, 0},
+//   {0, 0, 0, 0, 0, 0, 0, 0},
+//   {0, 0, 0, 0, 0, 0, 0, 0},
+//   {0, 0, 0, 0, 0, 0, 0, 0},
+//   {0, 0, 0, 0, 0, 0, 0, 0},
+//   {0, 0, 0, 0, 0, 0, 0, 0}
+// }; // x, y
+enum {
+  X_AXIS,
+  Y_AXIS,
+  XY_AXIS
+};
+
+uint8_t x_0, x_1, y_0, y_1, motor_mode; // DO NOT use except for passing into motor_move_piece
+
+uint8_t state = 0; // 0: idle/button poll, 1: motor, 2: motor done
+int16_t motor_coord[2] = {-(floor(MM_PER_SQUARE*3) + GRAVEYARD_GAP), 0}; // x, y in mm
+
+void stepper_square_wave(uint8_t mode, uint8_t delay) { // delay in us
+  if (mode == XY_AXIS) {
+    digitalWrite(PUL_PINS[X_AXIS], HIGH);
+    digitalWrite(PUL_PINS[Y_AXIS], HIGH);
+    delayMicroseconds(delay);
+    digitalWrite(PUL_PINS[X_AXIS], LOW);
+    digitalWrite(PUL_PINS[Y_AXIS], LOW);
+  } else if (mode == X_AXIS || mode == Y_AXIS){
+    digitalWrite(PUL_PINS[mode], HIGH);
+    delayMicroseconds(delay);
+    digitalWrite(PUL_PINS[mode], LOW);
   }
-  uint8_t data1 = Wire.read();  // Read first byte
-  uint8_t data2 = Wire.read();  // Read second byte
-  // Combine the two bytes into a single 16-bit value
-  // Note, data1 is lower byte and data2 is higher byte
-  // So LSB of data2 is the 8th bit of the combined value
-  uint16_t combinedData = data1 | (data2 << 8);  // Combine the two bytes
-  // Print the received data for debugging
-  // Serial.print("Received data: ");
-  // Serial.print(combinedData, BIN); // Print in binary format
-  // Serial.print(" (0x");
-  // Serial.print(combinedData, HEX); // Print in hexadecimal format
-  // Serial.println(")");
-  // Update joystick values based on the received data
-  JOYSTICK_POS_X_VALUE[0] = (combinedData >> JOYSTICK_0_POS_X_INDEX) & 1;
-  JOYSTICK_POS_X_VALUE[1] = (combinedData >> JOYSTICK_1_POS_X_INDEX) & 1;
-  JOYSTICK_POS_Y_VALUE[0] = (combinedData >> JOYSTICK_0_POS_Y_INDEX) & 1;
-  JOYSTICK_POS_Y_VALUE[1] = (combinedData >> JOYSTICK_1_POS_Y_INDEX) & 1;
-  JOYSTICK_NEG_X_VALUE[0] = (combinedData >> JOYSTICK_0_NEG_X_INDEX) & 1;
-  JOYSTICK_NEG_X_VALUE[1] = (combinedData >> JOYSTICK_1_NEG_X_INDEX) & 1;
-  JOYSTICK_NEG_Y_VALUE[0] = (combinedData >> JOYSTICK_0_NEG_Y_INDEX) & 1;
-  JOYSTICK_NEG_Y_VALUE[1] = (combinedData >> JOYSTICK_1_NEG_Y_INDEX) & 1;
-  JOYSTICK_BUTTON_VALUE[0] = (combinedData >> JOYSTICK_0_BUTTON_INDEX) & 1;
-  JOYSTICK_BUTTON_VALUE[1] = (combinedData >> JOYSTICK_1_BUTTON_INDEX) & 1;
-  return true;
+  delayMicroseconds(delay);
 }
 
-// ############################################################
-// #                           MAIN                           #
-// ############################################################
+// void servo_bed_level(int8_t x, int8_t y, uint8_t angle) { // x and y in mm 
+//   piece_picker.write(angle + BED_LEVEL_OFFSET[floor(x/MM_PER_SQUARE)][floor(y/MM_PER_SQUARE)]);
+// }
+
+void motor_move_line(int8_t x_dir, int8_t y_dir, uint16_t dist, uint8_t delay) { // (x, y) -> [-1, 1], dist in mm, both x, y, cannot be 0
+  uint8_t mode = -1; // init to invalid value
+
+  digitalWrite(DIR_PINS[X_AXIS], x_dir < 0);
+  digitalWrite(DIR_PINS[Y_AXIS], y_dir > 0);
+
+  if (x_dir != 0 && y_dir != 0) {
+    mode = XY_AXIS;
+  } else if (x_dir != 0) {
+    mode = X_AXIS;
+  } else if (y_dir != 0) {
+    mode = Y_AXIS;
+  }
+
+  for (int i = 0; i < dist*STEPS_PER_MM; i++) {
+    stepper_square_wave(mode, delay);
+    // servo_bed_level(motor_coord[0]+i*x_dir, motor_coord[1]+i*y_dir, angle);
+  }
+}
+
+void motor_move(int16_t x, int16_t y, uint8_t delay, uint8_t taxicab) { // in mm
+  uint16_t x_mag = abs(x-motor_coord[0]), y_mag = abs(y-motor_coord[1]);
+  int8_t x_dir = (x-motor_coord[0]) > 0 ? 1 : -1, y_dir = (y-motor_coord[1]) > 0 ? 1 : -1;
+
+  if (taxicab) {
+    Serial.println("taxicab");
+    motor_move_line(x_dir, 0, x_mag, delay);
+    motor_move_line(0, y_dir, y_mag, delay);
+  } else if (x_mag == y_mag) {
+    Serial.println("x == y");
+    motor_move_line(x_dir, y_dir, x_mag, delay);
+  } else if (x_mag > y_mag) {
+    Serial.println("x > y");
+    motor_move_line(x_dir, y_dir, y_mag, delay);
+    motor_move_line(x_dir, 0, x_mag-y_mag, delay);
+  } else {
+    Serial.println("x < y");
+
+    Serial.println(x);
+    Serial.println(y);
+    Serial.println(x_dir);
+    Serial.println(y_dir);
+    Serial.println(x_mag);
+    Serial.println(y_mag);
+
+    motor_move_line(x_dir, y_dir, x_mag, delay);
+    motor_move_line(0, y_dir, y_mag-x_mag, delay);
+  }
+
+  motor_coord[0] = x;
+  motor_coord[1] = y;
+}
+
+void motor_move_piece(int16_t x_0, int16_t y_0, int16_t x_1, int16_t y_1, int8_t taxicab) { // in squares, but converted to mm
+  if (x_0 < 0) {
+    x_0 *= MM_PER_SQUARE;
+    x_0 -= GRAVEYARD_GAP;
+  } else if (x_0 > 7) {
+    x_0 *= MM_PER_SQUARE;
+    x_0 += GRAVEYARD_GAP;
+  } else {
+    x_0 *= MM_PER_SQUARE;
+  }
+
+  if (x_1 < 0) {
+    x_1 *= MM_PER_SQUARE;
+    x_1 -= GRAVEYARD_GAP;
+  } else if (x_1 > 7) {
+    x_1 *= MM_PER_SQUARE;
+    x_1 += GRAVEYARD_GAP;
+  } else {
+    x_1 *= MM_PER_SQUARE;
+  }
+
+  y_0 *= MM_PER_SQUARE;
+  y_1 *= MM_PER_SQUARE;
+
+  piece_picker.write(PICKER_ANGLE[0]);
+  delay(MOVE_DELAY);
+  Serial.println("First move");
+  Serial.println(motor_coord[0]);
+  Serial.println(motor_coord[1]);
+  Serial.println(x_0);
+  Serial.println(y_0);
+  motor_move(x_0, y_0, STEP_DELAY, false);
+  delay(MOVE_DELAY);
+  piece_picker.write(PICKER_ANGLE[1]);
+  delay(MOVE_DELAY);
+
+  if (taxicab) {
+    int x_a, y_a, x_b, y_b;
+    x_a = x_0 < x_1 ? x_0 + (MM_PER_SQUARE/2) : x_0 - (MM_PER_SQUARE/2);
+    y_a = y_0 < y_1 ? y_0 + (MM_PER_SQUARE/2) : y_0 - (MM_PER_SQUARE/2);
+    x_b = x_0 < x_1 ? x_1 - (MM_PER_SQUARE/2) : x_1 + (MM_PER_SQUARE/2);
+    y_b = y_0 < y_1 ? y_1 - (MM_PER_SQUARE/2) : y_1 + (MM_PER_SQUARE/2);
+
+    x_a = min(max(x_a, (int)(-2.5*MM_PER_SQUARE)), (int)(13.5*MM_PER_SQUARE));
+    y_a = min(max(y_a, (int)(MM_PER_SQUARE/2)), (int)(7.5*MM_PER_SQUARE));
+    x_b = min(max(x_b, (int)(-2.5*MM_PER_SQUARE)), (int)(13.5*MM_PER_SQUARE));
+    y_b = min(max(y_b, (int)(MM_PER_SQUARE/2)), (int)(7.5*MM_PER_SQUARE));
+
+    motor_move(x_a, y_a, STEP_DELAY, false);
+    motor_move(x_b, y_b, STEP_DELAY, true);
+  }
+
+  Serial.println("Second move");
+  Serial.println(motor_coord[0]);
+  Serial.println(motor_coord[1]);
+  Serial.println(x_1);
+  Serial.println(y_1);
+  motor_move(x_1, y_1, STEP_DELAY, false);
+  delay(MOVE_DELAY);
+  piece_picker.write(PICKER_ANGLE[0]);
+  delay(MOVE_DELAY);
+}
+
+void motor_move_calibrate() {
+  piece_picker.write(PICKER_ANGLE[0]);
+  delay(MOVE_DELAY);
+  motor_move(-3*MM_PER_SQUARE, 0, STEP_DELAY, false);
+
+  digitalWrite(DIR_PINS[X_AXIS], 1); // default x, y, to go to origin (to fix mis-wired drivers)
+  digitalWrite(DIR_PINS[Y_AXIS], 0);
+
+  while (!digitalRead(LIMIT_PINS[0])) {
+    stepper_square_wave(X_AXIS, STEP_DELAY);
+  }
+
+  while (!digitalRead(LIMIT_PINS[1])) {
+    stepper_square_wave(Y_AXIS, STEP_DELAY);
+  }
+
+  motor_coord[0] = CALIBRATE_COORD[0];
+  motor_coord[1] = CALIBRATE_COORD[1];
+  motor_move(-3*MM_PER_SQUARE, 0, STEP_DELAY, false);
+}
+
+double motor_x, motor_y, servo_angle;
+bool value_changed, servo_value_changed;
 
 void setup() {
+  for (uint8_t i = 0; i < 10; i++) pinMode(DPAD_PINS[i], INPUT_PULLUP); // Set pins as input with pull-up resistors
+  for (uint8_t i = 0; i < 4; i++) pinMode(LIMIT_PINS[i], INPUT_PULLUP);
+  for (uint8_t i = 0; i < 2; i++) pinMode(DIR_PINS[i], OUTPUT);
+  for (uint8_t i = 0; i < 2; i++) pinMode(PUL_PINS[i], OUTPUT);
+  pinMode(PICKER_PIN, OUTPUT);
+
   Serial.begin(9600);
-  Wire.begin();
-  delay(1000);  // Wait for serial monitor to open
   Serial.println("Starting up...");
-  // MOTOR pins
-  pinMode(PUL_PIN[0], OUTPUT);
-  pinMode(DIR_PIN[0], OUTPUT);
-  pinMode(PUL_PIN[1], OUTPUT);
-  pinMode(DIR_PIN[1], OUTPUT);
-  piece_picker.attach(PIECE_PICKER_PIN);
-  move_motor_to_origin(0); // Move motor to origin with offset 0
-  motor_x = 0;
+
+  piece_picker.attach(PICKER_PIN);
+  motor_move_calibrate();
+
+  motor_x = -3*MM_PER_SQUARE;
   motor_y = 0;
   servo_angle = 0;
-  value_changed = false;
-  servo_value_changed = false;
 }
-
 
 void loop() {
   value_changed = false;  // Reset value changed flag
   servo_value_changed = false;  // Reset servo value changed flag
-  update_joystick_values();  // Update joystick values from I2C
-  if (JOYSTICK_POS_X_VALUE[0] == 0) {
+
+  if (digitalRead(DPAD_PINS[0]) == 0) {
     // Move motor to right. 
     Serial.println("Moving motor to right");
-    motor_x += 33;
+    motor_x += MM_PER_SQUARE;
     value_changed = true;
-  } else if (JOYSTICK_NEG_X_VALUE[0] == 0) {
+  } else if (digitalRead(DPAD_PINS[4]) == 0) {
     // Move motor to left.
     Serial.println("Moving motor to left");
-    motor_x -= 33;
+    motor_x -= MM_PER_SQUARE;
     value_changed = true;
   }
 
-  if (JOYSTICK_POS_Y_VALUE[0] == 0) {
+  if (digitalRead(DPAD_PINS[2]) == 0) {
     // Move motor up.
     Serial.println("Moving motor up");
-    motor_y += 33;   
+    motor_y += MM_PER_SQUARE;   
     value_changed = true;
-  } else if (JOYSTICK_NEG_Y_VALUE[0] == 0) {
+  } else if (digitalRead(DPAD_PINS[6]) == 0) {
     // Move motor down.
     Serial.println("Moving motor down");
-    motor_y -= 33;
+    motor_y -= MM_PER_SQUARE;
     value_changed = true;
   }
 
-  if (JOYSTICK_POS_Y_VALUE[1] == 0) {
+  if (digitalRead(DPAD_PINS[3]) == 0) {
     // Move servo up.
     Serial.println("Moving servo up");
     servo_angle += 10;
@@ -406,7 +273,7 @@ void loop() {
       servo_angle = 180;
     }
     servo_value_changed = true;
-  } else if (JOYSTICK_NEG_Y_VALUE[1] == 0) {
+  } else if (digitalRead(DPAD_PINS[7]) == 0) {
     // Move servo down.
     Serial.println("Moving servo down");
     servo_angle -= 10;
@@ -422,7 +289,7 @@ void loop() {
     Serial.print(", ");
     Serial.print(motor_y);
     Serial.println(") in mm");
-    move_motor_to_coordinate(motor_x, motor_y, false, FAST_STEP_DELAY);  // Move motor to new coordinates
+    motor_move(motor_x, motor_y, STEP_DELAY, false); // Move motor to new coordinates
   }
 
   if (servo_value_changed) {
@@ -431,4 +298,6 @@ void loop() {
     Serial.println(" degrees");
     piece_picker.write(servo_angle);  // Move servo to new angle
   }
+
+  delay(200); // Debounce delay
 }
