@@ -21,6 +21,7 @@
 #define USING_STOCKFISH 0  // 1 for using stockfish, 0 for not using stockfish
 #define USING_OLED 0       // 1 for using OLED, 0 for not using OLED
 #define MAKING_RANDOM_MOVES 1 // 1 for making random moves on both sides for testing
+#define AUTO_START_GAME 1 // 1 for automatically starting the game, skipping IDLE mode. 0 for regular flow where it waits in IDLE mode until a game is started.
 
 // OLED DEFINES
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
@@ -78,6 +79,7 @@ Timer game_timer;
 // 0 for white to move, 1 for black to move
 bool player_turn;
 int8_t player_is_computer[2];  // 0 for human, 1 for computer
+bool game_has_computer_player; // If true, at least one player is a computer
 
 // 0 for player is not under check, 1 for player is under check
 bool current_player_under_check;
@@ -2066,7 +2068,7 @@ void loop() {
     // display_idle(timer=game_timer, screen=1, player_ready[1], idle_joystick_x[1], idle_joystick_y[1])
 
     // If both players are ready, start the game
-    if (player_ready[0] && player_ready[1]) {
+    if ((player_ready[0] && player_ready[1]) || AUTO_START_GAME) { // AUTO_START_GAME is for testing purposes, to skip the idle screen and directly start the game
       game_state = GAME_INITIALIZE;
       is_first_move = true;  // Set to true so we can send the first move to stockfish
 
@@ -2077,29 +2079,33 @@ void loop() {
         // 0 = human, 1 = computer
         player_is_computer[0] = idle_joystick_x[0];
         player_is_computer[1] = idle_joystick_x[1];
-        stockfish_write(0,                    // writing_all_zeros
-                        1,                    // is programming
-                        0,                    // programming colour
-                        !idle_joystick_x[0],  // is human
-                        idle_joystick_y[0],   // difficulty
-                        0,                    // from square (doesn't matter)
-                        0,                    // to square (doesn't matter)
-                        0,                    // is promotion (doesn't matter)
-                        0);                   // promotion square (doesn't matter)
+        game_has_computer_player = player_is_computer[0] || player_is_computer[1];
+        if (game_has_computer_player) {
+          stockfish_write(0,                    // writing_all_zeros
+                          1,                    // is programming
+                          0,                    // programming colour
+                          !idle_joystick_x[0],  // is human
+                          idle_joystick_y[0],   // difficulty
+                          0,                    // from square (doesn't matter)
+                          0,                    // to square (doesn't matter)
+                          0,                    // is promotion (doesn't matter)
+                          0);                   // promotion square (doesn't matter)
 
-        stockfish_write(0,                    // writing_all_zeros
-                        1,                    // is programming
-                        1,                    // programming colour
-                        !idle_joystick_x[1],  // is human
-                        idle_joystick_y[1],   // difficulty
-                        0,                    // from square (doesn't matter)
-                        0,                    // to square (doesn't matter)
-                        0,                    // is promotion (doesn't matter)
-                        0);                   // promotion square (doesn't matter)
+          stockfish_write(0,                    // writing_all_zeros
+                          1,                    // is programming
+                          1,                    // programming colour
+                          !idle_joystick_x[1],  // is human
+                          idle_joystick_y[1],   // difficulty
+                          0,                    // from square (doesn't matter)
+                          0,                    // to square (doesn't matter)
+                          0,                    // is promotion (doesn't matter)
+                          0);                   // promotion square (doesn't matter)
+        }
       } else {
         // Set both to players if not using stockfish
         player_is_computer[0] = 0;
         player_is_computer[1] = 0;
+        game_has_computer_player = false;
       }
 
       // reset confirm button pressed
@@ -2272,15 +2278,18 @@ void loop() {
       }
     } else if (USING_STOCKFISH) {
       // If not first move, send the move to stockfish
-      stockfish_write(0,                                  // writing_all_zeros
-                      0,                                  // is programming
-                      0,                                  // programming colour
-                      0,                                  // is human
-                      20,                                 // difficulty
-                      selected_y * 8 + selected_x,        // from square
-                      destination_y * 8 + destination_x,  // to square
-                      promotion_happened,                 // is promotion
-                      promotion_joystick_selection);      // promotion square
+      if (game_has_computer_player) {
+        // Only send move to stockfish if there is a computer player, otherwise no need to send move info to stockfish
+        stockfish_write(0,                                  // writing_all_zeros
+                        0,                                  // is programming
+                        0,                                  // programming colour
+                        0,                                  // is human
+                        20,                                 // difficulty
+                        selected_y * 8 + selected_x,        // from square
+                        destination_y * 8 + destination_x,  // to square
+                        promotion_happened,                 // is promotion
+                        promotion_joystick_selection);      // promotion square
+      }
     }
 
     // TEMP DISPLAY CODE:
