@@ -20,6 +20,7 @@
 // SOME DEBUG DEFINES...
 #define USING_STOCKFISH 0  // 1 for using stockfish, 0 for not using stockfish
 #define USING_OLED 0       // 1 for using OLED, 0 for not using OLED
+#define MAKING_RANDOM_MOVES 1 // 1 for making random moves on both sides for testing
 
 // OLED DEFINES
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
@@ -102,6 +103,8 @@ int8_t previous_selected_y = 0;
 int number_of_turns = 0;
 bool promotion_happened = false;  // If true, a pawn has been promoted
 bool is_first_move = true;        // If true, this is the first move of the game
+
+int8_t random_move_index;  // Used for making random moves for testing
 
 bool draw_three_fold_repetition;  // If true, the game is a draw due to three fold repetition
 bool draw_fifty_move_rule;        // If true, the game is a draw due to fifty move rule
@@ -2310,6 +2313,28 @@ void loop() {
     move_user_joystick_x_y(player_turn);
     // free_displays();
 
+    if (MAKING_RANDOM_MOVES) {
+      // For testing, randomly select a piece for player_turn, randomly select a move. 
+      // If no valid moves, pick another piece.
+      while (true) {
+        selected_x = random(0, 8);
+        selected_y = random(0, 8);
+        if (all_moves[selected_y][selected_x].size() > 0) {
+          random_move_index = random(0, all_moves[selected_y][selected_x].size());
+          destination_x = all_moves[selected_y][selected_x][random_move_index].first % 8;
+          destination_y = all_moves[selected_y][selected_x][random_move_index].first / 8;
+          capture_x = all_moves[selected_y][selected_x][random_move_index].second % 8;
+          capture_y = all_moves[selected_y][selected_x][random_move_index].second / 8;
+          break;
+        } else {
+          continue;
+        }
+      }
+
+      // We have the random move, move to motor state
+      game_state = GAME_MOVE_MOTOR;
+    }
+
     // LED display
     // HERE, highlight the "previous move" that just happened by highlighting
     // pieces... (yellow) Also display the cursor location - which is
@@ -2394,8 +2419,12 @@ void loop() {
     // TODO
     // display_turn_select()...
 
-
-
+    // If computer OR random moves, skip the wait for select phase.
+    if (player_is_computer[player_turn] || MAKING_RANDOM_MOVES) {
+      return;
+    }
+    
+    // The code below is only for human players making moves selections. 
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -2731,6 +2760,20 @@ void loop() {
     // If it's a valid promotion piece, indicate the piece is selected, and move
     // to GAME_PAWN_PROMOTION_MOTOR
 
+    // Get button input, update joystick location (Special for pawn promotion,
+    // use promotion_joystick_selection) (there's only 4 possible values, 0, 1, 2, 3)
+    // This also checks if confirm button is clicked or not. We use this value after display
+    if (!player_is_computer[player_turn] && !MAKING_RANDOM_MOVES) {
+      // Only check for joystick if the player is not a computer (nor random moves)
+      move_user_joystick_promotion(player_turn);
+    }
+
+    // Generate random promotion selection for testing
+    // This is before the display code so the moves made can still be displayed. 
+    if (MAKING_RANDOM_MOVES) {
+      promotion_joystick_selection = random(0, 4);
+    }
+
     // LED display
     // HERE (Display the promotion_joystick_selection, which has value 0,1,2,3)
     // (separate LED maybe at the edge of board? - the "promotion" indicator
@@ -2780,13 +2823,11 @@ void loop() {
     // TODO
     // display_promotion()...
 
-    // Get button input, update joystick location (Special for pawn promotion,
-    // use promotion_joystick_selection) (there's only 4 possible values, 0, 1, 2, 3)
     // display_init();
-    if (!player_is_computer[player_turn]) {
-      // Only check for joystick if the player is not a computer
-      move_user_joystick_promotion(player_turn);
 
+    // Player moves / confirm button state is already updated. If human player confirm, proceed. 
+    // Non-human players don't wait
+    if (!player_is_computer[player_turn] && !MAKING_RANDOM_MOVES) {
       // Don't move until the confirm button is pressed
       // STOCKFISHTODO: If this player is a computer, then just proceed... Do not wait for confirm button
       if (confirm_button_pressed[player_turn]) {
