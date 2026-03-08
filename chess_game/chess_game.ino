@@ -571,7 +571,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board) {  // instead
       // Update the graveyard memory
       graveyard[i]--;  // we decrease first cuz we want the piece square, not the empty square.
       // Find the first empty square in graveyard (the function takes 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for pawn)
-      std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i % 5) + 1, i < 5);
+      std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i % 5) + 1, i > 4); // i 0-4 is white
       // Find the first available square on the board
       if (i == 0) {
         // White queen
