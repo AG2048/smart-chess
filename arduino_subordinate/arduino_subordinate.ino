@@ -30,7 +30,7 @@ const uint8_t PUL_PINS[2] = {10, 12};   // x, y
 const uint8_t PICKER_PIN = 7;
 
 // Disable motor for testing
-const uint8_t DISABLE_MOTOR = 1;
+const uint8_t DISABLE_MOTOR = 0;
 
 // Piece picker
 Servo piece_picker; 
