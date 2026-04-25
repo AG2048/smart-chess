@@ -20,6 +20,8 @@
 // SOME DEBUG DEFINES...
 #define USING_STOCKFISH 0  // 1 for using stockfish, 0 for not using stockfish
 #define USING_OLED 0       // 1 for using OLED, 0 for not using OLED
+#define MAKING_RANDOM_MOVES 1 // 1 for making random moves on both sides for testing
+#define AUTO_START_GAME 1 // 1 for automatically starting the game, skipping IDLE mode. 0 for regular flow where it waits in IDLE mode until a game is started.
 
 // OLED DEFINES
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
@@ -77,6 +79,7 @@ Timer game_timer;
 // 0 for white to move, 1 for black to move
 bool player_turn;
 int8_t player_is_computer[2];  // 0 for human, 1 for computer
+bool game_has_computer_player; // If true, at least one player is a computer
 
 // 0 for player is not under check, 1 for player is under check
 bool current_player_under_check;
@@ -102,6 +105,8 @@ int8_t previous_selected_y = 0;
 int number_of_turns = 0;
 bool promotion_happened = false;  // If true, a pawn has been promoted
 bool is_first_move = true;        // If true, this is the first move of the game
+
+int8_t random_move_index;  // Used for making random moves for testing
 
 bool draw_three_fold_repetition;  // If true, the game is a draw due to three fold repetition
 bool draw_fifty_move_rule;        // If true, the game is a draw due to fifty move rule
@@ -566,7 +571,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board) {  // instead
       // Update the graveyard memory
       graveyard[i]--;  // we decrease first cuz we want the piece square, not the empty square.
       // Find the first empty square in graveyard (the function takes 1 for queen, 2 for rook, 3 for bishop, 4 for knight, 5 for pawn)
-      std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i % 5) + 1, i < 5);
+      std::pair<int8_t, int8_t> graveyard_coordinate = get_graveyard_empty_coordinate((i % 5) + 1, i > 4); // i 0-4 is white
       // Find the first available square on the board
       if (i == 0) {
         // White queen
@@ -2063,7 +2068,7 @@ void loop() {
     // display_idle(timer=game_timer, screen=1, player_ready[1], idle_joystick_x[1], idle_joystick_y[1])
 
     // If both players are ready, start the game
-    if (player_ready[0] && player_ready[1]) {
+    if ((player_ready[0] && player_ready[1]) || AUTO_START_GAME) { // AUTO_START_GAME is for testing purposes, to skip the idle screen and directly start the game
       game_state = GAME_INITIALIZE;
       is_first_move = true;  // Set to true so we can send the first move to stockfish
 
@@ -2074,29 +2079,33 @@ void loop() {
         // 0 = human, 1 = computer
         player_is_computer[0] = idle_joystick_x[0];
         player_is_computer[1] = idle_joystick_x[1];
-        stockfish_write(0,                    // writing_all_zeros
-                        1,                    // is programming
-                        0,                    // programming colour
-                        !idle_joystick_x[0],  // is human
-                        idle_joystick_y[0],   // difficulty
-                        0,                    // from square (doesn't matter)
-                        0,                    // to square (doesn't matter)
-                        0,                    // is promotion (doesn't matter)
-                        0);                   // promotion square (doesn't matter)
+        game_has_computer_player = player_is_computer[0] || player_is_computer[1];
+        if (game_has_computer_player) {
+          stockfish_write(0,                    // writing_all_zeros
+                          1,                    // is programming
+                          0,                    // programming colour
+                          !idle_joystick_x[0],  // is human
+                          idle_joystick_y[0],   // difficulty
+                          0,                    // from square (doesn't matter)
+                          0,                    // to square (doesn't matter)
+                          0,                    // is promotion (doesn't matter)
+                          0);                   // promotion square (doesn't matter)
 
-        stockfish_write(0,                    // writing_all_zeros
-                        1,                    // is programming
-                        1,                    // programming colour
-                        !idle_joystick_x[1],  // is human
-                        idle_joystick_y[1],   // difficulty
-                        0,                    // from square (doesn't matter)
-                        0,                    // to square (doesn't matter)
-                        0,                    // is promotion (doesn't matter)
-                        0);                   // promotion square (doesn't matter)
+          stockfish_write(0,                    // writing_all_zeros
+                          1,                    // is programming
+                          1,                    // programming colour
+                          !idle_joystick_x[1],  // is human
+                          idle_joystick_y[1],   // difficulty
+                          0,                    // from square (doesn't matter)
+                          0,                    // to square (doesn't matter)
+                          0,                    // is promotion (doesn't matter)
+                          0);                   // promotion square (doesn't matter)
+        }
       } else {
         // Set both to players if not using stockfish
         player_is_computer[0] = 0;
         player_is_computer[1] = 0;
+        game_has_computer_player = false;
       }
 
       // reset confirm button pressed
@@ -2269,15 +2278,18 @@ void loop() {
       }
     } else if (USING_STOCKFISH) {
       // If not first move, send the move to stockfish
-      stockfish_write(0,                                  // writing_all_zeros
-                      0,                                  // is programming
-                      0,                                  // programming colour
-                      0,                                  // is human
-                      20,                                 // difficulty
-                      selected_y * 8 + selected_x,        // from square
-                      destination_y * 8 + destination_x,  // to square
-                      promotion_happened,                 // is promotion
-                      promotion_joystick_selection);      // promotion square
+      if (game_has_computer_player) {
+        // Only send move to stockfish if there is a computer player, otherwise no need to send move info to stockfish
+        stockfish_write(0,                                  // writing_all_zeros
+                        0,                                  // is programming
+                        0,                                  // programming colour
+                        0,                                  // is human
+                        20,                                 // difficulty
+                        selected_y * 8 + selected_x,        // from square
+                        destination_y * 8 + destination_x,  // to square
+                        promotion_happened,                 // is promotion
+                        promotion_joystick_selection);      // promotion square
+      }
     }
 
     // TEMP DISPLAY CODE:
@@ -2309,6 +2321,28 @@ void loop() {
     // display_init();
     move_user_joystick_x_y(player_turn);
     // free_displays();
+
+    if (MAKING_RANDOM_MOVES) {
+      // For testing, randomly select a piece for player_turn, randomly select a move. 
+      // If no valid moves, pick another piece.
+      while (true) {
+        selected_x = random(0, 8);
+        selected_y = random(0, 8);
+        if (all_moves[selected_y][selected_x].size() > 0) {
+          random_move_index = random(0, all_moves[selected_y][selected_x].size());
+          destination_x = all_moves[selected_y][selected_x][random_move_index].first % 8;
+          destination_y = all_moves[selected_y][selected_x][random_move_index].first / 8;
+          capture_x = all_moves[selected_y][selected_x][random_move_index].second % 8;
+          capture_y = all_moves[selected_y][selected_x][random_move_index].second / 8;
+          break;
+        } else {
+          continue;
+        }
+      }
+
+      // We have the random move, move to motor state
+      game_state = GAME_MOVE_MOTOR;
+    }
 
     // LED display
     // HERE, highlight the "previous move" that just happened by highlighting
@@ -2394,8 +2428,12 @@ void loop() {
     // TODO
     // display_turn_select()...
 
-
-
+    // If computer OR random moves, skip the wait for select phase.
+    if (player_is_computer[player_turn] || MAKING_RANDOM_MOVES) {
+      return;
+    }
+    
+    // The code below is only for human players making moves selections. 
 
     // Don't move until the confirm button is pressed
     if (confirm_button_pressed[player_turn]) {
@@ -2731,6 +2769,20 @@ void loop() {
     // If it's a valid promotion piece, indicate the piece is selected, and move
     // to GAME_PAWN_PROMOTION_MOTOR
 
+    // Get button input, update joystick location (Special for pawn promotion,
+    // use promotion_joystick_selection) (there's only 4 possible values, 0, 1, 2, 3)
+    // This also checks if confirm button is clicked or not. We use this value after display
+    if (!player_is_computer[player_turn] && !MAKING_RANDOM_MOVES) {
+      // Only check for joystick if the player is not a computer (nor random moves)
+      move_user_joystick_promotion(player_turn);
+    }
+
+    // Generate random promotion selection for testing
+    // This is before the display code so the moves made can still be displayed. 
+    if (MAKING_RANDOM_MOVES) {
+      promotion_joystick_selection = random(0, 4);
+    }
+
     // LED display
     // HERE (Display the promotion_joystick_selection, which has value 0,1,2,3)
     // (separate LED maybe at the edge of board? - the "promotion" indicator
@@ -2780,13 +2832,11 @@ void loop() {
     // TODO
     // display_promotion()...
 
-    // Get button input, update joystick location (Special for pawn promotion,
-    // use promotion_joystick_selection) (there's only 4 possible values, 0, 1, 2, 3)
     // display_init();
-    if (!player_is_computer[player_turn]) {
-      // Only check for joystick if the player is not a computer
-      move_user_joystick_promotion(player_turn);
 
+    // Player moves / confirm button state is already updated. If human player confirm, proceed. 
+    // Non-human players don't wait
+    if (!player_is_computer[player_turn] && !MAKING_RANDOM_MOVES) {
       // Don't move until the confirm button is pressed
       // STOCKFISHTODO: If this player is a computer, then just proceed... Do not wait for confirm button
       if (confirm_button_pressed[player_turn]) {
