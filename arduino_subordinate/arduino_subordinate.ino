@@ -30,7 +30,7 @@ const uint8_t PUL_PINS[2] = {10, 12};   // x, y
 const uint8_t PICKER_PIN = 7;
 
 // Disable motor for testing
-const uint8_t DISABLE_MOTOR = false;
+const uint8_t DISABLE_MOTOR = 1;
 
 // Piece picker
 Servo piece_picker; 
@@ -245,7 +245,7 @@ void loop() {
         motor_move_piece(x_0 - 3, y_0, x_1 - 3, y_1, motor_mode); // -3 for shifting unsigned to signed
       }
     } else {
-      delay(1000);
+      delay(100);
     }
     state = 2;
   }
