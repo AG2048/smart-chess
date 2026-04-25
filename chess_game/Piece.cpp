@@ -223,7 +223,7 @@ std::vector<std::pair<int8_t, int8_t>> Piece::get_possible_moves(Board* board) c
           moves.push_back(std::make_pair((y-1)*8 + x, -1));
 
           // Check if pawn can move 2 squares (first move only) and second square is also empty
-          if (double_move && board->pieces[y-2][x]->get_type() == EMPTY) { // Initial position for black pawn
+          if (double_move && y-2 >= 0 && board->pieces[y-2][x]->get_type() == EMPTY) { // Initial position for black pawn
               moves.push_back(std::make_pair((y-2)*8 + x, -1));
           }
       }
