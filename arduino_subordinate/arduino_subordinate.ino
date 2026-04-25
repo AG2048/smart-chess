@@ -29,12 +29,16 @@ const uint8_t DIR_PINS[2] = {9, 11};   // x, y
 const uint8_t PUL_PINS[2] = {10, 12};   // x, y
 const uint8_t PICKER_PIN = 7;
 
+// Disable motor for testing
+const uint8_t DISABLE_MOTOR = false;
+
 // Piece picker
 Servo piece_picker; 
 const uint8_t STEPS_PER_MM = 80;
 const float MM_PER_SQUARE = 66.7; // width of chessboard squares in mm
 const uint8_t GRAVEYARD_GAP = 10.0;   // gap between graveyard and chessboard in mm
-const uint8_t STEP_DELAY = 100; // in us, is half the period of square wave
+const uint8_t STEP_DELAY = 50; // in us, is half the period of square wave
+const uint8_t SLOW_STEP_DELAY = 200; // in us
 const uint16_t MOVE_DELAY = 1000; // in ms, delay between piece picker and gantry movement
 const uint8_t PICKER_ANGLE[2] {10, 120}; // down angle, up angle  
 const int16_t CALIBRATE_COORD[2] = {(-3*MM_PER_SQUARE)-17, -22}; // actual calibrate coordinate relative to board origin
@@ -203,11 +207,11 @@ void motor_move_calibrate() {
   digitalWrite(DIR_PINS[Y_AXIS], 0);
 
   while (!digitalRead(LIMIT_PINS[0])) {
-    stepper_square_wave(X_AXIS, STEP_DELAY);
+    stepper_square_wave(X_AXIS, SLOW_STEP_DELAY);
   }
 
   while (!digitalRead(LIMIT_PINS[1])) {
-    stepper_square_wave(Y_AXIS, STEP_DELAY);
+    stepper_square_wave(Y_AXIS, SLOW_STEP_DELAY);
   }
 
   motor_coord[0] = CALIBRATE_COORD[0];
@@ -231,17 +235,23 @@ void setup() {
   Wire.onReceive(receiveEvent);
 }
 
+// 0: idle/button poll, 1: motor, 2: motor done
 void loop() {
   if (state == 1) {
-    if (motor_mode == 2) {
-      motor_move_calibrate();
+    if (!DISABLE_MOTOR) {
+      if (motor_mode == 2) {
+        motor_move_calibrate();
+      } else {
+        motor_move_piece(x_0 - 3, y_0, x_1 - 3, y_1, motor_mode); // -3 for shifting unsigned to signed
+      }
     } else {
-      motor_move_piece(x_0 - 3, y_0, x_1 - 3, y_1, motor_mode); // -3 for shifting unsigned to signed
+      delay(1000);
     }
     state = 2;
   }
 }
 
+// 0: idle/button poll, 1: motor, 2: motor done
 void receiveEvent(int bytes) {
   // Read coordinate pair (x0, y0) to (xf, yf) and grid
   // Received x coordinates will be +3 of their true value
@@ -259,6 +269,7 @@ void receiveEvent(int bytes) {
   state = 1;
 }
 
+// 0: idle/button poll, 1: motor, 2: motor done
 void requestEvent() {
   if (state == 0) {
     // Read pin states and pack into 10 bits (LSB = pin 31)
@@ -272,7 +283,7 @@ void requestEvent() {
     Wire.write(value & 0xFF);        // Send LSB
     Wire.write((value >> 8) & 0xFF); // Send MSB
   } else if (state == 2) {
-    Wire.write(0x96);
-    state = 0;
+    Wire.write(0x96); // Magic number
+    state = 0; 
   } 
 }

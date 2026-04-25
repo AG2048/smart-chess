@@ -3007,6 +3007,9 @@ void loop() {
       Serial.print(reset_moves[reset_idx].second / 14);
       Serial.println("]");
 
+      if (reset_idx % 5 == 0) { // Calibrate every 5 instead of every move
+        motor_i2c(0, 0, 0, 0, 2); // Motor calibrate (state = 2)
+      }
       motor_i2c((reset_moves[reset_idx].first % 14) - 3, reset_moves[reset_idx].first / 14, (reset_moves[reset_idx].second % 14) - 3, reset_moves[reset_idx].second / 14, true);
     }  // Convert from idx to coords by row = index / 14, col = index % 14 (8 from board + 3 + 3 from graveyards = 14)
 
