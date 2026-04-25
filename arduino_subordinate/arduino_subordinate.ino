@@ -135,6 +135,7 @@ void motor_move(int16_t x, int16_t y, uint8_t delay, uint8_t taxicab) { // in mm
   motor_coord[1] = y;
 }
 
+// the chessboard has bottom left at (0,0) and is 8x8 squares, the entire playing area has bottom left at(-3,0) and is 14x8 squares
 void motor_move_piece(int16_t x_0, int16_t y_0, int16_t x_1, int16_t y_1, int8_t taxicab) { // in squares, but converted to mm
   if (x_0 < 0) {
     x_0 *= MM_PER_SQUARE;
@@ -173,15 +174,15 @@ void motor_move_piece(int16_t x_0, int16_t y_0, int16_t x_1, int16_t y_1, int8_t
 
   if (taxicab) {
     int x_a, y_a, x_b, y_b;
-    x_a = x_0 < x_1 ? x_0 + (MM_PER_SQUARE/2) : x_0 - (MM_PER_SQUARE/2);
-    y_a = y_0 < y_1 ? y_0 + (MM_PER_SQUARE/2) : y_0 - (MM_PER_SQUARE/2);
+    x_a = x_0 <= x_1 ? x_0 + (MM_PER_SQUARE/2) : x_0 - (MM_PER_SQUARE/2);
+    y_a = y_0 <= y_1 ? y_0 + (MM_PER_SQUARE/2) : y_0 - (MM_PER_SQUARE/2);
     x_b = x_0 < x_1 ? x_1 - (MM_PER_SQUARE/2) : x_1 + (MM_PER_SQUARE/2);
     y_b = y_0 < y_1 ? y_1 - (MM_PER_SQUARE/2) : y_1 + (MM_PER_SQUARE/2);
 
-    x_a = min(max(x_a, (int)(-2.5*MM_PER_SQUARE)), (int)(13.5*MM_PER_SQUARE));
-    y_a = min(max(y_a, (int)(MM_PER_SQUARE/2)), (int)(7.5*MM_PER_SQUARE));
-    x_b = min(max(x_b, (int)(-2.5*MM_PER_SQUARE)), (int)(13.5*MM_PER_SQUARE));
-    y_b = min(max(y_b, (int)(MM_PER_SQUARE/2)), (int)(7.5*MM_PER_SQUARE));
+    x_a = min(max(x_a, (int)(-2.5*MM_PER_SQUARE)), (int)(9.5*MM_PER_SQUARE));
+    y_a = min(max(y_a, (int)(MM_PER_SQUARE/2)), (int)(6.5*MM_PER_SQUARE));
+    x_b = min(max(x_b, (int)(-2.5*MM_PER_SQUARE)), (int)(9.5*MM_PER_SQUARE));
+    y_b = min(max(y_b, (int)(MM_PER_SQUARE/2)), (int)(6.5*MM_PER_SQUARE));
 
     motor_move(x_a, y_a, STEP_DELAY, false);
     motor_move(x_b, y_b, STEP_DELAY, true);
@@ -267,7 +268,7 @@ void receiveEvent(int bytes) {
   motor_mode = Wire.read();
 
   state = 1;
-}
+} 
 
 // 0: idle/button poll, 1: motor, 2: motor done
 void requestEvent() {
