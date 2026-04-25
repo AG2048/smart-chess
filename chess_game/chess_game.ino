@@ -1216,7 +1216,7 @@ const uint8_t LEDSPERSQUAREROW = 4;
 const struct CRGB CYAN(0, 255, 255);
 const struct CRGB GREEN(0, 255, 15);
 const struct CRGB YELLOW(255, 247, 18);
-const struct CRGB W_WHITE(255, 255, 255);
+const struct CRGB W_WHITE(180, 255, 180);
 const struct CRGB RED(255, 0, 0);
 const struct CRGB PURPLE(209, 22, 219);
 const uint8_t SOLID = 0;
@@ -2604,7 +2604,7 @@ void loop() {
     clearLEDs();
 
     set_LED_Pattern(selected_x, selected_y, GREEN, SOLID);
-    set_LED_Pattern(destination_x, destination_y, RED, SOLID);
+    set_LED_Pattern(destination_x, destination_y, YELLOW, SOLID);
 
     FastLED.show();
 
@@ -2986,6 +2986,14 @@ void loop() {
     game_state = GAME_BEGIN_TURN;
   } else if (game_state == GAME_OVER_WHITE_WIN) {
     // White wins
+
+    // Win animation
+    clearLEDs();
+
+    // set_LED_Pattern(.x, .y, RED, SOLID);
+    // set_LED_Pattern(destination_x, destination_y, RED, SOLID);
+
+    FastLED.show();
 
     // OLED:
     // display_game_over()
