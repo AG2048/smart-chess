@@ -2805,15 +2805,15 @@ void loop() {
     }
 
     if (promotion_joystick_selection == 0) {
-      led_display[5][7+offset] = CRGB(255, 0, 0);  // Queen
+      led_display[5][6+offset] = CRGB(255, 0, 0);  // Queen
+      led_display[5][7+offset] = CRGB(255, 0, 0);
       led_display[5][8+offset] = CRGB(255, 0, 0);
       led_display[5][9+offset] = CRGB(255, 0, 0);
-      led_display[5][10+offset] = CRGB(255, 0, 0);
     } else if (promotion_joystick_selection == 1) {
-      led_display[5][5+offset] = CRGB(255, 0, 0);  // Knight
-      led_display[5][6+offset] = CRGB(255, 0, 0);
+      led_display[5][4+offset] = CRGB(255, 0, 0);  // Knight
+      led_display[5][5+offset] = CRGB(255, 0, 0);
+      led_display[5][10+offset] = CRGB(255, 0, 0);
       led_display[5][11+offset] = CRGB(255, 0, 0);
-      led_display[5][12+offset] = CRGB(255, 0, 0);
     } else if (promotion_joystick_selection == 2) {
       led_display[5][2+offset] = CRGB(255, 0, 0);  // Bishop
       led_display[5][3+offset] = CRGB(255, 0, 0);
