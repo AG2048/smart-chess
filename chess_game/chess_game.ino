@@ -20,7 +20,7 @@
 // SOME DEBUG DEFINES...
 #define USING_STOCKFISH 0  // 1 for using stockfish, 0 for not using stockfish
 #define USING_OLED 0       // 1 for using OLED, 0 for not using OLED
-#define MAKING_RANDOM_MOVES 1 // 1 for making random moves on both sides for testing
+#define MAKING_RANDOM_MOVES 0 // 1 for making random moves on both sides for testing
 #define AUTO_START_GAME 1 // 1 for automatically starting the game, skipping IDLE mode. 0 for regular flow where it waits in IDLE mode until a game is started.
 
 // OLED DEFINES
@@ -2987,13 +2987,11 @@ void loop() {
   } else if (game_state == GAME_OVER_WHITE_WIN) {
     // White wins
 
-    // Win animation
+    // Win animation, clear LEDs
     clearLEDs();
 
     // set_LED_Pattern(.x, .y, RED, SOLID);
     // set_LED_Pattern(destination_x, destination_y, RED, SOLID);
-
-    FastLED.show();
 
     // OLED:
     // display_game_over()
@@ -3003,9 +3001,27 @@ void loop() {
 
     // TODO: some sort of display, and reset the game (Maybe on the OLED display)
     Serial.println("White wins!");
+
+    // Flash green under winner pieces, red under loser pieces.
+    for (int8_t i = 0; i < 8; i++) {
+      for (int8_t j = 0; j < 8; j++) {
+        // if not empty and white, green. if not empty and black, red
+        if (p_board->pieces[i][j]->get_type() != EMPTY && p_board->pieces[i][j]->get_color() == 0) {
+          set_LED_Pattern(j, i, GREEN, SOLID);
+        } else if (p_board->pieces[i][j]->get_type() != EMPTY && p_board->pieces[i][j]->get_color() == 1) {
+          set_LED_Pattern(j, i, RED, SOLID);
+        }
+      }
+    }
+
+    FastLED.show();
+
     game_state = GAME_RESET;
   } else if (game_state == GAME_OVER_BLACK_WIN) {
     // Black wins
+
+    // Win animation, clear LEDs
+    clearLEDs();
 
     // OLED:
     // display_game_over()
@@ -3015,9 +3031,27 @@ void loop() {
 
     // TODO: some sort of display, and reset the game (Maybe on the OLED display)
     Serial.println("Black wins!");
+
+    // Flash green under winner pieces, red under loser pieces.
+    for (int8_t i = 0; i < 8; i++) {
+      for (int8_t j = 0; j < 8; j++) {
+        // if not empty and black, green. if not empty and white, red
+        if (p_board->pieces[i][j]->get_type() != EMPTY && p_board->pieces[i][j]->get_color() == 1) {
+          set_LED_Pattern(j, i, GREEN, SOLID);
+        } else if (p_board->pieces[i][j]->get_type() != EMPTY && p_board->pieces[i][j]->get_color() == 0) {
+          set_LED_Pattern(j, i, RED, SOLID);
+        }
+      }
+    }
+
+    FastLED.show();
+
     game_state = GAME_RESET;
   } else if (game_state == GAME_OVER_DRAW) {
     // Draw
+
+    // Draw animation, clear LEDs
+    clearLEDs();
 
     // OLED:
     // display_game_over()
@@ -3040,6 +3074,34 @@ void loop() {
       display_game_over(0, 4, display_one, display_two);
     }
     free_displays();
+
+    // Flash white on all odd squares, wait one second, then flash white on all even squares, wait one second, repeat a few times
+    for (int i = 0; i < 3; i++) {
+      for (int8_t j = 0; j < 8; j++) {
+        for (int8_t k = 0; k < 8; k++) {
+          if ((j + k) % 2 == 1) {
+            set_LED_Pattern(k, j, W_WHITE, SOLID);
+          }
+        }
+      }
+      FastLED.show();
+      clearLEDs();
+      delay(1000); 
+      for (int8_t j = 0; j < 8; j++) {
+        for (int8_t k = 0; k < 8; k++) {
+          if ((j + k) % 2 == 0) {
+            set_LED_Pattern(k, j, W_WHITE, SOLID);
+          }
+        }
+      }
+      FastLED.show();
+      clearLEDs();
+      delay(1000);
+    }
+
+    clearLEDs();
+    FastLED.show();
+
     game_state = GAME_RESET;
   } else if (game_state == GAME_RESET) {
     delay(10000);
