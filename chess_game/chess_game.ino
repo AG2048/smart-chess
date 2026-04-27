@@ -207,6 +207,8 @@ std::pair<int8_t, int8_t> get_graveyard_empty_coordinate(int8_t piece_type,
       return std::make_pair(-3, graveyard[graveyard_index]);  // small bug that was ignored before, used 11 instead of -3.
     }
   }
+  // Default return value (should never reach here)
+  return std::make_pair(-1, -1);
 }
 
 // Function to return a vector of motor moves that would
