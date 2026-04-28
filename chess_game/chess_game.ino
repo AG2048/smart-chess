@@ -988,6 +988,22 @@ void move_user_joystick_x_y(bool color) {
   int8_t neg_y_val = JOYSTICK_NEG_Y_VALUE[color];
   int8_t button_val = JOYSTICK_BUTTON_VALUE[color];
 
+  // If all 4 directions are pressed at once, we consider this player is resigning. 
+  if (x_val == 0 && neg_x_val == 0 && y_val == 0 && neg_y_val == 0) {
+    if (color == 0) {
+      game_state = GAME_OVER_BLACK_WIN;
+    } else if (color == 1) {
+      game_state = GAME_OVER_WHITE_WIN;
+    } else {
+      // This should never happen, but just in case, we set it to draw
+      game_state = GAME_OVER_DRAW;
+    }
+    Serial.print("Player ");
+    Serial.print(color == 0 ? "White" : "Black");
+    Serial.println(" is resigning.");
+    return;
+  }
+
   // Update the joystick values if joystick WAS neutral and now has a value.
   // Update neutral flag. Note active low for button (pressed is low 0)
   if (prev_joystick_neutral[color]) {
@@ -2322,6 +2338,12 @@ void loop() {
     // Get button input, update joystick location, update confirm button pressed
     // display_init();
     move_user_joystick_x_y(player_turn);
+
+    // move_user_joystick_x_y has a resign feature. It will set game_state to a GAME_OVER state.
+    if (game_state == GAME_OVER_WHITE_WIN || game_state == GAME_OVER_BLACK_WIN) {
+      return;
+    }
+
     // free_displays();
 
     if (MAKING_RANDOM_MOVES) {
@@ -2483,6 +2505,12 @@ void loop() {
     // Get button input, update joystick location, update confirm button pressed
     // display_init();
     move_user_joystick_x_y(player_turn);
+
+    // move_user_joystick_x_y has a resign feature. It will set game_state to a GAME_OVER state.
+    if (game_state == GAME_OVER_WHITE_WIN || game_state == GAME_OVER_BLACK_WIN) {
+      return;
+    }
+    
     // free_displays();
 
     // LED display
