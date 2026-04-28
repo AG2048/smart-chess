@@ -37,9 +37,9 @@ Servo piece_picker;
 const uint8_t STEPS_PER_MM = 80;
 const float MM_PER_SQUARE = 66.7; // width of chessboard squares in mm
 const uint8_t GRAVEYARD_GAP = 10.0;   // gap between graveyard and chessboard in mm
-const uint8_t STEP_DELAY = 30; // in us, is half the period of square wave
+const uint8_t STEP_DELAY = 40; // in us, is half the period of square wave
 const uint8_t SLOW_STEP_DELAY = 100; // in us
-const uint16_t MOVE_DELAY = 300; // in ms, delay between piece picker and gantry movement
+const uint16_t MOVE_DELAY = 400; // in ms, delay between piece picker and gantry movement
 const uint8_t PICKER_ANGLE[2] {60, 120}; // down angle, up angle  
 const int16_t CALIBRATE_COORD[2] = {(-3*MM_PER_SQUARE)-17, -22}; // actual calibrate coordinate relative to board origin
 // const int8_t BED_LEVEL_OFFSET[8][8] = {
