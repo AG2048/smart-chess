@@ -537,7 +537,7 @@ std::vector<std::pair<int8_t, int8_t>> reset_board(Board *p_board) {  // instead
         // The temp square is at: 8,0 or -1,8. Move it to closer square
         if (starting_x < starting_y) {
           temp_x = -1;
-          temp_y = 8;
+          temp_y = 7;
         } else {
           temp_x = 8;
           temp_y = 0;
