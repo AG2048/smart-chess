@@ -21,7 +21,7 @@
 #define USING_STOCKFISH 0  // 1 for using stockfish, 0 for not using stockfish
 #define USING_OLED 0       // 1 for using OLED, 0 for not using OLED
 #define MAKING_RANDOM_MOVES 0 // 1 for making random moves on both sides for testing
-#define AUTO_START_GAME 1 // 1 for automatically starting the game, skipping IDLE mode. 0 for regular flow where it waits in IDLE mode until a game is started.
+#define AUTO_START_GAME 0 // 1 for automatically starting the game, skipping IDLE mode. 0 for regular flow where it waits in IDLE mode until a game is started.
 
 // OLED DEFINES
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
@@ -1335,11 +1335,42 @@ void clearLEDs() {
 }
 
 // Idle animation for LEDs
-void idleAnimationLEDs() {
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-      set_LED_Pattern(i, j, CYAN, SOLID);
-      set_LED_Pattern(i, j, CYAN, SOLID);
+void idleAnimationLEDs(bool in_idle, uint32_t current_time, bool player_0_ready, bool player_1_ready) {
+  clearLEDs();
+
+  if (in_idle) {
+    // button timed out, show a ring becoming smaller and smaller, repeat.
+    uint8_t ring_size = (current_time / 500) % 4;  // ring size changes every 0.5 seconds, loops from 0 to 3
+    for (int i = ring_size; i < 4; i++) {
+      for (int j = ring_size; j < 4; j++) {
+        // i OR j == ring_size, then light up coord and 7-coord
+        if ((i == ring_size || j == ring_size)) {
+          set_LED_Pattern(i, j, W_WHITE, SOLID);
+          set_LED_Pattern(7 - i, 7 - j, W_WHITE, SOLID);
+          set_LED_Pattern(i, 7 - j, W_WHITE, SOLID);
+          set_LED_Pattern(7 - i, j, W_WHITE, SOLID);
+        }
+      }
+    }
+  } else {
+    // Not in idle, then show whichever player is ready with a solid green, the other with solid red. 
+    for (int i = 0; i < 8; i++) {
+      if (player_0_ready) {
+        set_LED_Pattern(i, 0, GREEN, SOLID);
+        set_LED_Pattern(i, 1, GREEN, SOLID);
+      } else {
+        set_LED_Pattern(i, 0, RED, SOLID);
+        set_LED_Pattern(i, 1, RED, SOLID);
+      }
+    }
+    for (int i = 0; i < 8; i++) {
+      if (player_1_ready) {
+        set_LED_Pattern(i, 6, GREEN, SOLID);
+        set_LED_Pattern(i, 7, GREEN, SOLID);
+      } else {
+        set_LED_Pattern(i, 6, RED, SOLID);
+        set_LED_Pattern(i, 7, RED, SOLID);
+      }
     }
   }
   // clearLEDs();  // for now just clears the LEDs
@@ -1968,7 +1999,7 @@ void loop() {
     player_ready[0] = false;
     player_ready[1] = false;
 
-    in_idle_screen = false;
+    in_idle_screen = true;
     last_idle_change_time = game_timer.read();
     Serial.print("Game Power ON6");
 
@@ -2077,7 +2108,7 @@ void loop() {
     }
 
     // Board LED IDLE animation
-    idleAnimationLEDs();
+    idleAnimationLEDs(in_idle_screen, game_timer.read(), player_ready[0], player_ready[1]);
     FastLED.show();
 
     // OLED display: show the current selection
@@ -3173,6 +3204,8 @@ void loop() {
 
     // Free memory
     delete p_board;
+
+    in_idle_screen = true; // So that it goes back to idle screen after reset
 
     // Clear vectors (find ones that aren't cleared by game_initialize)
     // TODO
