@@ -1073,9 +1073,10 @@ void move_user_joystick_promotion(bool color) {
   // Read the joystick values -- low is pressed, high is not pressed
   update_joystick_values();  // Read joystick values from I2C
 
-  int8_t x_val = JOYSTICK_POS_X_VALUE[color];
+  // Black joystick's left-right is reversed, so we use color to determine which joystick value corresponds to left and right
+  int8_t x_val = color ? JOYSTICK_NEG_X_VALUE[color] : JOYSTICK_POS_X_VALUE[color];
   int8_t y_val = JOYSTICK_POS_Y_VALUE[color];
-  int8_t neg_x_val = JOYSTICK_NEG_X_VALUE[color];
+  int8_t neg_x_val = color ? JOYSTICK_POS_X_VALUE[color] : JOYSTICK_NEG_X_VALUE[color];
   int8_t neg_y_val = JOYSTICK_NEG_Y_VALUE[color];
   int8_t button_val = JOYSTICK_BUTTON_VALUE[color];
 
@@ -1241,7 +1242,7 @@ const uint8_t SOLID = 0;
 const uint8_t CURSOR = 1;
 const uint8_t CAPTURE = 2;
 const uint16_t STRIP_LEN = 256;
-const uint8_t PROMOTION_STRIP_LEN = 4;
+const uint8_t PROMOTION_STRIP_LEN = 16;
 // The led_display_pin define doesn't do anything, change the values manually later
 // const uint8_t LED_DISPLAY_PIN[7] = {19, 18, 32, 33, 25, 26, 27}; // first 5 are board leds, 6th is promotion white, 7th is promotion black
 // const uint8_t LED_PROMOTION_PIN = 17; THIS AND ABOVE OUT OF DATE AND NOT USED
