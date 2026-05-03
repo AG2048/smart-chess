@@ -1360,8 +1360,10 @@ void idleAnimationLEDs(bool in_idle, uint32_t current_time, bool player_0_ready,
         set_LED_Pattern(i, 0, GREEN, SOLID);
         set_LED_Pattern(i, 1, GREEN, SOLID);
       } else {
-        set_LED_Pattern(i, 0, RED, SOLID);
-        set_LED_Pattern(i, 1, RED, SOLID);
+        if (current_time / 500 % 2 == 0) { // If player 0 is not ready, make the LED blink every 0.5 seconds
+          set_LED_Pattern(i, 0, RED, SOLID);
+          set_LED_Pattern(i, 1, RED, SOLID);
+        }
       }
     }
     for (int i = 0; i < 8; i++) {
@@ -1369,8 +1371,10 @@ void idleAnimationLEDs(bool in_idle, uint32_t current_time, bool player_0_ready,
         set_LED_Pattern(i, 6, GREEN, SOLID);
         set_LED_Pattern(i, 7, GREEN, SOLID);
       } else {
-        set_LED_Pattern(i, 6, RED, SOLID);
-        set_LED_Pattern(i, 7, RED, SOLID);
+        if (current_time / 500 % 2 == 0) { // If player 1 is not ready, make the LED blink every 0.5 seconds
+          set_LED_Pattern(i, 6, RED, SOLID);
+          set_LED_Pattern(i, 7, RED, SOLID);
+        }
       }
     }
   }
