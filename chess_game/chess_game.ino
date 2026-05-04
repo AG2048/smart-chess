@@ -2085,8 +2085,8 @@ void loop() {
       // reset idle screen joystick
       idle_joystick_x[0] = 0;
       idle_joystick_y[0] = 0;
-      idle_joystick_x[1] = 1;
-      idle_joystick_y[1] = 1;
+      idle_joystick_x[1] = 0;
+      idle_joystick_y[1] = 0;
 
       // First time we got into idle screen, display the idle screen
       display_idle_scroll(display_one);
